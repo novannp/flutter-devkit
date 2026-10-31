@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
@@ -45,16 +47,30 @@ class _CoreDepDialogState extends State<_CoreDepDialog> {
   List<String> _clones = const [];
   String? _folder;
 
+  late String? _url = widget.dep.url;
+
+  static const _sshGuide =
+      'https://support.atlassian.com/bitbucket-cloud/docs/configure-ssh-and-two-step-verification/';
+
+  void _loadBranches() {
+    final url = _url;
+    setState(() => _branches = url == null ? const [] : null);
+    if (url != null) CoreDeps.branches(url).then((b) => mounted ? setState(() => _branches = b) : null);
+  }
+
+  Future<void> _switchToSsh() async {
+    final ssh = CoreDeps.toSsh(_url!);
+    if (ssh == null) return;
+    await CoreDeps.setUrl(widget.project, widget.dep.name, ssh);
+    setState(() => _url = ssh);
+    _loadBranches();
+  }
+
   @override
   void initState() {
     super.initState();
     _folder = widget.dep.localPath;
-    final url = widget.dep.url;
-    if (url != null) {
-      CoreDeps.branches(url).then((b) => mounted ? setState(() => _branches = b) : null);
-    } else {
-      _branches = const [];
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadBranches());
     CoreDeps.localClones(widget.dep.name).then((c) {
       if (!mounted) return;
       setState(() {
@@ -94,6 +110,35 @@ class _CoreDepDialogState extends State<_CoreDepDialog> {
               'Now: ${d.localPath != null ? 'local override → ${d.localPath}' : 'git ${d.ref ?? '(default branch)'}'}',
               style: muted,
             ),
+            if (CoreDeps.isHttps(_url)) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.orange.withValues(alpha: .35)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.key, color: Colors.orange, size: 20),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'This package uses an HTTPS URL with a token. Switch to SSH: no tokens in pubspec, '
+                        'and branches can be listed here.',
+                        style: TextStyle(fontSize: 12.5),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Process.start('explorer', [_sshGuide]),
+                      child: const Text('Set up key'),
+                    ),
+                    FilledButton.tonal(onPressed: _switchToSsh, child: const Text('Switch to SSH')),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             SegmentedButton<int>(
               showSelectedIcon: false,
@@ -133,7 +178,9 @@ class _CoreDepDialogState extends State<_CoreDepDialog> {
                 branches == null
                     ? 'Loading branches…'
                     : branches.isEmpty
-                    ? 'Couldn\'t list remote branches (SSH key / URL) — type the name.'
+                    ? (CoreDeps.isHttps(_url)
+                          ? 'HTTPS + token URLs can\'t be listed — switch to SSH above, or type the name.'
+                          : 'Couldn\'t reach the remote — check your SSH key, or type the name.')
                     : '${branches.length} branches on the remote. Updates `ref:` in pubspec.yaml.',
                 style: muted,
               ),

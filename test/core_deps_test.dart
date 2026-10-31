@@ -56,4 +56,10 @@ void main() {
     await CoreDeps.setLocal(dir.path, 'pos_core', null);
     expect(overrides.existsSync(), isFalse);
   });
+
+  test('toSsh converts token https URLs', () {
+    expect(CoreDeps.toSsh('https://__USERNAME__:__TOKEN__@bitbucket.org/payfirst101/pf_processor_plugin.git'),
+        'git@bitbucket.org:payfirst101/pf_processor_plugin.git');
+    expect(CoreDeps.toSsh('https://bitbucket.org/payfirst101/pos-resource'), 'git@bitbucket.org:payfirst101/pos-resource.git');
+  });
 }
