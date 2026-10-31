@@ -49,6 +49,40 @@ class PrinterServer extends ChangeNotifier {
   /// Set when localhost:port is taken (usually Dart DevTools), so 10.0.2.2 from an emulator won't reach us.
   bool localhostBusy = false;
 
+  RawDatagramSocket? _discovery;
+
+  /// SNBC printer search: the POS broadcasts "BG" / "B[]G" to UDP 3000 and lists whoever answers.
+  static const snbcDiscoveryPort = 3000;
+
+  Future<void> _startDiscovery() async {
+    try {
+      _discovery = await RawDatagramSocket.bind(InternetAddress.anyIPv4, snbcDiscoveryPort, reuseAddress: true)
+        ..broadcastEnabled = true
+        ..listen((e) async {
+          if (e != RawSocketEvent.read) return;
+          final d = _discovery?.receive();
+          if (d == null) return;
+          final msg = String.fromCharCodes(d.data);
+          if (msg != 'BG' && msg != 'B[]G') return;
+          final reply = await _snbcReply(d.address);
+          try {
+            _discovery?.send(reply.codeUnits, d.address, d.port);
+          } catch (_) {}
+        });
+    } on SocketException {
+      // Discovery is a convenience; printing by IP still works.
+    }
+  }
+
+  /// Answer with the LAN address in the asker's subnet (or the first one, e.g. for NAT'd emulators).
+  Future<String> _snbcReply(InternetAddress asker) async {
+    final ips = await localIps();
+    final prefix = asker.address.substring(0, asker.address.lastIndexOf('.') + 1);
+    final ip = ips.where((i) => i.startsWith(prefix)).firstOrNull ?? ips.firstOrNull ?? '127.0.0.1';
+    final gw = '${ip.substring(0, ip.lastIndexOf('.'))}.1';
+    return 'IP:$ip;DEVICENAME:DevKit Printer;MAC:02:DE:7C:00:91:00;SUBNETWORK:255.255.255.0;GATEWAY:$gw;';
+  }
+
   /// Star StarIO reads printer status from the next port (9101) over LAN.
   static const statusPortOffset = 1;
   static const defaultPort = 9100;
@@ -101,6 +135,7 @@ class PrinterServer extends ChangeNotifier {
       error = null;
       // Status port is optional; Epson only needs the data port.
       _statusServers.addAll(await _bindAll(port + statusPortOffset, _onStatusClient));
+      await _startDiscovery();
     }
     notifyListeners();
   }
@@ -111,6 +146,8 @@ class PrinterServer extends ChangeNotifier {
     }
     _servers.clear();
     _statusServers.clear();
+    _discovery?.close();
+    _discovery = null;
     boundAddresses.clear();
     for (final c in _clients) {
       c.destroy();

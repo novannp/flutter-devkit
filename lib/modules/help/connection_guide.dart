@@ -138,19 +138,21 @@ class _GuideDialogState extends State<_GuideDialog> {
     ),
     GuideTopic.printer => const _Steps(
       title: 'Printer emulator (paperless receipts)',
-      intro: 'DevKit acts as a LAN thermal printer. Receipts printed by the POS show up in the Printer menu.',
+      intro: 'DevKit acts as a LAN SNBC thermal printer. Receipts printed by the POS show up in the Printer menu.',
       steps: [
-        'Open the Printer menu in DevKit and make sure the status is "Ready".',
-        'Note the laptop IP shown there (or 10.0.2.2 if the POS runs in the Android emulator).',
-        'In the POS: Settings → Printer → add printer, choose Network/LAN connection with an ESC/POS brand (Hanasis, Volcora, or SNBC).',
-        'In Backoffice, set the receipt printer IP to this laptop'
-            "'"
-            's IP and save (the port is always 9100).',
-        'Print a receipt from the POS; it appears in DevKit right away and can be copied as an image.',
+        'Open the Printer menu in DevKit and make sure the status is "Ready". Note the PC IP shown there.',
+        'In Backoffice, open the station's POS profile → printer: brand SNBC, connection WIFI (not USB), '
+            'IP = the PC IP. The port is always 9100.',
+        'On the POS, reload the profile (or restart the app) so it picks up the change.',
+        'Real devices on the same Wi-Fi can also tap "Connect printer" in Workstation Profile: '
+            '"DevKit Printer" shows up in the search list.',
+        'Print anything; the receipt appears in DevKit right away and can be copied as an image.',
       ],
       notes: [
-        'Windows Firewall may prompt the first time; allow it for Private networks.',
-        'Epson/Star printers use a proprietary protocol, so this emulator doesn\'t support them yet.',
+        'Emulators (MEmu, Android Studio): use the PC IP, not 10.0.2.2 (that reaches Dart DevTools on port 9100). '
+            'Printer search may not work through the emulator's NAT, so set the IP in Backoffice.',
+        'If the POS log says "SNBCUsb connection failed", the profile is still on USB: switch it to WIFI.',
+        'Epson/Star use their own SDKs; status checks are answered, but SNBC is the reliable choice.',
       ],
     ),
   };

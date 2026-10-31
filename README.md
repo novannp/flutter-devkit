@@ -82,6 +82,7 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 ### 🧾 Printer emulator
 - Acts as a network thermal printer on **TCP 9100**, the port our POS apps always use (Backoffice only stores the IP)
 - Answers Epson (ePOS2 ASB) and Star (StarIO, status on 9101) status checks, so the POS sees the printer as online
+- Shows up in the POS **SNBC printer search** (UDP 3000) as "DevKit Printer"
 - Renders ESC/POS receipts on 58 / 80 mm paper
 - Copy a receipt as an image (paste straight into Jira) or text, or view raw hex
 
@@ -152,7 +153,7 @@ fvm flutter build windows --release --no-tree-shake-icons
 1. **Settings → Project folders**: add the folder where you clone repos. Repos are matched by their Android `applicationId`, so folder names can be anything, up to 3 levels deep.
 2. **Devices**: if the orange **Network scan may miss devices** banner appears, click **Fix network access** once.
 3. **Devices → Scan network**: phones with Wireless debugging on show up. If one says **Needs pairing**, click the QR icon once. After that it connects automatically.
-4. **Printer**: in Backoffice, set the receipt printer IP to this PC's IP and print. The receipt appears in DevKit. The port is fixed at 9100, so there's nothing else to set.
+4. **Printer**: in Backoffice, set the station's printer to **SNBC + WIFI** (not USB) with this PC's IP, then print. The receipt appears in DevKit. The port is fixed at 9100. On emulators like MEmu, use the PC IP (not `10.0.2.2`).
 
 ## 🛟 Troubleshooting
 
