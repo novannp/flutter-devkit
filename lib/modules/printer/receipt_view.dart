@@ -46,19 +46,20 @@ class ReceiptPaper extends StatelessWidget {
   }
 
   Alignment _align(ReceiptAlign a) => switch (a) {
-        ReceiptAlign.center => Alignment.center,
-        ReceiptAlign.right => Alignment.centerRight,
-        ReceiptAlign.left => Alignment.centerLeft,
-      };
+    ReceiptAlign.center => Alignment.center,
+    ReceiptAlign.right => Alignment.centerRight,
+    ReceiptAlign.left => Alignment.centerLeft,
+  };
 
   Widget _element(ReceiptElement e, double scale, double fontSize) {
     return switch (e) {
       TextLine() => Align(
-          alignment: _align(e.align),
-          child: e.runs.isEmpty
-              ? SizedBox(height: fontSize * 1.25)
-              : Text.rich(
-                  TextSpan(children: [
+        alignment: _align(e.align),
+        child: e.runs.isEmpty
+            ? SizedBox(height: fontSize * 1.25)
+            : Text.rich(
+                TextSpan(
+                  children: [
                     for (final r in e.runs)
                       TextSpan(
                         text: r.text,
@@ -70,44 +71,52 @@ class ReceiptPaper extends StatelessWidget {
                           backgroundColor: r.style.invert ? Colors.black : null,
                         ),
                       ),
-                  ]),
-                  softWrap: true,
+                  ],
                 ),
-        ),
+                softWrap: true,
+              ),
+      ),
       RasterImage() => Align(
-          alignment: _align(e.align),
-          child: CustomPaint(size: Size(e.width * scale, e.height * scale), painter: _RasterPainter(e)),
-        ),
+        alignment: _align(e.align),
+        child: CustomPaint(size: Size(e.width * scale, e.height * scale), painter: _RasterPainter(e)),
+      ),
       QrElement() => Align(
-          alignment: _align(e.align),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: QrImageView(data: e.data.isEmpty ? ' ' : e.data, size: max(80, e.moduleSize * 25 * scale), padding: EdgeInsets.zero),
+        alignment: _align(e.align),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: QrImageView(
+            data: e.data.isEmpty ? ' ' : e.data,
+            size: max(80, e.moduleSize * 25 * scale),
+            padding: EdgeInsets.zero,
           ),
         ),
+      ),
       BarcodeElement() => Align(
-          alignment: _align(e.align),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Column(
-              children: [
-                CustomPaint(size: const Size(200, 48), painter: _BarcodePainter(e.data)),
-                Text(e.data, style: TextStyle(fontSize: fontSize * 0.9)),
-              ],
-            ),
+        alignment: _align(e.align),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            children: [
+              CustomPaint(size: const Size(200, 48), painter: _BarcodePainter(e.data)),
+              Text(e.data, style: TextStyle(fontSize: fontSize * 0.9)),
+            ],
           ),
         ),
+      ),
       FeedElement() => SizedBox(height: fontSize * 1.25 * e.lines),
       EventElement() => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0xFFFFF4E5), borderRadius: BorderRadius.circular(20)),
-              child: Text('⚡ ${e.label}', style: const TextStyle(fontFamily: 'Segoe UI', fontSize: 12, color: Color(0xFFB45309))),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: const Color(0xFFFFF4E5), borderRadius: BorderRadius.circular(20)),
+            child: Text(
+              '⚡ ${e.label}',
+              style: const TextStyle(fontFamily: 'Segoe UI', fontSize: 12, color: Color(0xFFB45309)),
             ),
           ),
         ),
+      ),
     };
   }
 }

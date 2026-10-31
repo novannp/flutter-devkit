@@ -54,8 +54,10 @@ class _PrinterPageState extends State<PrinterPage> {
     final path = await _renderPng();
     if (path == null) return;
     final ok = await copyImageToClipboard(path);
-    _toast(ok ? 'Receipt image copied — just Ctrl+V' : 'Saved: $path',
-        action: SnackBarAction(label: 'Open folder', onPressed: () => revealInExplorer(path)));
+    _toast(
+      ok ? 'Receipt image copied — just Ctrl+V' : 'Saved: $path',
+      action: SnackBarAction(label: 'Open folder', onPressed: () => revealInExplorer(path)),
+    );
   }
 
   String _hex(List<int> bytes) {
@@ -99,7 +101,10 @@ class _PrinterPageState extends State<PrinterPage> {
                   const Spacer(),
                   SegmentedButton<int>(
                     showSelectedIcon: false,
-                    segments: const [ButtonSegment(value: 58, label: Text('58 mm')), ButtonSegment(value: 80, label: Text('80 mm'))],
+                    segments: const [
+                      ButtonSegment(value: 58, label: Text('58 mm')),
+                      ButtonSegment(value: 80, label: Text('80 mm')),
+                    ],
                     selected: {s.paperMm},
                     onSelectionChanged: (v) => s.configure(paperMm: v.first),
                   ),
@@ -111,12 +116,28 @@ class _PrinterPageState extends State<PrinterPage> {
                   ),
                   const SizedBox(width: 8),
                   s.running
-                      ? OutlinedButton.icon(onPressed: s.stop, icon: const Icon(Icons.stop, size: 18), label: const Text('Stop'))
-                      : FilledButton.icon(onPressed: s.start, icon: const Icon(Icons.play_arrow, size: 18), label: const Text('Start')),
+                      ? OutlinedButton.icon(
+                          onPressed: s.stop,
+                          icon: const Icon(Icons.stop, size: 18),
+                          label: const Text('Stop'),
+                        )
+                      : FilledButton.icon(
+                          onPressed: s.start,
+                          icon: const Icon(Icons.play_arrow, size: 18),
+                          label: const Text('Start'),
+                        ),
                 ],
               ),
               const SizedBox(height: 12),
-              _ConnectCard(ips: _ips, port: s.port, error: s.error, autoStart: s.autoStart, onPort: (p) => s.configure(port: p), onAuto: (v) => s.configure(autoStart: v)),
+              _ConnectCard(
+                ips: _ips,
+                port: s.port,
+                error: s.error,
+                autoStart: s.autoStart,
+                localhostBusy: s.running && s.localhostBusy,
+                onPort: (p) => s.configure(port: p),
+                onAuto: (v) => s.configure(autoStart: v),
+              ),
               const SizedBox(height: 12),
               Expanded(
                 child: Row(
@@ -129,8 +150,15 @@ class _PrinterPageState extends State<PrinterPage> {
                         child: Column(
                           children: [
                             ListTile(
-                              title: Text('Receipts (${s.receipts.length})', style: const TextStyle(fontWeight: FontWeight.w600)),
-                              trailing: IconButton(tooltip: 'Clear all', onPressed: s.receipts.isEmpty ? null : s.clear, icon: const Icon(Icons.delete_sweep_outlined)),
+                              title: Text(
+                                'Receipts (${s.receipts.length})',
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              trailing: IconButton(
+                                tooltip: 'Clear all',
+                                onPressed: s.receipts.isEmpty ? null : s.clear,
+                                icon: const Icon(Icons.delete_sweep_outlined),
+                              ),
                             ),
                             const Divider(height: 1),
                             Expanded(
@@ -138,8 +166,11 @@ class _PrinterPageState extends State<PrinterPage> {
                                   ? Center(
                                       child: Padding(
                                         padding: const EdgeInsets.all(20),
-                                        child: Text('No receipts yet.\nPrint from the POS, or click "Sample receipt".',
-                                            textAlign: TextAlign.center, style: TextStyle(color: scheme.outline)),
+                                        child: Text(
+                                          'No receipts yet.\nPrint from the POS, or click "Sample receipt".',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(color: scheme.outline),
+                                        ),
                                       ),
                                     )
                                   : ListView.builder(
@@ -179,7 +210,11 @@ class _PrinterPageState extends State<PrinterPage> {
                                     padding: const EdgeInsets.fromLTRB(12, 8, 8, 0),
                                     child: Row(
                                       children: [
-                                        FilterChip(label: const Text('Raw hex'), selected: _showRaw, onSelected: (v) => setState(() => _showRaw = v)),
+                                        FilterChip(
+                                          label: const Text('Raw hex'),
+                                          selected: _showRaw,
+                                          onSelected: (v) => setState(() => _showRaw = v),
+                                        ),
                                         const Spacer(),
                                         TextButton.icon(
                                           onPressed: () {
@@ -201,7 +236,10 @@ class _PrinterPageState extends State<PrinterPage> {
                                     child: _showRaw
                                         ? SingleChildScrollView(
                                             padding: const EdgeInsets.all(16),
-                                            child: SelectableText(_hex(selected.raw), style: const TextStyle(fontFamily: 'Consolas', fontSize: 12.5)),
+                                            child: SelectableText(
+                                              _hex(selected.raw),
+                                              style: const TextStyle(fontFamily: 'Consolas', fontSize: 12.5),
+                                            ),
                                           )
                                         : SingleChildScrollView(
                                             padding: const EdgeInsets.symmetric(vertical: 24),
@@ -264,6 +302,7 @@ class _ConnectCard extends StatelessWidget {
     required this.port,
     required this.error,
     required this.autoStart,
+    required this.localhostBusy,
     required this.onPort,
     required this.onAuto,
   });
@@ -272,21 +311,65 @@ class _ConnectCard extends StatelessWidget {
   final int port;
   final String? error;
   final bool autoStart;
+  final bool localhostBusy;
   final ValueChanged<int> onPort;
   final ValueChanged<bool> onAuto;
+
+  Future<void> _customPort(BuildContext context) async {
+    final ctrl = TextEditingController(text: '$port');
+    final v = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Printer port'),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Only change this if 9100 is taken by another app or for tools that let you pick a port. '
+                "Our POS apps can't set a port, so they always use 9100. Status replies use the next port.",
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(labelText: 'Port'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, PrinterServer.defaultPort),
+            child: const Text('Reset to 9100'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, int.tryParse(ctrl.text)), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (v != null && v > 0 && v < 65535) onPort(v);
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     Widget code(String s) => InkWell(
-          onTap: () => Clipboard.setData(ClipboardData(text: s)),
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(6)),
-            child: Text(s, style: const TextStyle(fontFamily: 'Consolas', fontWeight: FontWeight.w600)),
-          ),
-        );
+      onTap: () => Clipboard.setData(ClipboardData(text: s)),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(6)),
+        child: Text(
+          s,
+          style: const TextStyle(fontFamily: 'Consolas', fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
 
     return Card(
       margin: EdgeInsets.zero,
@@ -295,8 +378,21 @@ class _ConnectCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (error != null) ...[
-              Text(error!, style: TextStyle(color: scheme.error)),
+            if (error != null) ...[Text(error!, style: TextStyle(color: scheme.error)), const SizedBox(height: 8)],
+            if (port != PrinterServer.defaultPort) ...[
+              Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 18),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'POS apps always print to port 9100 (Backoffice only stores the IP), '
+                      "so they won't reach this emulator.",
+                    ),
+                  ),
+                  TextButton(onPressed: () => onPort(PrinterServer.defaultPort), child: const Text('Use 9100')),
+                ],
+              ),
               const SizedBox(height: 8),
             ],
             Wrap(
@@ -305,22 +401,25 @@ class _ConnectCard extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Icon(Icons.lan_outlined, size: 18),
-                const Text('In the POS printer settings, choose Network/LAN (ESC/POS: Hanasis, Volcora, SNBC) with IP:'),
+                const Text('In Backoffice, set the receipt printer IP to'),
                 for (final ip in ips) code(ip),
-                const Text('port'),
-                SizedBox(
-                  width: 80,
-                  child: TextFormField(
-                    initialValue: '$port',
-                    keyboardType: TextInputType.number,
-                    onFieldSubmitted: (v) {
-                      final p = int.tryParse(v);
-                      if (p != null && p > 0 && p < 65536) onPort(p);
-                    },
-                  ),
+                Text('· port is always', style: TextStyle(color: scheme.outline)),
+                code('$port'),
+                TextButton(
+                  onPressed: () => _customPort(context),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                  child: const Text('Change'),
                 ),
                 Text('· Android emulator: ', style: TextStyle(color: scheme.outline)),
-                code('10.0.2.2'),
+                if (localhostBusy)
+                  Tooltip(
+                    message:
+                        'localhost:$port is taken (usually Dart DevTools from VS Code), so 10.0.2.2 '
+                        'reaches DevTools instead. Use the PC IP above in the emulator too.',
+                    child: Text('use the PC IP (10.0.2.2 is busy)', style: TextStyle(color: Colors.orange.shade800)),
+                  )
+                else
+                  code('10.0.2.2'),
                 const SizedBox(width: 8),
                 Row(
                   mainAxisSize: MainAxisSize.min,
