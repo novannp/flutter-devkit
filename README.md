@@ -69,7 +69,7 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 ### 📱 Emulators
 - Start, cold boot, headless, stop, **wipe data**, edit hardware, delete
 - Create AVDs from **size presets** (phone, tablet, POS, kiosk, signage)
-- **Download system images** directly, with no sdkmanager or Java needed
+- **Download system images** directly, with no sdkmanager or Java needed, and search them by API, Android version, or variant
 
 </td>
 </tr>
@@ -138,14 +138,15 @@ fvm flutter build windows --release --no-tree-shake-icons
 ## 🧭 First run
 
 1. **Settings → Project folders**: add the folder where you clone repos. Repos are matched by their Android `applicationId`, so folder names can be anything, up to 3 levels deep.
-2. **Devices → Scan network**: phones with Wireless debugging on show up. If one says **Needs pairing**, click the QR icon once. After that it connects automatically.
-3. **Printer**: set the POS printer to this PC's IP on port `9100` and print. The receipt appears in DevKit.
+2. **Devices**: if the orange **Network scan may miss devices** banner appears, click **Fix network access** once.
+3. **Devices → Scan network**: phones with Wireless debugging on show up. If one says **Needs pairing**, click the QR icon once. After that it connects automatically.
+4. **Printer**: set the POS printer to this PC's IP on port `9100` and print. The receipt appears in DevKit.
 
 ## 🛟 Troubleshooting
 
 | Problem | Try this |
 | --- | --- |
-| Phone doesn't show up after a scan | Same Wi-Fi as the PC? Wireless debugging on? Windows Firewall may block mDNS, so allow DevKit on private networks. |
+| Phone doesn't show up after a scan | Same Wi-Fi as the PC? Wireless debugging on? If Devices shows **Network scan may miss devices**, click **Fix network access** (one admin prompt): it allows DevKit through Windows Firewall and can switch a Public network to Private. |
 | "Needs pairing" won't go away | Phone: **Wireless debugging → Pair device with pairing code**, then in DevKit: **Pair device → Pairing code**. |
 | `adb` keeps restarting | Another `adb` version is running (Android Studio, an older SDK). DevKit prefers the `adb` on your `PATH`, so keep just one. |
 | Core packages stuck on an old commit | **Maintenance → Core packages cache → Clear**, then **Update core**. |

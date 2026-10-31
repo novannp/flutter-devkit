@@ -297,7 +297,11 @@ class DevicesCubit extends Cubit<DevicesState> {
     await refreshNow();
     final wireless = (await adb.mdnsServices()).where((s) => s.isConnect).length;
     final unpaired = state.devices.where((d) => d.adb == AdbState.unpaired).length;
-    return 'Scan done: $found on port 5555 · $wireless with wireless debugging'
+    final subnets = (await scanner.localAddresses())
+        .map((a) => '${a.address.substring(0, a.address.lastIndexOf('.'))}.x')
+        .toSet();
+    if (subnets.isEmpty) return 'No local network found — connect to Wi-Fi/LAN first';
+    return 'Scanned ${subnets.join(', ')}: $found on port 5555 · $wireless with wireless debugging'
         '${unpaired > 0 ? ' · $unpaired need pairing' : ''}';
   }
 

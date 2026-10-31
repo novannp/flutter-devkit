@@ -6,6 +6,7 @@ import '../cubit/devices_cubit.dart';
 import '../../../core/apps.dart';
 import '../models/device.dart';
 import '../../../core/windows.dart';
+import 'network_access_banner.dart';
 import 'pair_dialog.dart';
 
 class DevicesPage extends StatelessWidget {
@@ -21,6 +22,7 @@ class DevicesPage extends StatelessWidget {
           children: [
             _Header(state: state),
             if (!state.adbAvailable || !state.scrcpyAvailable) _ToolsWarning(state: state),
+            if (!state.demo) const NetworkAccessBanner(),
             const SizedBox(height: 16),
             _Toolbar(state: state),
             if (state.scanning) ...[const SizedBox(height: 8), LinearProgressIndicator(value: state.scanProgress)],
@@ -165,7 +167,7 @@ class _ToolsWarning extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: MaterialBanner(
-        content: Text('${missing.join(' & ')} not found in PATH. Some features may not work.'),
+        content: Text('${missing.join(' & ')} not found. Some features may not work.'),
         leading: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
         actions: const [SizedBox.shrink()],
       ),

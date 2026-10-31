@@ -10,6 +10,41 @@ Future<void> showSystemImagesDialog(BuildContext context, AvdService svc) => sho
   builder: (_) => _SystemImagesDialog(svc: svc),
 );
 
+const _versions = {
+  '21': '5.0',
+  '22': '5.1',
+  '23': '6.0',
+  '24': '7.0',
+  '25': '7.1',
+  '26': '8.0',
+  '27': '8.1',
+  '28': '9',
+  '29': '10',
+  '30': '11',
+  '31': '12',
+  '32': '12L',
+  '33': '13',
+  '34': '14',
+  '35': '15',
+  '36': '16',
+};
+
+String? androidVersion(String api) => _versions[api.split('.').first];
+
+bool _matches(RemoteImage i, String query) {
+  final hay = [
+    'api ${i.api}',
+    i.api,
+    'android ${androidVersion(i.api) ?? ''}',
+    i.tag.replaceAll('_', ' '),
+    i.tagDisplay,
+    i.abi,
+    i.displayName,
+    if (i.preview) 'preview',
+  ].join(' ').toLowerCase();
+  return query.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).every(hay.contains);
+}
+
 String _gb(int bytes) =>
     bytes >= 1 << 30 ? '${(bytes / (1 << 30)).toStringAsFixed(1)} GB' : '${(bytes / (1 << 20)).toStringAsFixed(0)} MB';
 
@@ -26,6 +61,13 @@ class _SystemImagesDialogState extends State<_SystemImagesDialog> {
   final m = SystemImageManager.instance;
   var _tag = 'all';
   var _showPreview = false;
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -69,6 +111,7 @@ class _SystemImagesDialogState extends State<_SystemImagesDialog> {
             final catalog = (m.catalog ?? const <RemoteImage>[])
                 .where((i) => _showPreview || !i.preview)
                 .where((i) => _tag == 'all' || i.tag == _tag)
+                .where((i) => _matches(i, _search.text))
                 .toList();
             return Padding(
               padding: const EdgeInsets.all(20),
@@ -136,6 +179,21 @@ class _SystemImagesDialogState extends State<_SystemImagesDialog> {
                         onSelected: (v) => setState(() => _showPreview = v),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _search,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'Search: 34, Android 14, play store, x86_64…',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _search.text.isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: () => setState(_search.clear),
+                              icon: const Icon(Icons.close, size: 18),
+                            ),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Expanded(
@@ -258,7 +316,10 @@ class _ImageRow extends StatelessWidget {
           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.primary),
         ),
       ),
-      title: Text('Android API ${img.api} · ${img.tagDisplay}${img.preview ? ' · preview' : ''}'),
+      title: Text(
+        '${androidVersion(img.api) == null ? '' : 'Android ${androidVersion(img.api)} · '}API ${img.api} · '
+        '${img.tagDisplay}${img.preview ? ' · preview' : ''}',
+      ),
       subtitle: Text('${img.abi} · rev ${img.revision}', style: text.bodySmall?.copyWith(color: scheme.outline)),
       trailing: trailing,
     );
