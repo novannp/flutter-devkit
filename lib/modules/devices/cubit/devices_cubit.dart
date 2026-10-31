@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/jokes.dart';
 import '../models/device.dart';
@@ -87,6 +89,7 @@ class DevicesCubit extends Cubit<DevicesState> {
   Timer? _adbPoll;
 
   Future<void> init() async {
+    autoPort5555.value = (await SharedPreferences.getInstance()).getBool('auto_port_5555') ?? true;
     for (final d in await store.load()) {
       _devices[d.id] = d;
     }
@@ -254,6 +257,7 @@ class DevicesCubit extends Cubit<DevicesState> {
       _upsert(device);
       seen.add(device.id);
     }
+    _autoSwitch5555();
     for (final d in _devices.values.toList()) {
       if (seen.contains(d.id)) continue;
       final viaMdns = d.sources.contains(DeviceSource.mdns);
@@ -262,6 +266,33 @@ class DevicesCubit extends Cubit<DevicesState> {
       }
     }
     _emit();
+  }
+
+  /// Like `scrcpy --tcpip`: devices on USB or a random Wireless-debugging port move to ip:5555 by themselves.
+  static final autoPort5555 = ValueNotifier(true);
+  final _autoSwitched = <String>{};
+  var _switching = false;
+
+  Future<void> _autoSwitch5555() async {
+    if (!autoPort5555.value || _switching || state.demo) return;
+    final candidates = _devices.values
+        .where(
+          (d) =>
+              d.adb == AdbState.connected &&
+              !(d.ip != null && d.adbPort == 5555) &&
+              !(d.serial ?? '').startsWith('emulator-') &&
+              _autoSwitched.add(d.serial ?? d.id),
+        )
+        .toList();
+    if (candidates.isEmpty) return;
+    _switching = true;
+    try {
+      for (final d in candidates) {
+        await enablePort5555(d);
+      }
+    } finally {
+      _switching = false;
+    }
   }
 
   Future<String> scanNetwork() async {
@@ -367,8 +398,8 @@ class DevicesCubit extends Cubit<DevicesState> {
       final out = await DeviceAdb(adb, target).sh('ip -f inet addr show wlan0');
       ip = RegExp(r'inet (\d+\.\d+\.\d+\.\d+)').firstMatch(out)?[1];
     }
+    if (ip == null) return '${d.displayName} has no Wi-Fi IP, so port 5555 would be unreachable';
     if (!await adb.tcpip(target)) return 'Could not switch ${d.displayName} to port 5555';
-    if (ip == null) return 'Port 5555 is on, but ${d.displayName} has no Wi-Fi IP';
     _manualOff.removeAll([d.serial, ip]);
     // adbd needs a moment to restart before it accepts connections.
     var ok = false;

@@ -42,7 +42,8 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 - Auto-discovery: USB, `adb` Wi-Fi (5555), Wireless debugging via mDNS
 - Pair by **QR**, **pairing code** (IP + port), or **connect by IP**, which can switch the phone from its random Wireless-debugging port to 5555 in the same step
 - One-click connect / disconnect / copy IP
-- **Enable port 5555** on connected devices so Wireless-debugging phones become plain `ip:5555` targets (no pairing until reboot)
+- **Auto-switch to port 5555** (like `scrcpy --tcpip`): devices on USB or a random Wireless-debugging port move to `ip:5555` by themselves, so they reconnect over Wi-Fi without pairing until reboot. Toggle it in Settings, or use **Enable port 5555** per device
+- **Skip pairing**: plug a phone into USB once and tap *Always allow*. Wireless debugging trusts the same key afterwards.
 - Shows which of our apps and versions are installed
 
 </td>

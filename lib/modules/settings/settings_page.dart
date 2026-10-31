@@ -2,6 +2,10 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../devices/cubit/devices_cubit.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../core/background.dart';
 import '../../core/local_builds.dart';
 import '../devices/services/adb_service.dart';
@@ -68,12 +72,33 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
         ),
+        ValueListenableBuilder(
+          valueListenable: DevicesCubit.autoPort5555,
+          builder: (_, on, _) => Card(
+            child: SwitchListTile(
+              value: on,
+              onChanged: (v) async {
+                DevicesCubit.autoPort5555.value = v;
+                await (await SharedPreferences.getInstance()).setBool('auto_port_5555', v);
+              },
+              title: const Text('Auto-switch devices to port 5555'),
+              subtitle: const Text(
+                'Devices connected by USB or a random Wireless-debugging port move to ip:5555 by themselves, '
+                'so they reconnect over Wi-Fi without pairing (until they reboot).',
+              ),
+            ),
+          ),
+        ),
         const SizedBox(height: 24),
         Row(
           children: [
             Text('Project folders', style: text.titleMedium),
             const Spacer(),
-            FilledButton.icon(onPressed: _add, icon: const Icon(Icons.create_new_folder_outlined), label: const Text('Add folder')),
+            FilledButton.icon(
+              onPressed: _add,
+              icon: const Icon(Icons.create_new_folder_outlined),
+              label: const Text('Add folder'),
+            ),
           ],
         ),
         const SizedBox(height: 4),
@@ -88,7 +113,11 @@ class _SettingsPageState extends State<SettingsPage> {
             child: ListTile(
               leading: const Icon(Icons.info_outline, color: Colors.orange),
               title: const Text('No project folders yet'),
-              subtitle: Text(ProjectFolders.guess() == null ? 'Add the folder where you clone repos.' : 'Suggested: ${ProjectFolders.guess()}'),
+              subtitle: Text(
+                ProjectFolders.guess() == null
+                    ? 'Add the folder where you clone repos.'
+                    : 'Suggested: ${ProjectFolders.guess()}',
+              ),
               trailing: ProjectFolders.guess() == null
                   ? null
                   : TextButton(
@@ -149,10 +178,13 @@ class _ToolRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        child: ListTile(
-          leading: Icon(path != null ? Icons.check_circle : Icons.error_outline, color: path != null ? Colors.green : Colors.red),
-          title: Text(name),
-          subtitle: Text(path ?? 'Not found. $hint'),
-        ),
-      );
+    child: ListTile(
+      leading: Icon(
+        path != null ? Icons.check_circle : Icons.error_outline,
+        color: path != null ? Colors.green : Colors.red,
+      ),
+      title: Text(name),
+      subtitle: Text(path ?? 'Not found. $hint'),
+    ),
+  );
 }

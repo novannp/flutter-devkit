@@ -541,7 +541,12 @@ class _AdbBadge extends StatelessWidget {
   Widget build(BuildContext context) => switch (state) {
     AdbState.connected => const _Pill(text: 'Connected', color: Colors.blue),
     AdbState.unauthorized => const _Pill(text: 'Unauthorized', color: Colors.orange),
-    AdbState.unpaired => const _Pill(text: 'Needs pairing', color: Colors.deepOrange),
+    AdbState.unpaired => const Tooltip(
+      message:
+          "This PC isn't trusted yet. Pair once, or plug in USB and tap 'Always allow' — "
+          'after that Wi-Fi connects without pairing.',
+      child: _Pill(text: 'Needs pairing', color: Colors.deepOrange),
+    ),
     AdbState.offline => const _Pill(text: 'Offline', color: Colors.grey),
     AdbState.unknown => const Text('-'),
   };
