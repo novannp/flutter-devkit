@@ -1,10 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import '../main.dart' show workspaceArg;
 import '../modules/devices/models/device.dart';
 
 final _open = <String, Process>{};
+
+/// Ids of devices with a workspace window open.
+final openWorkspaces = ValueNotifier<Set<String>>(const {});
 
 /// Opens a device workspace in its own window (process); if already open, brings it to the front.
 Future<void> openWorkspaceWindow(Device d) async {
@@ -30,7 +35,9 @@ Future<void> openWorkspaceWindow(Device d) async {
   p.stdout.drain<void>();
   p.stderr.drain<void>();
   _open[d.id] = p;
+  openWorkspaces.value = {..._open.keys};
   p.exitCode.then((_) {
     if (_open[d.id] == p) _open.remove(d.id);
+    openWorkspaces.value = {..._open.keys};
   });
 }

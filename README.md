@@ -45,6 +45,9 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 - **Auto-switch to port 5555** (like `scrcpy --tcpip`): devices on USB or a random Wireless-debugging port move to `ip:5555` by themselves, so they reconnect over Wi-Fi without pairing until reboot. Toggle it in Settings, or use **Enable port 5555** per device
 - **Skip pairing**: plug a phone into USB once and tap *Always allow*. Wireless debugging trusts the same key afterwards.
 - Shows which of our apps and versions are installed
+- **In use by**: see who on the LAN is using a device (workspace open, plugged into their USB, or marked *I'm using this*), with a heads-up when you open one someone else is using
+- **Find**: makes a device blink and vibrate so you can spot it among identical tablets
+- **Name label wallpaper**: renders name, IP, model, serial and a QR as the device's wallpaper (pick *Wallpaper* once on the device)
 
 </td>
 <td width="50%" valign="top">
@@ -116,6 +119,7 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 - **Windows notifications**, taskbar flash, and unread badges
 - Asks for your name on first launch
 - Built-in **🤖 Test bot** to try it on a single PC
+- Shares which devices you're using, so the Devices list shows **In use by** for everyone
 
 ### 🗂️ History
 - Everything worth reviewing later is kept on this PC for **30 days**

@@ -116,8 +116,7 @@ class _DevTabState extends State<DevTab> {
     if (mounted) setState(() => _v = {..._v, 'drop': '1'});
   }
 
-  Future<void> _stopDrop() =>
-      _run('kill \$(cat $_dropPid) 2>/dev/null; rm -f $_dropPid; sh $_dropRestore 2>/dev/null');
+  Future<void> _stopDrop() => _run('kill \$(cat $_dropPid) 2>/dev/null; rm -f $_dropPid; sh $_dropRestore 2>/dev/null');
 
   bool _on(String key) => _v[key] != null && _v[key] != '0' && _v[key] != 'null' && _v[key] != 'false';
 
@@ -317,8 +316,7 @@ class _DevTabState extends State<DevTab> {
                 onPressed: () => _drop(offSec: 5, onSec: 15, cycles: 5),
                 child: const Text('Flaky (5× off 5s / on 15s)'),
               ),
-              if (_v['drop'] == '1')
-                FilledButton.tonal(onPressed: _stopDrop, child: const Text('Stop & restore')),
+              if (_v['drop'] == '1') FilledButton.tonal(onPressed: _stopDrop, child: const Text('Stop & restore')),
             ],
           ),
         ),

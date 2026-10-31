@@ -6,10 +6,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/jokes.dart';
+import '../../../core/windows.dart';
+import '../../chat/chat_service.dart';
 import '../models/device.dart';
 import '../services/adb_service.dart';
 import '../services/demo_devices.dart';
 import '../services/device_adb.dart';
+import '../services/device_label.dart';
 import '../services/device_store.dart';
 import '../services/mdns_service.dart';
 import '../services/network_scanner.dart';
@@ -24,6 +27,7 @@ class DevicesState extends Equatable {
     this.demo = false,
     this.adbAvailable = true,
     this.scrcpyAvailable = true,
+    this.claimed = const {},
   });
 
   final List<Device> devices;
@@ -33,6 +37,9 @@ class DevicesState extends Equatable {
   final bool demo;
   final bool adbAvailable;
   final bool scrcpyAvailable;
+
+  /// Device ids the user marked "I'm using this".
+  final Set<String> claimed;
 
   List<Device> get filtered {
     final q = query.trim().toLowerCase();
@@ -62,6 +69,7 @@ class DevicesState extends Equatable {
     bool? demo,
     bool? adbAvailable,
     bool? scrcpyAvailable,
+    Set<String>? claimed,
   }) => DevicesState(
     devices: devices ?? this.devices,
     query: query ?? this.query,
@@ -70,10 +78,11 @@ class DevicesState extends Equatable {
     demo: demo ?? this.demo,
     adbAvailable: adbAvailable ?? this.adbAvailable,
     scrcpyAvailable: scrcpyAvailable ?? this.scrcpyAvailable,
+    claimed: claimed ?? this.claimed,
   );
 
   @override
-  List<Object?> get props => [devices, query, scanning, scanProgress, demo, adbAvailable, scrcpyAvailable];
+  List<Object?> get props => [devices, query, scanning, scanProgress, demo, adbAvailable, scrcpyAvailable, claimed];
 }
 
 class DevicesCubit extends Cubit<DevicesState> {
@@ -95,6 +104,7 @@ class DevicesCubit extends Cubit<DevicesState> {
       _devices[d.id] = d;
     }
     _emit();
+    openWorkspaces.addListener(_publishUsage);
     try {
       await mdns.start(onFound: _onMdnsFound, onLost: _onMdnsLost);
     } catch (_) {
@@ -450,6 +460,43 @@ class DevicesCubit extends Cubit<DevicesState> {
     store.save(_devices.values);
   }
 
+  void toggleClaim(Device d) {
+    final claimed = {...state.claimed};
+    if (!claimed.remove(d.id)) claimed.add(d.id);
+    emit(state.copyWith(claimed: claimed));
+    _publishUsage();
+  }
+
+  String? usageReason(Device d) {
+    if (state.claimed.contains(d.id)) return 'claimed';
+    if (openWorkspaces.value.contains(d.id)) return 'workspace';
+    if (d.ip == null && d.adb == AdbState.connected) return 'usb';
+    return null;
+  }
+
+  void _publishUsage() {
+    if (state.demo) return;
+    ChatService.instance.setUsing([
+      for (final d in _devices.values)
+        if (usageReason(d) case final why?) {'serial': ?d.serial, 'ip': ?d.ip, 'name': d.displayName, 'why': why},
+    ]);
+  }
+
+  Future<String> find(Device d) async {
+    if (state.demo) return '(demo) find ${d.displayName}';
+    final target = d.adbTarget;
+    if (target == null || d.adb != AdbState.connected) return 'Connect ${d.displayName} first';
+    await DeviceAdb(adb, target).find('${d.displayName} · ${d.ip ?? 'USB'}');
+    return '${d.displayName} is blinking and vibrating';
+  }
+
+  Future<String> labelWallpaper(Device d) async {
+    if (state.demo) return '(demo) label ${d.displayName}';
+    final target = d.adbTarget;
+    if (target == null || d.adb != AdbState.connected) return 'Connect ${d.displayName} first';
+    return DeviceAdb(adb, target).setLabelWallpaper(d);
+  }
+
   void forget(Device d) {
     if (state.demo) return;
     _devices.remove(d.id);
@@ -460,6 +507,7 @@ class DevicesCubit extends Cubit<DevicesState> {
   void _emit() {
     final list = state.demo ? demoDevices : (_devices.values.toList()..sort(_compare));
     emit(state.copyWith(devices: list));
+    _publishUsage();
   }
 
   static int _compare(Device a, Device b) {
@@ -470,6 +518,7 @@ class DevicesCubit extends Cubit<DevicesState> {
   @override
   Future<void> close() async {
     _adbPoll?.cancel();
+    openWorkspaces.removeListener(_publishUsage);
     await mdns.stop();
     return super.close();
   }
