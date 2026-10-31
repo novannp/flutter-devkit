@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../../core/child_processes.dart';
 import '../../../../core/embed_window.dart';
 import '../../services/adb_service.dart';
 
@@ -84,6 +85,7 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
       environment: {if (widget.adb.tools.adb != null) 'ADB': widget.adb.tools.adb!},
     );
     _process = p;
+    ChildProcesses.bind(p);
     p.stdout.transform(const SystemEncoding().decoder).listen(_log.write);
     p.stderr.transform(const SystemEncoding().decoder).listen(_log.write);
     p.exitCode.then((code) {
