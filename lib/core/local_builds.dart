@@ -99,7 +99,8 @@ Future<List<FlutterProject>> scanFlutterProjects() async {
       if (!pubspec.existsSync()) continue;
       final appId = await _applicationId(dir);
       if (appId == null) continue;
-      final name = appByPackage(appId)?.name ??
+      final name =
+          appByPackage(appId)?.name ??
           _pubspecNameRe.firstMatch(await pubspec.readAsString())?[1] ??
           dir.uri.pathSegments.where((s) => s.isNotEmpty).last;
       final fvm = File(_join([dir.path, '.fvmrc'])).existsSync() || Directory(_join([dir.path, '.fvm'])).existsSync();

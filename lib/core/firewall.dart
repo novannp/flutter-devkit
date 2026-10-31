@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'tools.dart';
+import 'history.dart';
 
 class NetworkAccess {
   const NetworkAccess({required this.missingRules, required this.publicNetworks});
@@ -68,6 +69,8 @@ class Firewall {
       "try { Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden "
           "-ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${script.path}'; exit 0 } catch { exit 1 }",
     ], timeout: const Duration(minutes: 2));
-    return r.ok && (await check()).missingRules.isEmpty;
+    final ok = r.ok && (await check()).missingRules.isEmpty;
+    History.activity('network', 'Fix network access: ${ok ? 'applied' : 'not applied'}', {'makePrivate': makePrivate});
+    return ok;
   }
 }

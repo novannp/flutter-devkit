@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'escpos.dart';
 
 class Receipt {
-  Receipt(this.elements, this.source, this.raw) : time = DateTime.now();
+  Receipt(this.elements, this.source, this.raw, {DateTime? time}) : time = time ?? DateTime.now();
 
   final List<ReceiptElement> elements;
   final String source;
@@ -104,9 +104,38 @@ class PrinterServer extends ChangeNotifier {
     port = prefs.getInt(_prefPort) ?? 9100;
     paperMm = prefs.getInt(_prefPaper) ?? 80;
     autoStart = prefs.getBool(_prefAuto) ?? true;
+    await _loadSaved();
     if (autoStart) await start();
     notifyListeners();
   }
+
+  /// Receipts from earlier sessions, re-parsed from their saved raw bytes.
+  Future<void> _loadSaved() async {
+    try {
+      final dir = await rawDir();
+      final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.bin')).toList()
+        ..sort((a, b) => b.path.compareTo(a.path));
+      for (final f in files.take(_keepReceipts)) {
+        final m = RegExp(r'receipt_([\dT-]+)_(?:([\d.]+)_)?\d+\.bin$').firstMatch(f.path);
+        final t = m == null ? null : DateTime.tryParse(_isoFromName(m[1]!));
+        final parsed = <List<ReceiptElement>>[];
+        EscPosParser(onCut: parsed.add, respond: (_) {})
+          ..add(await f.readAsBytes())
+          ..flush();
+        final elements = [for (final p in parsed) ...p];
+        if (elements.isEmpty) continue;
+        receipts.add(Receipt(elements, m?[2] ?? 'saved', await f.readAsBytes(), time: t ?? f.lastModifiedSync()));
+      }
+    } catch (_) {}
+  }
+
+  static String _isoFromName(String s) {
+    // 2026-11-01T01-29-24-826415 → 2026-11-01T01:29:24.826415
+    final m = RegExp(r'^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-?(\d*)$').firstMatch(s);
+    return m == null ? s : '${m[1]}T${m[2]}:${m[3]}:${m[4]}${m[5]!.isEmpty ? '' : '.${m[5]}'}';
+  }
+
+  static const _keepReceipts = 500;
 
   // Bind each address separately: Dart DevTools grabs 127.0.0.1:9100/9101, which blocks a 0.0.0.0 bind.
   Future<List<ServerSocket>> _bindAll(int port, void Function(Socket) onClient) async {
@@ -242,7 +271,7 @@ class PrinterServer extends ChangeNotifier {
       Directory('${(await getApplicationSupportDirectory()).path}${Platform.pathSeparator}printer_raw').create();
 
   static String rawName(Receipt r) =>
-      'receipt_${r.time.toIso8601String().replaceAll(RegExp(r'[:.]'), '-')}_${r.raw.length}.bin';
+      'receipt_${r.time.toIso8601String().replaceAll(RegExp(r'[:.]'), '-')}_${r.source}_${r.raw.length}.bin';
 
   Future<void> _saveRaw(Receipt r) async {
     try {
@@ -250,8 +279,9 @@ class PrinterServer extends ChangeNotifier {
       await File('${dir.path}${Platform.pathSeparator}${rawName(r)}').writeAsBytes(r.raw);
       final files = dir.listSync().whereType<File>().toList()
         ..sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
-      for (final f in files.skip(30)) {
-        f.deleteSync();
+      final cutoff = DateTime.now().subtract(const Duration(days: 30));
+      for (final (i, f) in files.indexed) {
+        if (i >= _keepReceipts || f.lastModifiedSync().isBefore(cutoff)) f.deleteSync();
       }
     } catch (_) {}
   }

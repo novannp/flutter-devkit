@@ -25,5 +25,4 @@ KnownApp? appByPackage(String package) => knownApps.where((a) => a.package == pa
 
 String appName(String package) => appByPackage(package)?.name ?? package;
 
-String appShort(String package) =>
-    appByPackage(package)?.short ?? package.replaceFirst(ourPackagePrefix, '');
+String appShort(String package) => appByPackage(package)?.short ?? package.replaceFirst(ourPackagePrefix, '');

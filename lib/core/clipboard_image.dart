@@ -17,7 +17,10 @@ Future<bool> copyImageToClipboard(String path) async {
       return r.exitCode == 0;
     }
     if (Platform.isMacOS) {
-      final r = await Process.run('osascript', ['-e', 'set the clipboard to (read (POSIX file "$path") as «class PNGf»)']);
+      final r = await Process.run('osascript', [
+        '-e',
+        'set the clipboard to (read (POSIX file "$path") as «class PNGf»)',
+      ]);
       return r.exitCode == 0;
     }
   } catch (_) {}

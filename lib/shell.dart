@@ -16,6 +16,7 @@ import 'modules/devices/view/devices_page.dart';
 import 'modules/devices/view/multi_screen_page.dart';
 import 'modules/emulators/emulators_page.dart';
 import 'modules/help/connection_guide.dart';
+import 'modules/history/history_page.dart';
 import 'modules/maintenance/maintenance_page.dart';
 import 'modules/printer/printer_page.dart';
 import 'modules/settings/settings_page.dart';
@@ -51,7 +52,10 @@ const _groups = [
     _Module('PAX Terminals', Icons.point_of_sale, TerminalPage()),
   ]),
   _Group('Team', [_Module('Chat', Icons.forum_outlined, ChatPage())]),
-  _Group('Other', [_Module('Settings', Icons.settings_outlined, SettingsPage())]),
+  _Group('Other', [
+    _Module('History', Icons.history, HistoryPage()),
+    _Module('Settings', Icons.settings_outlined, SettingsPage()),
+  ]),
 ];
 
 final _modules = [for (final g in _groups) ...g.modules];

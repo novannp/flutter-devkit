@@ -55,6 +55,7 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 - Logcat with **crash detection**, files, apps, info
 - **Interactive terminal**: `adb shell` on the device, or Git Bash / PowerShell already pointed at it (`ANDROID_SERIAL`)
 - **Flutter** run/attach with hot reload/restart, install latest build
+- **Network conditioning** (Dev tab): download speed limit 2G/3G/4G (Android 12+), emulator speed/latency profiles, and **connection drop / flaky network**. The drop runs on the device, so it turns the network back on by itself even after ADB over Wi-Fi drops
 
 </td>
 </tr>

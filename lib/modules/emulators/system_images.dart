@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../../core/tools.dart';
+import '../../core/history.dart';
 
 class RemoteImage {
   const RemoteImage({
@@ -204,6 +205,7 @@ class SystemImageManager extends ChangeNotifier {
       await root.rename(target.path);
       await File('${target.path}${_sep}package.xml').writeAsString(_packageXml(img));
       job.done = true;
+      History.activity('emulator', 'Downloaded ${img.path}');
     } catch (e) {
       job.error = job.cancelled ? 'Cancelled' : '$e';
     } finally {
@@ -230,6 +232,7 @@ class SystemImageManager extends ChangeNotifier {
   Future<void> uninstall(String sdk, RemoteImage img) => uninstallDir(_targetDir(sdk, img));
 
   Future<void> uninstallDir(Directory dir) async {
+    History.activity('emulator', 'Removed system image', {'path': dir.path});
     if (dir.existsSync()) await dir.delete(recursive: true);
     // Drop now-empty tag/api folders.
     for (var d = dir.parent; d.path.contains('system-images') && !d.path.endsWith('system-images'); d = d.parent) {

@@ -30,6 +30,7 @@ import 'logcat_tab.dart';
 import 'screen_panel.dart';
 import 'shell_tab.dart';
 import 'terminal_tab.dart';
+import '../../../../core/history.dart';
 
 class DeviceWorkspacePage extends StatefulWidget {
   const DeviceWorkspacePage({super.key, required this.device, this.standalone = false, this.panelOnly = false});
@@ -219,6 +220,10 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
     if (label.startsWith('Install')) _loadInstalled();
     final out = '${r.stdout}\n${r.stderr}'.trim();
     final failed = !r.ok || out.contains('Failure') || out.contains('error:');
+    History.activity('task', '$label on ${widget.device.displayName}: ${failed ? 'failed' : 'ok'}', {
+      'device': dev.target,
+      if (failed) 'output': out,
+    });
     if (!mounted) return;
     setState(() {
       task.status = failed ? _TaskStatus.failed : _TaskStatus.ok;
@@ -292,6 +297,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
       path = '${(await outputDir()).path}${Platform.pathSeparator}${_baseName}_${timestamp()}.png';
     }
     await File(path).writeAsBytes(bytes);
+    History.activity('screenshot', 'Screenshot ${widget.device.displayName}', {'file': path});
     final copied = await copyImageToClipboard(path);
     _toast(
       copied ? 'Screenshot copied — just Ctrl+V. File: ${_name(path)}' : 'Screenshot saved: $path',
@@ -306,6 +312,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
       '${(await outputDir()).path}${Platform.pathSeparator}bugreport_${_baseName}_${timestamp()}',
     ).create(recursive: true);
     final sep = Platform.pathSeparator;
+    History.activity('bugreport', 'Bug report ${widget.device.displayName}', {'folder': dir.path});
     final shot = await dev.screenshot();
     if (shot != null) await File('${dir.path}${sep}screenshot.png').writeAsBytes(shot);
     await File('${dir.path}${sep}logcat.txt').writeAsString(_log.dump());
