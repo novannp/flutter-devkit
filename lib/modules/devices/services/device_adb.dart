@@ -39,6 +39,21 @@ class DeviceAdb {
   Future<ProcessOutput> pull(String remote, String local) =>
       run(['pull', remote, local], timeout: const Duration(minutes: 10));
 
+  /// Wakes the screen, vibrates and blinks the brightness for a few seconds so the device stands out on a desk.
+  Future<void> find(String message) {
+    final m = message.replaceAll(RegExp(r'''['"\\$`]'''), '');
+    const blink =
+        r'b=$(settings get system screen_brightness); a=$(settings get system screen_brightness_mode); '
+        r'settings put system screen_brightness_mode 0; i=0; while [ $i -lt 8 ]; do '
+        r'settings put system screen_brightness 255; cmd vibrator_manager synced oneshot 250 || cmd vibrator vibrate 250; '
+        r'sleep 0.4; settings put system screen_brightness 1; sleep 0.4; i=$((i+1)); done; '
+        r'settings put system screen_brightness $b; settings put system screen_brightness_mode $a';
+    return shell(
+      "input keyevent KEYCODE_WAKEUP; cmd notification post -S bigtext -t 'Here I am' ravo_find '$m' > /dev/null 2>&1; "
+      "nohup sh -c '$blink' > /dev/null 2>&1 &",
+    );
+  }
+
   Future<void> tap(int x, int y) => shell('input tap $x $y');
 
   Future<void> swipe(int x1, int y1, int x2, int y2, int ms) => shell('input swipe $x1 $y1 $x2 $y2 $ms');

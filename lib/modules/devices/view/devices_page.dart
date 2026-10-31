@@ -6,6 +6,7 @@ import '../cubit/devices_cubit.dart';
 import '../../../core/apps.dart';
 import '../models/device.dart';
 import '../../../core/windows.dart';
+import '../../chat/chat_service.dart';
 import 'network_access_banner.dart';
 import 'pair_dialog.dart';
 
@@ -61,7 +62,15 @@ void _openWorkspace(BuildContext context, Device d) {
   if (!state.adbAvailable) return _toast(context, Future.value('adb not found in PATH'));
   if (d.adbTarget == null) return _toast(context, Future.value('Device IP unknown'));
   openWorkspaceWindow(d);
-  _toast(context, Future.value('Opening ${d.displayName} in a new window…'));
+  final users = ChatService.instance.usersOf(serial: d.serial, ip: d.ip).map((u) => u.$1.name).toSet();
+  _toast(
+    context,
+    Future.value(
+      users.isEmpty
+          ? 'Opening ${d.displayName} in a new window…'
+          : 'Heads up: ${users.join(', ')} ${users.length == 1 ? 'is' : 'are'} using ${d.displayName}',
+    ),
+  );
 }
 
 void _toast(BuildContext context, Future<String> message) async {
@@ -343,6 +352,7 @@ class _DeviceRow extends StatelessWidget {
                         ),
                         if (d.serial != null)
                           Text(d.serial!, style: muted, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        _InUse(device: d),
                       ],
                     ),
                   ),
@@ -426,15 +436,25 @@ class _DeviceRow extends StatelessWidget {
                       'disconnect' => _toast(context, cubit.disconnect(d)),
                       'tcpip' => _toast(context, cubit.enablePort5555(d)),
                       'rename' => _rename(context, d),
+                      'claim' => cubit.toggleClaim(d),
+                      'find' => _toast(context, cubit.find(d)),
+                      'label' => _toast(context, cubit.labelWallpaper(d)),
                       'forget' => cubit.forget(d),
                       _ => null,
                     },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'connect', child: Text('Connect ADB')),
-                      PopupMenuItem(value: 'disconnect', child: Text('Disconnect')),
-                      PopupMenuItem(value: 'tcpip', child: Text('Enable port 5555 (no pairing)')),
-                      PopupMenuItem(value: 'rename', child: Text('Rename')),
-                      PopupMenuItem(value: 'forget', child: Text('Remove from list')),
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(value: 'connect', child: Text('Connect ADB')),
+                      const PopupMenuItem(value: 'disconnect', child: Text('Disconnect')),
+                      const PopupMenuItem(value: 'tcpip', child: Text('Enable port 5555 (no pairing)')),
+                      CheckedPopupMenuItem(
+                        value: 'claim',
+                        checked: cubit.state.claimed.contains(d.id),
+                        child: const Text("I'm using this"),
+                      ),
+                      const PopupMenuItem(value: 'find', child: Text('Find (blink & vibrate)')),
+                      const PopupMenuItem(value: 'label', child: Text('Set name label as wallpaper')),
+                      const PopupMenuItem(value: 'rename', child: Text('Rename')),
+                      const PopupMenuItem(value: 'forget', child: Text('Remove from list')),
                     ],
                   ),
                 ],
@@ -481,6 +501,49 @@ class _DeviceRow extends StatelessWidget {
     controller.dispose();
     if (name != null) cubit.rename(d, name);
   }
+}
+
+/// "In use by …" from teammates' DevKits on the LAN, or "You" when this PC is using it.
+class _InUse extends StatelessWidget {
+  const _InUse({required this.device});
+
+  final Device device;
+
+  static const _why = {'workspace': 'workspace open', 'usb': 'on USB', 'claimed': 'marked in use'};
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: ChatService.instance,
+    builder: (context, _) {
+      final mine = context.read<DevicesCubit>().usageReason(device);
+      final others = ChatService.instance.usersOf(serial: device.serial, ip: device.ip);
+      if (mine == null && others.isEmpty) return const SizedBox.shrink();
+      final names = [if (mine != null) 'You', ...others.map((u) => u.$1.name).toSet()];
+      final details = [
+        if (mine != null) 'You · ${_why[mine]}',
+        for (final (peer, why) in others) '${peer.name} (${peer.host}) · ${_why[why] ?? why}',
+      ];
+      final color = others.isEmpty ? Theme.of(context).colorScheme.primary : const Color(0xFFF59E0B);
+      return Tooltip(
+        message: details.join('\n'),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.person, size: 13, color: color),
+            const SizedBox(width: 3),
+            Flexible(
+              child: Text(
+                'In use by ${names.join(', ')}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 class _AppsCell extends StatelessWidget {

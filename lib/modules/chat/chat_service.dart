@@ -19,6 +19,9 @@ class Peer {
   int port;
   DateTime lastSeen = DateTime.now();
 
+  /// Devices this peer is using: `{serial, ip, name, why}`.
+  List<Map<String, dynamic>> using = const [];
+
   bool get online => DateTime.now().difference(lastSeen) < ChatService._peerTimeout;
 }
 
@@ -97,6 +100,23 @@ class ChatService extends ChangeNotifier {
   final ready = Completer<void>();
   String? error;
 
+  List<Map<String, String>> _using = const [];
+
+  /// Announces which devices this DevKit is using, so teammates see "in use by".
+  void setUsing(List<Map<String, String>> using) {
+    if (jsonEncode(using) == jsonEncode(_using)) return;
+    _using = using;
+    if (started) _sendBeacon();
+  }
+
+  /// Online peers using the device with this serial (or IP when either side has no serial).
+  List<(Peer, String)> usersOf({String? serial, String? ip}) => [
+    for (final p in peers.values.where((p) => p.online))
+      for (final u in p.using)
+        if (serial != null && u['serial'] != null ? u['serial'] == serial : (ip != null && u['ip'] == ip))
+          (p, u['why'] as String? ?? ''),
+  ];
+
   int get totalUnread => unread.values.fold(0, (a, b) => a + b);
 
   // Offline test bots are just noise in the list.
@@ -173,6 +193,7 @@ class ChatService extends ChangeNotifier {
         'name': myName,
         'host': myHost,
         'port': port,
+        if (!bye) 'using': _using,
       }),
     );
     for (final t in await _broadcastTargets()) {
@@ -206,12 +227,16 @@ class ChatService extends ChangeNotifier {
         () => Peer(id: id, name: '', host: '', ip: d.address.address, port: j['port'] as int),
       );
       final wasOnline = peer.online && peer.name.isNotEmpty;
+      final using = [for (final u in j['using'] as List? ?? const []) (u as Map).cast<String, dynamic>()];
+      final usingChanged = jsonEncode(using) != jsonEncode(peer.using);
+      peer.using = using;
       peer
         ..name = j['name'] as String? ?? 'Unknown'
         ..host = j['host'] as String? ?? ''
         ..ip = d.address.address
         ..port = j['port'] as int
         ..lastSeen = DateTime.now();
+      if (usingChanged && wasOnline) notifyListeners();
       if (!wasOnline) {
         notifyListeners();
         // Answer right away so a newcomer sees us without waiting for the next beacon.
