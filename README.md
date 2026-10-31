@@ -40,7 +40,7 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 
 ### 📡 Devices
 - Auto-discovery: USB, `adb` Wi-Fi (5555), Wireless debugging via mDNS
-- Pair by **QR**, **pairing code** (IP + port), or **connect by IP**
+- Pair by **QR**, **pairing code** (IP + port), or **connect by IP**, which can switch the phone from its random Wireless-debugging port to 5555 in the same step
 - One-click connect / disconnect / copy IP
 - **Enable port 5555** on connected devices so Wireless-debugging phones become plain `ip:5555` targets (no pairing until reboot)
 - Shows which of our apps and versions are installed

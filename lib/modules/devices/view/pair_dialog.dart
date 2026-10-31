@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../cubit/devices_cubit.dart';
+import '../models/device.dart';
 import '../services/adb_service.dart';
 
 Future<void> showPairDialog(BuildContext context) =>
@@ -32,6 +33,7 @@ class _PairDialogState extends State<_PairDialog> {
   final _code = TextEditingController();
   final _connectIp = TextEditingController();
   final _connectPort = TextEditingController(text: '5555');
+  var _switchTo5555 = true;
   Timer? _poll;
   List<AdbMdnsService> _pairing = const [];
   var _mode = 0;
@@ -160,6 +162,18 @@ class _PairDialogState extends State<_PairDialog> {
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: _switchTo5555,
+                onChanged: (v) => setState(() => _switchTo5555 = v ?? true),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('Switch to port 5555 after connecting'),
+                subtitle: const Text(
+                  'Wireless debugging uses a random port; 5555 lets scans reconnect without pairing until reboot',
+                ),
+              ),
             ] else ...[
               Text(
                 'On the phone: Developer options → Wireless debugging → "Pair device with pairing code". '
@@ -283,14 +297,22 @@ class _PairDialogState extends State<_PairDialog> {
       _success = false;
       _status = 'Connecting to $ip:$port…';
     });
-    final msg = await cubit.connectTarget('$ip:$port');
+    var msg = await cubit.connectTarget('$ip:$port');
     if (!mounted) return;
     final ok = msg.startsWith('Connected');
+    if (ok && _switchTo5555 && port != '5555') {
+      setState(() => _status = 'Connected — switching to port 5555…');
+      final d = cubit.state.devices.where((d) => d.ip == ip && d.adb == AdbState.connected).firstOrNull;
+      if (d != null) msg = await cubit.enablePort5555(d);
+      if (!mounted) return;
+    }
     setState(() {
       _busy = false;
       _success = ok;
       _status = msg;
     });
-    if (ok) Navigator.pop(context);
+    if (!ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(width: 520, content: Text(msg)));
+    Navigator.pop(context);
   }
 }
