@@ -21,7 +21,6 @@ final _getWindowLongPtr = _user32.lookupFunction<IntPtr Function(IntPtr, Int32),
 final _setWindowLongPtr = _user32.lookupFunction<IntPtr Function(IntPtr, Int32, IntPtr), int Function(int, int, int)>(
   'SetWindowLongPtrW',
 );
-final _setParent = _user32.lookupFunction<IntPtr Function(IntPtr, IntPtr), int Function(int, int)>('SetParent');
 final _setWindowPos = _user32
     .lookupFunction<
       Int32 Function(IntPtr, IntPtr, Int32, Int32, Int32, Int32, Uint32),
@@ -29,29 +28,34 @@ final _setWindowPos = _user32
     >('SetWindowPos');
 final _showWindow = _user32.lookupFunction<Int32 Function(IntPtr, Int32), int Function(int, int)>('ShowWindow');
 final _isWindow = _user32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('IsWindow');
+final _isIconic = _user32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('IsIconic');
+final _clientToScreen = _user32
+    .lookupFunction<Int32 Function(IntPtr, Pointer<Int32>), int Function(int, Pointer<Int32>)>('ClientToScreen');
 
 const _gwlStyle = -16;
 const _gwlExStyle = -20;
-const _wsChild = 0x40000000;
-const _wsClipSiblings = 0x04000000;
-const _wsClipChildren = 0x02000000;
-const _wsVisible = 0x10000000;
+const _gwlpHwndParent = -8;
 const _wsPopup = 0x80000000;
+const _wsChild = 0x40000000;
 const _wsCaption = 0x00C00000;
 const _wsThickFrame = 0x00040000;
 const _wsSysMenu = 0x00080000;
 const _wsMinMaxBox = 0x00030000;
 const _wsExAppWindow = 0x00040000;
+const _wsExToolWindow = 0x00000080;
 const _swpNoActivate = 0x0010;
 const _swpShowWindow = 0x0040;
 const _swpFrameChanged = 0x0020;
 const _swpNoZOrder = 0x0004;
-const _swpNoCopyBits = 0x0100;
-const _swpNoOwnerZOrder = 0x0200;
-const _swpAsyncWindowPos = 0x4000;
+const _swpNoSize = 0x0001;
+const _swpNoMove = 0x0002;
 const _swHide = 0;
 
-/// Embeds another process's window (scrcpy) inside this Flutter window.
+/// Shows another process's window (scrcpy) over an area of this Flutter window.
+///
+/// It's an owned popup rather than a child window: cross-process GPU child windows ghost and
+/// resize badly next to Flutter's own surface. An owned window still minimizes, hides and stacks
+/// with DevKit, but composes on its own.
 class EmbedWindow {
   static int? _own;
 
@@ -85,44 +89,34 @@ class EmbedWindow {
     }
   }
 
-  static void _addStyle(int h, int bits) => _setWindowLongPtr(h, _gwlStyle, _getWindowLongPtr(h, _gwlStyle) | bits);
-
-  static void adopt(int child, int parent) {
-    // Without clipping, the Flutter view and scrcpy repaint over each other every frame (flicker).
-    _addStyle(parent, _wsClipChildren);
-    final view = _flutterView(parent);
-    if (view != 0) _addStyle(view, _wsClipSiblings);
-
+  static void adopt(int child, int owner) {
     var style = _getWindowLongPtr(child, _gwlStyle);
-    style &= ~(_wsPopup | _wsCaption | _wsThickFrame | _wsSysMenu | _wsMinMaxBox);
-    style |= _wsChild | _wsVisible | _wsClipSiblings;
+    style &= ~(_wsChild | _wsCaption | _wsThickFrame | _wsSysMenu | _wsMinMaxBox);
+    style |= _wsPopup;
     _setWindowLongPtr(child, _gwlStyle, style);
-    _setWindowLongPtr(child, _gwlExStyle, _getWindowLongPtr(child, _gwlExStyle) & ~_wsExAppWindow);
-    _setParent(child, parent);
-    // HWND_TOP (0) once so it sits above the Flutter view; later moves keep z-order.
-    _setWindowPos(child, 0, 0, 0, 0, 0, _swpNoActivate | _swpFrameChanged | 0x0001 | 0x0002);
+    // Tool window: no taskbar button / Alt+Tab entry of its own.
+    final ex = (_getWindowLongPtr(child, _gwlExStyle) & ~_wsExAppWindow) | _wsExToolWindow;
+    _setWindowLongPtr(child, _gwlExStyle, ex);
+    _setWindowLongPtr(child, _gwlpHwndParent, owner);
+    _setWindowPos(child, 0, 0, 0, 0, 0, _swpNoActivate | _swpFrameChanged | _swpNoSize | _swpNoMove | _swpNoZOrder);
   }
 
-  static int _flutterView(int parent) {
-    final cls = 'FLUTTERVIEW'.toNativeUtf16();
+  /// Screen position of the owner's client area (physical pixels), to follow window moves.
+  static (int, int) clientOrigin(int owner) {
+    final pt = calloc<Int32>(2);
     try {
-      return _findWindowEx(parent, 0, cls, nullptr);
+      _clientToScreen(owner, pt);
+      return (pt[0], pt[1]);
     } finally {
-      calloc.free(cls);
+      calloc.free(pt);
     }
   }
 
-  /// Physical pixel coordinates, relative to the parent window's client area.
-  /// Async so the UI thread never waits on the scrcpy process.
-  static void place(int child, int x, int y, int w, int h) => _setWindowPos(
-    child,
-    0,
-    x,
-    y,
-    w,
-    h,
-    _swpNoActivate | _swpShowWindow | _swpNoZOrder | _swpNoOwnerZOrder | _swpNoCopyBits | _swpAsyncWindowPos,
-  );
+  static bool isMinimized(int h) => _isIconic(h) != 0;
+
+  /// Moves (never resizes — scrcpy keeps its creation size) to screen coordinates in physical pixels.
+  static void move(int child, int x, int y) =>
+      _setWindowPos(child, 0, x, y, 0, 0, _swpNoActivate | _swpShowWindow | _swpNoZOrder | _swpNoSize);
 
   static void hide(int child) => _showWindow(child, _swHide);
 
