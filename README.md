@@ -50,7 +50,8 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 ### 🪟 Device workspace
 - Opens each device in **its own window**, made for multi-device testing
 - Screen mirror: **Fast** (embedded scrcpy) or **Lite** (screenshots)
-- Logcat with **crash detection**, shell, files, apps, info
+- Logcat with **crash detection**, files, apps, info
+- **Interactive terminal**: `adb shell` on the device, or Git Bash / PowerShell already pointed at it (`ANDROID_SERIAL`)
 - **Flutter** run/attach with hot reload/restart, install latest build
 
 </td>
@@ -104,6 +105,7 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 <td valign="top">
 
 ### 🧰 And more
+- **Terminal**: tabs of Git Bash / PowerShell / cmd opened in any project folder, plus open in VS Code / Explorer / Windows Terminal
 - **Store codes**: activation & support codes per store
 - **Multi Screen**: many devices in one window, with broadcast input
 - **Built-in guide** for USB, Wireless debugging, and the printer
@@ -163,6 +165,7 @@ lib/
     emulators/     AVD manager, system image downloads
     printer/       ESC/POS parser, TCP server, receipt view
     terminal/      PAX POSLink scanner
+    console/       embedded terminals (ConPTY + xterm)
     maintenance/   pub/Gradle cache cleanup, core package updates
     stores/        store activation/support codes
     help/          connection guide

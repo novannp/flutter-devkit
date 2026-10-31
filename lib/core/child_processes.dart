@@ -51,10 +51,12 @@ class ChildProcesses {
     return _job = job;
   }
 
-  static void bind(Process p) {
+  static void bind(Process p) => bindPid(p.pid);
+
+  static void bindPid(int pid) {
     final job = _jobHandle();
     if (job == null) return;
-    final h = _openProcess(_processSetQuota | _processTerminate, 0, p.pid);
+    final h = _openProcess(_processSetQuota | _processTerminate, 0, pid);
     if (h == 0) return;
     _assignProcessToJobObject(job, h);
     _closeHandle(h);
