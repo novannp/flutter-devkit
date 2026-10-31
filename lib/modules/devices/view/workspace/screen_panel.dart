@@ -86,6 +86,8 @@ class _ScreenPanelState extends State<ScreenPanel> {
     final bytes = await dev.screenshot();
     _loading = false;
     if (!mounted) return;
+    // A screencap cut short (device busy right after a tap) decodes to nothing and flashes; keep the last frame.
+    if (bytes != null && bytes.length >= 24 && !_isCompletePng(bytes)) return;
     setState(() {
       if (bytes == null || bytes.length < 24) {
         _error = 'Device not connected to ADB\n(cable unplugged / ADB Wi-Fi dropped)\n\nRetrying automatically…';
@@ -102,6 +104,16 @@ class _ScreenPanelState extends State<ScreenPanel> {
         ..add(now)
         ..removeWhere((t) => now.difference(t) > const Duration(seconds: 3));
     });
+  }
+
+  static const _iend = [0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82];
+
+  static bool _isCompletePng(Uint8List b) {
+    if (b[0] != 0x89 || b[1] != 0x50 || b[2] != 0x4E || b[3] != 0x47) return false;
+    for (var i = 0; i < _iend.length; i++) {
+      if (b[b.length - _iend.length + i] != _iend[i]) return false;
+    }
+    return true;
   }
 
   double get _fps => _frameTimes.length < 2
@@ -287,7 +299,10 @@ class _ScreenPanelState extends State<ScreenPanel> {
                     onFocusChange: (_) => setState(() {}),
                     child: MouseRegion(
                       cursor: SystemMouseCursors.click,
-                      child: Image.memory(_frame!, fit: BoxFit.fill, gaplessPlayback: true),
+                      child: ColoredBox(
+                        color: Colors.black,
+                        child: Image.memory(_frame!, fit: BoxFit.fill, gaplessPlayback: true),
+                      ),
                     ),
                   ),
                 ),

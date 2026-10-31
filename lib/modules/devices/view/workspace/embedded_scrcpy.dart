@@ -14,6 +14,25 @@ var _counter = 0;
 final _active = <_EmbeddedScrcpyState>{};
 var _frameHooked = false;
 
+/// Global rects (logical px) of Flutter overlays that must show above the native screen.
+var _overlays = <Rect>[];
+const _overlayWidgets = {'_TooltipBox', 'SnackBar'};
+
+List<Rect> _findOverlays() {
+  final found = <Rect>[];
+  void visit(Element e) {
+    if (_overlayWidgets.contains(e.widget.runtimeType.toString())) {
+      final ro = e.renderObject;
+      if (ro is RenderBox && ro.attached && ro.hasSize) found.add(ro.localToGlobal(Offset.zero) & ro.size);
+      return;
+    }
+    e.visitChildren(visit);
+  }
+
+  WidgetsBinding.instance.rootElement?.visitChildren(visit);
+  return found;
+}
+
 void _watch(_EmbeddedScrcpyState s) {
   _active.add(s);
   if (_frameHooked) return;
@@ -21,6 +40,7 @@ void _watch(_EmbeddedScrcpyState s) {
   SchedulerBinding.instance.addPersistentFrameCallback((_) {
     if (_active.isEmpty) return;
     SchedulerBinding.instance.addPostFrameCallback((_) {
+      _overlays = _findOverlays();
       for (final e in _active.toList()) {
         e._sync();
       }
@@ -122,6 +142,48 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
       _placedAt = rect.topLeft;
       _hidden = false;
     }
+    _applyHoles(h, rect);
+  }
+
+  String _holesKey = '';
+  var _holesUnsupported = false;
+  var _hiddenForOverlay = false;
+
+  /// Tooltips/snackbars over the screen: cut them out of the scrcpy window so they stay readable.
+  void _applyHoles(int h, Rect rect) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final (ox, oy) = EmbedWindow.clientOrigin(_owner!);
+    final holes = <(int, int, int, int)>[];
+    for (final o in _overlays) {
+      final local = Rect.fromLTRB(
+        o.left * dpr + ox - rect.left,
+        o.top * dpr + oy - rect.top,
+        o.right * dpr + ox - rect.left,
+        o.bottom * dpr + oy - rect.top,
+      ).inflate(2).intersect(Offset.zero & rect.size);
+      if (local.width > 0 && local.height > 0) {
+        holes.add((local.left.floor(), local.top.floor(), local.right.ceil(), local.bottom.ceil()));
+      }
+    }
+    final key = holes.join();
+    if (key == _holesKey) return;
+    _holesKey = key;
+    if (_holesUnsupported) {
+      // Fallback: get out of the way while an overlay is shown.
+      if (holes.isNotEmpty && !_hiddenForOverlay) {
+        EmbedWindow.hide(h);
+        _hiddenForOverlay = true;
+      } else if (holes.isEmpty && _hiddenForOverlay) {
+        _hiddenForOverlay = false;
+        EmbedWindow.move(h, rect.left.toInt(), rect.top.toInt());
+      }
+      return;
+    }
+    if (!EmbedWindow.setHoles(h, rect.width.toInt(), rect.height.toInt(), holes)) {
+      _holesUnsupported = true;
+      _holesKey = '';
+      _applyHoles(h, rect);
+    }
   }
 
   Size? _pendingSize;
@@ -140,16 +202,23 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
     setState(() => _hwnd = null);
     final Process p;
     try {
-      p = await Process.start(scrcpy, [
-        '-s', widget.target,
-        '--window-title=$_title',
-        '--window-borderless',
-        '--window-x=${rect.left.toInt()}', '--window-y=${rect.top.toInt()}',
-        '--window-width=${rect.width.toInt()}', '--window-height=${rect.height.toInt()}',
-        '--no-audio',
-        '--stay-awake',
-        if (widget.maxSize != null) '--max-size=${widget.maxSize}',
-      ], environment: {if (widget.adb.tools.adb != null) 'ADB': widget.adb.tools.adb!});
+      p = await Process.start(
+        scrcpy,
+        [
+          '-s',
+          widget.target,
+          '--window-title=$_title',
+          '--window-borderless',
+          '--window-x=${rect.left.toInt()}',
+          '--window-y=${rect.top.toInt()}',
+          '--window-width=${rect.width.toInt()}',
+          '--window-height=${rect.height.toInt()}',
+          '--no-audio',
+          '--stay-awake',
+          if (widget.maxSize != null) '--max-size=${widget.maxSize}',
+        ],
+        environment: {if (widget.adb.tools.adb != null) 'ADB': widget.adb.tools.adb!},
+      );
     } catch (e) {
       _starting = false;
       return _fail('$e');
@@ -194,6 +263,8 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
     _hwnd = null;
     _spawned = null;
     _starting = false;
+    _holesKey = '';
+    _hiddenForOverlay = false;
     final p = _process;
     _process = null;
     if (p != null) Process.run('taskkill', ['/T', '/F', '/PID', '${p.pid}']);
@@ -235,7 +306,11 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: scheme.error)),
+                  Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: scheme.error),
+                  ),
                   const SizedBox(height: 8),
                   OutlinedButton(onPressed: _retry, child: const Text('Retry')),
                 ],
