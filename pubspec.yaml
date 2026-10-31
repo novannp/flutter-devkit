@@ -45,6 +45,7 @@ dependencies:
   ffi: ^2.2.0
   window_manager: ^0.5.2
   tray_manager: ^0.5.1
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:

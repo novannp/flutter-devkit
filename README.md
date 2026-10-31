@@ -94,7 +94,8 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 <td valign="top">
 
 ### 🧹 Maintenance
-- One-click **update `pos_core` + `pf_processor_plugin`** per project
+- **Switch `pos_core` / `pf_processor_plugin` branch** (branch list from Bitbucket) or **use a local clone** via `pubspec_overrides.yaml`, then `pub upgrade` runs automatically
+- One-click **update core packages** per project
 - Clear the core-package git cache, **pub cache**, **Gradle cache**
 - `pub get`, `pub upgrade`, `flutter clean` with live output
 
@@ -148,6 +149,7 @@ fvm flutter build windows --release --no-tree-shake-icons
 | "Needs pairing" won't go away | Phone: **Wireless debugging → Pair device with pairing code**, then in DevKit: **Pair device → Pairing code**. |
 | `adb` keeps restarting | Another `adb` version is running (Android Studio, an older SDK). DevKit prefers the `adb` on your `PATH`, so keep just one. |
 | Core packages stuck on an old commit | **Maintenance → Core packages cache → Clear**, then **Update core**. |
+| Need a `pos_core` / plugin fix that isn't merged yet | **Maintenance → click the package chip → Git branch** (or **Local folder** for your own clone). |
 
 ## 🗂️ Project layout
 
