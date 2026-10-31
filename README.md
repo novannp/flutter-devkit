@@ -104,6 +104,12 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 </td>
 <td valign="top">
 
+### 💬 Team chat (LAN only)
+- Finds every DevKit on the office network automatically, with **no internet or server**
+- **Everyone** channel plus direct messages, history kept locally
+- **Windows notifications**, taskbar flash, and unread badges
+- Asks for your name on first launch
+
 ### 🧰 And more
 - **Terminal**: tabs of Git Bash / PowerShell / cmd opened in any project folder, plus open in VS Code / Explorer / Windows Terminal
 - **Store codes**: activation & support codes per store
@@ -153,6 +159,7 @@ fvm flutter build windows --release --no-tree-shake-icons
 | "Needs pairing" won't go away | Phone: **Wireless debugging → Pair device with pairing code**, then in DevKit: **Pair device → Pairing code**. |
 | `adb` keeps restarting | Another `adb` version is running (Android Studio, an older SDK). DevKit prefers the `adb` on your `PATH`, so keep just one. |
 | Core packages stuck on an old commit | **Maintenance → Core packages cache → Clear**, then **Update core**. |
+| Teammates don't show up in Chat | Same network? Click **Fix network access** on Devices (Chat uses UDP 47232 + TCP 47231). To test alone, run `python tool/chat_bot.py`: a bot joins and echoes your messages. |
 | Need a `pos_core` / plugin fix that isn't merged yet | **Maintenance → click the package chip → Git branch** (or **Local folder** for your own clone). |
 
 ## 🗂️ Project layout
@@ -166,11 +173,13 @@ lib/
     printer/       ESC/POS parser, TCP server, receipt view
     terminal/      PAX POSLink scanner
     console/       embedded terminals (ConPTY + xterm)
+    chat/          LAN chat (UDP discovery, TCP messages, notifications)
     maintenance/   pub/Gradle cache cleanup, core package updates
     stores/        store activation/support codes
     help/          connection guide
     settings/
 tool/make_icon.py  regenerates the app icon
+tool/chat_bot.py   fake chat peer for testing Chat on one PC
 windows/third_party/scrcpy/   bundled scrcpy + adb (Apache-2.0)
 ```
 

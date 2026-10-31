@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'core/background.dart';
 import 'core/theme.dart';
+import 'modules/chat/chat_notifier.dart';
+import 'modules/chat/chat_page.dart';
+import 'modules/chat/chat_service.dart';
 import 'modules/console/console_page.dart';
 import 'modules/devices/view/devices_page.dart';
 import 'modules/devices/view/multi_screen_page.dart';
@@ -46,6 +51,7 @@ const _groups = [
     _Module('Firebase', Icons.local_fire_department_outlined, null, phase: 4),
     _Module('Release', Icons.rocket_launch_outlined, null, phase: 4),
   ]),
+  _Group('Team', [_Module('Chat', Icons.forum_outlined, ChatPage())]),
   _Group('Other', [_Module('Settings', Icons.settings_outlined, SettingsPage())]),
 ];
 
@@ -61,13 +67,64 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> {
   var _index = 0;
   final _visited = {0};
+  StreamSubscription<ChatMessage>? _chatSub;
+
+  static final _chatIndex = _modules.indexWhere((m) => m.page is ChatPage);
+
+  @override
+  void initState() {
+    super.initState();
+    _chatSub = ChatService.instance.incoming.stream.listen(_onChat);
+    BackgroundRunner.instance.onQuit = ChatService.instance.stop;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _askNameIfNeeded());
+  }
+
+  @override
+  void dispose() {
+    _chatSub?.cancel();
+    super.dispose();
+  }
+
+  void _go(int i) => setState(() => _visited.add(_index = i));
+
+  Future<void> _openChat() async {
+    await BackgroundRunner.instance.show();
+    _go(_chatIndex);
+  }
+
+  Future<void> _onChat(ChatMessage m) async {
+    final focused = await windowManager.isFocused() && !await windowManager.isMinimized();
+    if (!focused) return ChatNotifier.show(m, onOpen: _openChat);
+    if (_index == _chatIndex || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          width: 460,
+          content: Text('${m.fromName}: ${m.text}', maxLines: 2, overflow: TextOverflow.ellipsis),
+          action: SnackBarAction(label: 'Open', onPressed: () => _go(_chatIndex)),
+        ),
+      );
+  }
+
+  Future<void> _askNameIfNeeded() async {
+    final chat = ChatService.instance;
+    await chat.ready.future;
+    if (chat.hasName || !mounted) return;
+    final name = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _NameDialog(initial: chat.myName),
+    );
+    if (name != null) await chat.rename(name);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Row(
         children: [
-          _Sidebar(selected: _index, onSelect: (i) => setState(() => _visited.add(_index = i))),
+          _Sidebar(selected: _index, onSelect: _go),
           Expanded(
             // IndexedStack keeps page state (scans, logs, printer) alive when switching menus.
             child: IndexedStack(
@@ -248,6 +305,14 @@ class _NavItem extends StatelessWidget {
                     style: TextStyle(color: color, fontWeight: active ? FontWeight.w600 : FontWeight.w500),
                   ),
                 ),
+                if (module.page is ChatPage)
+                  ListenableBuilder(
+                    listenable: ChatService.instance,
+                    builder: (_, _) {
+                      final n = ChatService.instance.totalUnread;
+                      return n == 0 ? const SizedBox.shrink() : Badge(label: Text('$n'));
+                    },
+                  ),
                 if (module.page == null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
@@ -286,4 +351,48 @@ class _ComingSoon extends StatelessWidget {
       ),
     );
   }
+}
+
+class _NameDialog extends StatefulWidget {
+  const _NameDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_NameDialog> createState() => _NameDialogState();
+}
+
+class _NameDialogState extends State<_NameDialog> {
+  late final _ctrl = TextEditingController(text: widget.initial);
+
+  void _submit() {
+    if (_ctrl.text.trim().length >= 2) Navigator.pop(context, _ctrl.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: false,
+    child: AlertDialog(
+      title: const Text('Welcome to Ravo DevKit 👋'),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('What should teammates call you? This name shows up in Chat.'),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _ctrl,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Your name'),
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) => _submit(),
+            ),
+          ],
+        ),
+      ),
+      actions: [FilledButton(onPressed: _ctrl.text.trim().length >= 2 ? _submit : null, child: const Text('Continue'))],
+    ),
+  );
 }
