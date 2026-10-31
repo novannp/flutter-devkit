@@ -4,7 +4,13 @@ import 'dart:typed_data';
 enum ReceiptAlign { left, center, right }
 
 class TextStyleState {
-  const TextStyleState({this.bold = false, this.underline = false, this.width = 1, this.height = 1, this.invert = false});
+  const TextStyleState({
+    this.bold = false,
+    this.underline = false,
+    this.width = 1,
+    this.height = 1,
+    this.invert = false,
+  });
 
   final bool bold;
   final bool underline;
@@ -13,12 +19,12 @@ class TextStyleState {
   final bool invert;
 
   TextStyleState copyWith({bool? bold, bool? underline, int? width, int? height, bool? invert}) => TextStyleState(
-        bold: bold ?? this.bold,
-        underline: underline ?? this.underline,
-        width: width ?? this.width,
-        height: height ?? this.height,
-        invert: invert ?? this.invert,
-      );
+    bold: bold ?? this.bold,
+    underline: underline ?? this.underline,
+    width: width ?? this.width,
+    height: height ?? this.height,
+    invert: invert ?? this.invert,
+  );
 }
 
 class TextRun {
@@ -82,6 +88,12 @@ class EventElement extends ReceiptElement {
 }
 
 /// Streaming ESC/POS parser. Bytes may arrive in chunks; incomplete trailing commands are buffered.
+/// Epson ASB: online, cover closed, paper OK, no errors.
+const epsonAsbOk = [0x14, 0x00, 0x00, 0x0F];
+
+/// Star ASB (9-byte form): online, no errors, paper OK.
+const starAsbOk = [0x23, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+
 class EscPosParser {
   EscPosParser({required this.onCut, required this.respond});
 
@@ -145,7 +157,11 @@ class EscPosParser {
     elements.clear();
   }
 
-  ReceiptAlign _alignOf(int n) => switch (n) { 1 || 49 => ReceiptAlign.center, 2 || 50 => ReceiptAlign.right, _ => ReceiptAlign.left };
+  ReceiptAlign _alignOf(int n) => switch (n) {
+    1 || 49 => ReceiptAlign.center,
+    2 || 50 => ReceiptAlign.right,
+    _ => ReceiptAlign.left,
+  };
 
   /// Processes one command/char at [i]; returns bytes consumed, or 0 if incomplete.
   int _step(int i) {
@@ -196,6 +212,12 @@ class EscPosParser {
     if (c == null) return 0;
     final n = _at(i + 2);
     switch (c) {
+      case 0x06: // ESC ACK SOH: Star status request
+        if (n == null) return 0;
+        if (n == 0x01) respond(starAsbOk);
+        return 3;
+      case 0x1D when n == 0x03: // ESC GS ETX: Star checked-block / status commands
+        return _at(i + 4) == null ? 0 : 5;
       case 0x40: // ESC @
         _style = const TextStyleState();
         _align = ReceiptAlign.left;
@@ -315,8 +337,10 @@ class EscPosParser {
         if (n == null) return 0;
         respond([0x00]);
         return 3;
-      case 0x61: // GS a: auto status back
-        return n == null ? 0 : 3;
+      case 0x61: // GS a: auto status back — Epson ePOS2 waits for this 4-byte "all OK" status
+        if (n == null) return 0;
+        if (n != 0) respond(epsonAsbOk);
+        return 3;
       case 0x48 || 0x68 || 0x77 || 0x66 || 0x62 || 0x2F:
         return n == null ? 0 : 3;
       case 0x4C || 0x57 || 0x50:

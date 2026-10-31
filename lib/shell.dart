@@ -58,18 +58,27 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   var _index = 0;
+  final _visited = {0};
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Row(
         children: [
-          _Sidebar(selected: _index, onSelect: (i) => setState(() => _index = i)),
+          _Sidebar(selected: _index, onSelect: (i) => setState(() => _visited.add(_index = i))),
           Expanded(
             // IndexedStack keeps page state (scans, logs, printer) alive when switching menus.
             child: IndexedStack(
               index: _index,
-              children: [for (final m in _modules) m.page ?? _ComingSoon(module: m)],
+              children: [
+                // Disabled TickerMode tells hidden pages to hide native windows (embedded scrcpy) too.
+                // Built on first visit so e.g. Multi Screen doesn't start scrcpy at launch.
+                for (final (i, m) in _modules.indexed)
+                  TickerMode(
+                    enabled: i == _index,
+                    child: _visited.contains(i) ? (m.page ?? _ComingSoon(module: m)) : const SizedBox.shrink(),
+                  ),
+              ],
             ),
           ),
         ],

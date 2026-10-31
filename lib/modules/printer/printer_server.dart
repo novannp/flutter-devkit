@@ -15,17 +15,23 @@ class Receipt {
   final Uint8List raw;
   final DateTime time;
 
-  String get text => elements.map((e) => switch (e) {
-        TextLine() => e.plain,
-        QrElement() => '[QR] ${e.data}',
-        BarcodeElement() => '[BARCODE] ${e.data}',
-        RasterImage() => '[IMAGE ${e.width}×${e.height}]',
-        FeedElement() => '\n' * (e.lines - 1),
-        EventElement() => '[${e.label}]',
-      }).join('\n');
+  String get text => elements
+      .map(
+        (e) => switch (e) {
+          TextLine() => e.plain,
+          QrElement() => '[QR] ${e.data}',
+          BarcodeElement() => '[BARCODE] ${e.data}',
+          RasterImage() => '[IMAGE ${e.width}×${e.height}]',
+          FeedElement() => '\n' * (e.lines - 1),
+          EventElement() => '[${e.label}]',
+        },
+      )
+      .join('\n');
 
-  String get title =>
-      elements.whereType<TextLine>().map((l) => l.plain.trim()).firstWhere((t) => t.isNotEmpty, orElse: () => '(no text)');
+  String get title => elements
+      .whereType<TextLine>()
+      .map((l) => l.plain.trim())
+      .firstWhere((t) => t.isNotEmpty, orElse: () => '(no text)');
 }
 
 /// Fake network printer: accepts raw ESC/POS over TCP (default 9100) like a LAN thermal printer.
@@ -34,7 +40,18 @@ class PrinterServer extends ChangeNotifier {
   static const _prefAuto = 'printer_autostart';
   static const _prefPaper = 'printer_paper_mm';
 
-  ServerSocket? _server;
+  final _servers = <ServerSocket>[];
+  final _statusServers = <ServerSocket>[];
+
+  /// Addresses actually listening (LAN IPs, plus localhost when it's free).
+  final boundAddresses = <String>[];
+
+  /// Set when localhost:port is taken (usually Dart DevTools), so 10.0.2.2 from an emulator won't reach us.
+  bool localhostBusy = false;
+
+  /// Star StarIO reads printer status from the next port (9101) over LAN.
+  static const statusPortOffset = 1;
+  static const defaultPort = 9100;
   final receipts = <Receipt>[];
   final _clients = <Socket>{};
   int port = 9100;
@@ -45,7 +62,7 @@ class PrinterServer extends ChangeNotifier {
   final _received = StreamController<Receipt>.broadcast();
 
   Stream<Receipt> get onReceipt => _received.stream;
-  bool get running => _server != null;
+  bool get running => _servers.isNotEmpty;
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -56,21 +73,45 @@ class PrinterServer extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Bind each address separately: Dart DevTools grabs 127.0.0.1:9100/9101, which blocks a 0.0.0.0 bind.
+  Future<List<ServerSocket>> _bindAll(int port, void Function(Socket) onClient) async {
+    final out = <ServerSocket>[];
+    final addresses = [InternetAddress.loopbackIPv4, for (final ip in await localIps()) InternetAddress(ip)];
+    for (final a in addresses) {
+      try {
+        out.add((await ServerSocket.bind(a, port))..listen(onClient));
+      } on SocketException {
+        // Taken on this address only; others may still work.
+      }
+    }
+    return out;
+  }
+
   Future<void> start() async {
     if (running) return;
-    try {
-      _server = await ServerSocket.bind(InternetAddress.anyIPv4, port);
+    _servers.addAll(await _bindAll(port, _onClient));
+    boundAddresses
+      ..clear()
+      ..addAll(_servers.map((s) => s.address.address));
+    localhostBusy = !boundAddresses.contains(InternetAddress.loopbackIPv4.address);
+    final lanBound = boundAddresses.any((a) => a != InternetAddress.loopbackIPv4.address);
+    if (!lanBound) {
+      error = "Port $port is in use on this PC's network address. Close the app using it, or check Windows Firewall.";
+    } else {
       error = null;
-      _server!.listen(_onClient);
-    } on SocketException catch (e) {
-      error = 'Port $port unavailable (${e.osError?.message ?? e.message}). It may be in use by another app.';
+      // Status port is optional; Epson only needs the data port.
+      _statusServers.addAll(await _bindAll(port + statusPortOffset, _onStatusClient));
     }
     notifyListeners();
   }
 
   Future<void> stop() async {
-    await _server?.close();
-    _server = null;
+    for (final s in [..._servers, ..._statusServers]) {
+      await s.close();
+    }
+    _servers.clear();
+    _statusServers.clear();
+    boundAddresses.clear();
     for (final c in _clients) {
       c.destroy();
     }
@@ -131,6 +172,17 @@ class PrinterServer extends ChangeNotifier {
     );
   }
 
+  void _onStatusClient(Socket socket) {
+    void reply() {
+      try {
+        socket.add(starAsbOk);
+      } catch (_) {}
+    }
+
+    reply();
+    socket.listen((_) => reply(), onDone: socket.destroy, onError: (_) => socket.destroy(), cancelOnError: true);
+  }
+
   void _close(Socket s) {
     if (!_clients.remove(s)) return;
     activeConnections--;
@@ -184,26 +236,94 @@ List<int> sampleReceipt() {
   final qr = 'https://ravo.app/receipt/T-1024'.codeUnits;
   final qrLen = qr.length + 3;
   return [
-    esc, 0x40,
-    esc, 0x61, 1, gs, 0x21, 0x11, ...t('RAVO SALON'), lf,
-    gs, 0x21, 0x00, ...t('1 Main St, Springfield'), lf,
-    ...t('Tel 555-0101'), lf, lf,
-    esc, 0x61, 0, ...t('Ticket #1024        31/10/2026 22:40'), lf,
-    ...t('Cashier: Rina          Station 1'), lf,
-    ...t('-' * 48), lf,
-    ...t('Haircut + Wash                   1    150,000'), lf,
-    ...t('Hair Coloring                    1    450,000'), lf,
-    ...t('Shampoo 250ml                    2     90,000'), lf,
-    ...t('-' * 48), lf,
-    esc, 0x45, 1, ...t('TOTAL                                  690,000'), lf, esc, 0x45, 0,
-    ...t('VISA **** 4242                         690,000'), lf, lf,
-    esc, 0x61, 1,
-    gs, 0x28, 0x6B, 3, 0, 49, 67, 6,
-    gs, 0x28, 0x6B, qrLen & 0xFF, qrLen >> 8, 49, 80, 48, ...qr,
-    gs, 0x28, 0x6B, 3, 0, 49, 81, 48,
-    lf, ...t('Thank you!'), lf,
-    esc, 0x64, 3,
-    esc, 0x70, 0, 25, 250,
-    gs, 0x56, 66, 0,
+    esc,
+    0x40,
+    esc,
+    0x61,
+    1,
+    gs,
+    0x21,
+    0x11,
+    ...t('RAVO SALON'),
+    lf,
+    gs,
+    0x21,
+    0x00,
+    ...t('1 Main St, Springfield'),
+    lf,
+    ...t('Tel 555-0101'),
+    lf,
+    lf,
+    esc,
+    0x61,
+    0,
+    ...t('Ticket #1024        31/10/2026 22:40'),
+    lf,
+    ...t('Cashier: Rina          Station 1'),
+    lf,
+    ...t('-' * 48),
+    lf,
+    ...t('Haircut + Wash                   1    150,000'),
+    lf,
+    ...t('Hair Coloring                    1    450,000'),
+    lf,
+    ...t('Shampoo 250ml                    2     90,000'),
+    lf,
+    ...t('-' * 48),
+    lf,
+    esc,
+    0x45,
+    1,
+    ...t('TOTAL                                  690,000'),
+    lf,
+    esc,
+    0x45,
+    0,
+    ...t('VISA **** 4242                         690,000'),
+    lf,
+    lf,
+    esc,
+    0x61,
+    1,
+    gs,
+    0x28,
+    0x6B,
+    3,
+    0,
+    49,
+    67,
+    6,
+    gs,
+    0x28,
+    0x6B,
+    qrLen & 0xFF,
+    qrLen >> 8,
+    49,
+    80,
+    48,
+    ...qr,
+    gs,
+    0x28,
+    0x6B,
+    3,
+    0,
+    49,
+    81,
+    48,
+    lf,
+    ...t('Thank you!'),
+    lf,
+    esc,
+    0x64,
+    3,
+    esc,
+    0x70,
+    0,
+    25,
+    250,
+    gs,
+    0x56,
+    66,
+    0,
   ];
 }
