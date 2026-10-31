@@ -125,7 +125,12 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
     }
     final spawned = _spawned;
     if (h == null || spawned == null) return;
-    final sizeChanged = (rect.width - spawned.width).abs() > 2 || (rect.height - spawned.height).abs() > 2;
+    // Layout flapping (devices coming and going in Multi Screen) would restart forever; after a few
+    // quick restarts, keep the current size and just follow position.
+    final now = DateTime.now();
+    _restarts.removeWhere((t) => now.difference(t) > const Duration(seconds: 15));
+    final capped = _restarts.length >= 4;
+    final sizeChanged = !capped && ((rect.width - spawned.width).abs() > 2 || (rect.height - spawned.height).abs() > 2);
     if (sizeChanged) {
       // Hide the stale-size picture and restart once resizing settles.
       if (!_hidden) EmbedWindow.hide(h);
@@ -133,7 +138,11 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
       if (!(_restart?.isActive ?? false) || _pendingSize != rect.size) {
         _pendingSize = rect.size;
         _restart?.cancel();
-        _restart = Timer(const Duration(milliseconds: 500), _relaunch);
+        _restart = Timer(const Duration(milliseconds: 800), () {
+          _restarts.add(DateTime.now());
+          _resizing = true;
+          _relaunch();
+        });
       }
       return;
     }
@@ -187,6 +196,8 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
   }
 
   Size? _pendingSize;
+  final _restarts = <DateTime>[];
+  var _resizing = false;
 
   void _relaunch() {
     _kill();
@@ -247,6 +258,7 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
         _hwnd = h;
         _hidden = false;
         _starting = false;
+        _resizing = false;
         if (mounted) setState(() {});
         _sync();
         return;
@@ -317,12 +329,15 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
               ),
             )
           : _hwnd == null
-          ? const Column(
+          ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 8),
-                Text('Opening screen (scrcpy)…', style: TextStyle(color: Colors.white70)),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 8),
+                Text(
+                  _resizing ? 'Resizing screen…' : 'Opening screen (scrcpy)…',
+                  style: const TextStyle(color: Colors.white70),
+                ),
               ],
             )
           : const SizedBox.expand(),

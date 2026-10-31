@@ -67,7 +67,22 @@ class AdbService {
           .replaceAll('_', ' ');
       entries.add(AdbEntry(parts[0], state, model.isEmpty ? null : model));
     }
-    return entries;
+    // One phone often shows up several times (5555 + Wireless-debugging port + an mDNS name).
+    // Keep one transport per IP, preferring a connected :5555, so the device list doesn't flicker.
+    final best = <String, AdbEntry>{};
+    int rank(AdbEntry e) => (e.state == AdbState.connected ? 2 : 0) + (e.port == 5555 ? 1 : 0);
+    for (final e in entries.where((e) => e.isNetwork)) {
+      final cur = best[e.ip!];
+      if (cur == null || rank(e) > rank(cur)) best[e.ip!] = e;
+    }
+    final hasNetwork = best.values.any((e) => e.state == AdbState.connected);
+    return [
+      for (final e in entries)
+        if (!e.isNetwork && !(hasNetwork && e.target.contains('._adb-tls-connect.')))
+          e
+        else if (e.isNetwork && identical(best[e.ip!], e))
+          e,
+    ];
   }
 
   /// Android 11+ wireless debugging (random port): `adb mdns services` merged with our own mDNS browse,
