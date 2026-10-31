@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'chat_service.dart';
+import 'chat_test_bot.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -101,6 +102,36 @@ class _ChatPageState extends State<ChatPage> {
                     ],
                   ),
                   const Spacer(),
+                  ListenableBuilder(
+                    listenable: ChatTestBot.instance,
+                    builder: (context, _) {
+                      final bot = ChatTestBot.instance;
+                      return Row(
+                        children: [
+                          if (bot.running)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: FilterChip(
+                                label: const Text('Bot pings me every 20s'),
+                                selected: bot.pinging,
+                                onSelected: bot.setPing,
+                                tooltip: 'Minimize DevKit to see the Windows notification',
+                              ),
+                            ),
+                          Tooltip(
+                            message: 'Adds a fake teammate on this PC that echoes your messages — try Chat without a second laptop',
+                            child: FilterChip(
+                              avatar: const Text('🤖'),
+                              label: const Text('Test bot'),
+                              selected: bot.running,
+                              onSelected: (on) => on ? bot.start() : bot.stop(),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      );
+                    },
+                  ),
                   ActionChip(
                     avatar: CircleAvatar(
                       backgroundColor: scheme.primary,

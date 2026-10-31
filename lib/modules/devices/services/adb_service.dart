@@ -43,11 +43,11 @@ class AdbService {
 
   // Openscreen mDNS backend makes `adb mdns services` work on Windows (only applies when adb starts the server).
   Future<ProcessOutput> _adb(List<String> args, {Duration? timeout}) => Tools.run(
-        tools.adb!,
-        args,
-        timeout: timeout ?? const Duration(seconds: 8),
-        environment: const {'ADB_MDNS_OPENSCREEN': '1'},
-      );
+    tools.adb!,
+    args,
+    timeout: timeout ?? const Duration(seconds: 8),
+    environment: const {'ADB_MDNS_OPENSCREEN': '1'},
+  );
 
   Future<List<AdbEntry>> devices() async {
     if (!available) return [];
@@ -87,6 +87,13 @@ class AdbService {
 
   Future<ProcessOutput> pair(String target, String code) =>
       _adb(['pair', target, code], timeout: const Duration(seconds: 20));
+
+  /// Restarts adbd on the device listening on [port], so `adb connect ip:port` works without pairing (until reboot).
+  Future<bool> tcpip(String target, {int port = 5555}) async {
+    if (!available) return false;
+    final r = await _adb(['-s', target, 'tcpip', '$port'], timeout: const Duration(seconds: 10));
+    return '${r.stdout}${r.stderr}'.contains('restarting');
+  }
 
   Future<bool> disconnect(String target) async {
     if (!available) return false;

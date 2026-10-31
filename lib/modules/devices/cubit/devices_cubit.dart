@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/jokes.dart';
 import '../models/device.dart';
 import '../services/adb_service.dart';
 import '../services/demo_devices.dart';
@@ -34,14 +35,16 @@ class DevicesState extends Equatable {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return devices;
     return devices
-        .where((d) => [
-              d.name,
-              d.serial,
-              d.ip,
-              d.model,
-              d.env,
-              for (final e in d.apps.entries) ...[appName(e.key), e.value],
-            ].any((v) => v?.toLowerCase().contains(q) ?? false))
+        .where(
+          (d) => [
+            d.name,
+            d.serial,
+            d.ip,
+            d.model,
+            d.env,
+            for (final e in d.apps.entries) ...[appName(e.key), e.value],
+          ].any((v) => v?.toLowerCase().contains(q) ?? false),
+        )
         .toList();
   }
 
@@ -56,32 +59,23 @@ class DevicesState extends Equatable {
     bool? demo,
     bool? adbAvailable,
     bool? scrcpyAvailable,
-  }) =>
-      DevicesState(
-        devices: devices ?? this.devices,
-        query: query ?? this.query,
-        scanning: scanning ?? this.scanning,
-        scanProgress: scanProgress ?? this.scanProgress,
-        demo: demo ?? this.demo,
-        adbAvailable: adbAvailable ?? this.adbAvailable,
-        scrcpyAvailable: scrcpyAvailable ?? this.scrcpyAvailable,
-      );
+  }) => DevicesState(
+    devices: devices ?? this.devices,
+    query: query ?? this.query,
+    scanning: scanning ?? this.scanning,
+    scanProgress: scanProgress ?? this.scanProgress,
+    demo: demo ?? this.demo,
+    adbAvailable: adbAvailable ?? this.adbAvailable,
+    scrcpyAvailable: scrcpyAvailable ?? this.scrcpyAvailable,
+  );
 
   @override
-  List<Object?> get props =>
-      [devices, query, scanning, scanProgress, demo, adbAvailable, scrcpyAvailable];
+  List<Object?> get props => [devices, query, scanning, scanProgress, demo, adbAvailable, scrcpyAvailable];
 }
 
 class DevicesCubit extends Cubit<DevicesState> {
-  DevicesCubit({
-    required this.adb,
-    required this.mdns,
-    required this.scanner,
-    required this.store,
-  }) : super(DevicesState(
-          adbAvailable: adb.available,
-          scrcpyAvailable: adb.tools.scrcpy != null,
-        ));
+  DevicesCubit({required this.adb, required this.mdns, required this.scanner, required this.store})
+    : super(DevicesState(adbAvailable: adb.available, scrcpyAvailable: adb.tools.scrcpy != null));
 
   final AdbService adb;
   final MdnsService mdns;
@@ -128,12 +122,9 @@ class DevicesCubit extends Cubit<DevicesState> {
   }
 
   void _upsert(Device incoming) {
-    final existing = _devices.values
-            .where((d) => incoming.serial != null && d.serial == incoming.serial)
-            .firstOrNull ??
-        _devices.values
-            .where((d) => incoming.ip != null && d.ip == incoming.ip && d.serial == null)
-            .firstOrNull;
+    final existing =
+        _devices.values.where((d) => incoming.serial != null && d.serial == incoming.serial).firstOrNull ??
+        _devices.values.where((d) => incoming.ip != null && d.ip == incoming.ip && d.serial == null).firstOrNull;
     var merged = existing?.merge(incoming) ?? incoming;
     if (existing != null) _devices.remove(existing.id);
     if (merged.ip != null) {
@@ -188,15 +179,17 @@ class DevicesCubit extends Cubit<DevicesState> {
         _wirelessTried[s.target] = DateTime.now();
         if (await adb.connect(s.target)) {
           _unpaired.remove(s.target);
-          _upsert(Device(
-            id: Device.keyOf(serial: s.serial, ip: s.ip),
-            serial: s.serial,
-            ip: s.ip,
-            adbPort: s.port,
-            online: true,
-            lastSeen: DateTime.now(),
-            sources: const {DeviceSource.scan},
-          ));
+          _upsert(
+            Device(
+              id: Device.keyOf(serial: s.serial, ip: s.ip),
+              serial: s.serial,
+              ip: s.ip,
+              adbPort: s.port,
+              online: true,
+              lastSeen: DateTime.now(),
+              sources: const {DeviceSource.scan},
+            ),
+          );
           continue;
         }
         _unpaired.add(s.target);
@@ -230,11 +223,17 @@ class DevicesCubit extends Cubit<DevicesState> {
     final entries = await adb.devices();
     final seen = <String>{...needPair};
     for (final e in entries) {
-      final match = _devices.values.where((d) => d.adbTarget == e.target || (!e.isNetwork && d.serial == e.target)).firstOrNull;
+      final match = _devices.values
+          .where((d) => d.adbTarget == e.target || (!e.isNetwork && d.serial == e.target))
+          .firstOrNull;
       if (match != null) {
         seen.add(match.id);
         final apps = e.state == AdbState.connected && _appsFetched.add(match.id) ? await _ourApps(e.target) : null;
-        _devices[match.id] = match.copyWith(adb: e.state, online: true, apps: apps == null ? null : {...match.apps, ...apps});
+        _devices[match.id] = match.copyWith(
+          adb: e.state,
+          online: true,
+          apps: apps == null ? null : {...match.apps, ...apps},
+        );
         continue;
       }
       if (e.state != AdbState.connected) continue;
@@ -280,16 +279,18 @@ class DevicesCubit extends Cubit<DevicesState> {
         await adb.connect(target);
         final serial = await adb.getprop(target, 'ro.serialno');
         final model = await adb.getprop(target, 'ro.product.model');
-        _upsert(Device(
-          id: Device.keyOf(serial: serial, ip: ip),
-          serial: serial,
-          ip: ip,
-          model: model,
-          apps: await _ourApps(target),
-          online: true,
-          lastSeen: DateTime.now(),
-          sources: const {DeviceSource.scan},
-        ));
+        _upsert(
+          Device(
+            id: Device.keyOf(serial: serial, ip: ip),
+            serial: serial,
+            ip: ip,
+            model: model,
+            apps: await _ourApps(target),
+            online: true,
+            lastSeen: DateTime.now(),
+            sources: const {DeviceSource.scan},
+          ),
+        );
       }
     } finally {
       emit(state.copyWith(scanning: false, scanProgress: 1));
@@ -301,6 +302,7 @@ class DevicesCubit extends Cubit<DevicesState> {
         .map((a) => '${a.address.substring(0, a.address.lastIndexOf('.'))}.x')
         .toSet();
     if (subnets.isEmpty) return 'No local network found — connect to Wi-Fi/LAN first';
+    if (found == 0 && wireless == 0) return 'Scanned ${subnets.join(', ')}: ${pick(noDeviceLines)}';
     return 'Scanned ${subnets.join(', ')}: $found on port 5555 · $wireless with wireless debugging'
         '${unpaired > 0 ? ' · $unpaired need pairing' : ''}';
   }
@@ -350,6 +352,42 @@ class DevicesCubit extends Cubit<DevicesState> {
     }
     await refreshAdb();
     return '${targets.length} device(s) disconnected';
+  }
+
+  /// Switches a connected device to classic adb on port 5555, so scans find it without pairing until it reboots.
+  Future<String> enablePort5555(Device d) async {
+    if (state.demo) return '(demo) port 5555 on ${d.displayName}';
+    final target = d.adbTarget;
+    if (target == null || d.adb != AdbState.connected) {
+      return 'Connect ${d.displayName} first (USB or Wireless debugging)';
+    }
+    if (d.ip != null && d.adbPort == 5555) return '${d.displayName} already uses port 5555';
+    var ip = d.ip;
+    if (ip == null) {
+      final out = await DeviceAdb(adb, target).sh('ip -f inet addr show wlan0');
+      ip = RegExp(r'inet (\d+\.\d+\.\d+\.\d+)').firstMatch(out)?[1];
+    }
+    if (!await adb.tcpip(target)) return 'Could not switch ${d.displayName} to port 5555';
+    if (ip == null) return 'Port 5555 is on, but ${d.displayName} has no Wi-Fi IP';
+    _manualOff.removeAll([d.serial, ip]);
+    // adbd needs a moment to restart before it accepts connections.
+    var ok = false;
+    for (var i = 0; i < 5 && !ok; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      ok = await adb.connect('$ip:5555');
+    }
+    await refreshNow();
+    return ok
+        ? '${d.displayName} is on $ip:5555 — scans find it without pairing until it reboots'
+        : 'Port 5555 is on; connect to $ip:5555 in a moment';
+  }
+
+  Future<String> enablePort5555All() async {
+    final targets = state.devices.where((d) => d.adb == AdbState.connected && !(d.ip != null && d.adbPort == 5555));
+    if (targets.isEmpty) return 'Every connected device already uses port 5555';
+    final results = [for (final d in targets.toList()) await enablePort5555(d)];
+    final ok = results.where((r) => r.contains(':5555 —')).length;
+    return 'Port 5555 enabled on $ok of ${results.length} device(s)';
   }
 
   Future<String> connectAll() async {

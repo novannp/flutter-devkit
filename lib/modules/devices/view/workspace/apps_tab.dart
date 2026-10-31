@@ -37,8 +37,9 @@ class _AppsTabState extends State<AppsTab> {
     setState(() => _packages = list);
   }
 
-  void _toast(String text) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(text), behavior: SnackBarBehavior.floating, width: 420));
+  void _toast(String text) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(text), behavior: SnackBarBehavior.floating, width: 420));
 
   Future<bool> _confirm(String title, String body) async =>
       await showDialog<bool>(

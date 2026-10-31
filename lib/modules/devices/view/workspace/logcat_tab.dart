@@ -90,15 +90,19 @@ class _LogcatTabState extends State<LogcatTab> {
 
   Future<void> _save(List<LogLine> visible) async {
     final dir = await outputDir();
-    final file = File('${dir.path}${Platform.pathSeparator}logcat_${safeFileName(widget.deviceName)}_${timestamp()}.txt');
+    final file = File(
+      '${dir.path}${Platform.pathSeparator}logcat_${safeFileName(widget.deviceName)}_${timestamp()}.txt',
+    );
     await file.writeAsString(visible.map((l) => l.raw).join('\n'));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Log saved: ${file.path}'),
-      behavior: SnackBarBehavior.floating,
-      width: 520,
-      action: SnackBarAction(label: 'Open folder', onPressed: () => revealInExplorer(file.path)),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Log saved: ${file.path}'),
+        behavior: SnackBarBehavior.floating,
+        width: 520,
+        action: SnackBarAction(label: 'Open folder', onPressed: () => revealInExplorer(file.path)),
+      ),
+    );
   }
 
   Color? _color(LogLine l, ColorScheme scheme) {
@@ -162,7 +166,11 @@ class _LogcatTabState extends State<LogcatTab> {
                 onPressed: log.togglePause,
                 icon: Icon(log.paused ? Icons.play_arrow : Icons.pause),
               ),
-              IconButton(tooltip: 'Clear (Ctrl+L)', onPressed: log.clear, icon: const Icon(Icons.delete_sweep_outlined)),
+              IconButton(
+                tooltip: 'Clear (Ctrl+L)',
+                onPressed: log.clear,
+                icon: const Icon(Icons.delete_sweep_outlined),
+              ),
               IconButton(tooltip: 'Save to file', onPressed: () => _save(lines), icon: const Icon(Icons.save_alt)),
               IconButton(tooltip: 'Restart logcat', onPressed: log.restart, icon: const Icon(Icons.restart_alt)),
               Text('${lines.length} lines', style: TextStyle(color: scheme.outline)),
@@ -238,10 +246,10 @@ class _Empty extends StatelessWidget {
     final reason = !onlyOurs
         ? 'No logs match the filter yet.'
         : focus != null
-            ? '${appName(focus!)} is not running on this device.'
-            : anyRunning
-                ? 'No logs from our apps match the filter yet.'
-                : 'None of our apps are running on this device.';
+        ? '${appName(focus!)} is not running on this device.'
+        : anyRunning
+        ? 'No logs from our apps match the filter yet.'
+        : 'None of our apps are running on this device.';
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,

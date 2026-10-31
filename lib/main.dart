@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -63,12 +64,17 @@ class DevKitApp extends StatelessWidget {
           providers: [
             if (ws == null)
               BlocProvider(
-                create: (_) => DevicesCubit(
-                  adb: context.read<AdbService>(),
-                  mdns: MdnsService(),
-                  scanner: NetworkScanner(),
-                  store: DeviceStore(),
-                )..init(),
+                create: (_) {
+                  final cubit = DevicesCubit(
+                    adb: context.read<AdbService>(),
+                    mdns: MdnsService(),
+                    scanner: NetworkScanner(),
+                    store: DeviceStore(),
+                  )..init();
+                  // DEVKIT_DEMO=1 shows sample devices (README screenshots, demos).
+                  if (Platform.environment['DEVKIT_DEMO'] == '1') cubit.toggleDemo();
+                  return cubit;
+                },
               ),
             BlocProvider(create: (_) => StoreCodesCubit()..init()),
           ],

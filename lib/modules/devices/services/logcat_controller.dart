@@ -25,7 +25,8 @@ class LogLine {
     final level = m[3]!;
     final tag = m[4]!;
     final message = m[5]!;
-    final crash = (tag == 'AndroidRuntime' && message.startsWith('FATAL EXCEPTION')) ||
+    final crash =
+        (tag == 'AndroidRuntime' && message.startsWith('FATAL EXCEPTION')) ||
         (tag == 'ActivityManager' && message.startsWith('ANR in')) ||
         (tag == 'flutter' && level == 'E' && message.contains('Unhandled Exception'));
     return LogLine(raw, time: m[1], pid: int.parse(m[2]!), level: level, tag: tag, message: message, crash: crash);

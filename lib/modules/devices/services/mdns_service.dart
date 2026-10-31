@@ -23,9 +23,7 @@ class MdnsService {
           discovery.serviceResolver.resolveService(service);
         case BonsoirDiscoveryServiceResolvedEvent(:final service):
         case BonsoirDiscoveryServiceUpdatedEvent(:final service):
-          final ip = service.hostAddresses
-              .where((a) => !a.contains(':'))
-              .firstOrNull;
+          final ip = service.hostAddresses.where((a) => !a.contains(':')).firstOrNull;
           if (ip == null) return;
           final attr = service.attributes;
           onFound(

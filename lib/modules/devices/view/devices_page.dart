@@ -225,6 +225,13 @@ class _Toolbar extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         IconButton.outlined(
+          tooltip: 'Enable port 5555 on all connected devices\n(scans find them without pairing until they reboot)',
+          style: IconButton.styleFrom(side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+          onPressed: () => _toast(context, cubit.enablePort5555All()),
+          icon: const Icon(Icons.settings_ethernet, size: 20),
+        ),
+        const SizedBox(width: 8),
+        IconButton.outlined(
           tooltip: 'Disconnect all (Wi-Fi)',
           style: IconButton.styleFrom(side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
           onPressed: () => _toast(context, cubit.disconnectAll()),
@@ -235,7 +242,7 @@ class _Toolbar extends StatelessWidget {
   }
 }
 
-const _cols = [4, 3, 2, 3, 1, 2, 2];
+const _cols = [4, 3, 2, 3, 2, 2, 2];
 const _actionsWidth = 190.0;
 
 class _TableHeader extends StatelessWidget {
@@ -417,6 +424,7 @@ class _DeviceRow extends StatelessWidget {
                     onSelected: (v) => switch (v) {
                       'connect' => _toast(context, cubit.connect(d)),
                       'disconnect' => _toast(context, cubit.disconnect(d)),
+                      'tcpip' => _toast(context, cubit.enablePort5555(d)),
                       'rename' => _rename(context, d),
                       'forget' => cubit.forget(d),
                       _ => null,
@@ -424,6 +432,7 @@ class _DeviceRow extends StatelessWidget {
                     itemBuilder: (_) => const [
                       PopupMenuItem(value: 'connect', child: Text('Connect ADB')),
                       PopupMenuItem(value: 'disconnect', child: Text('Disconnect')),
+                      PopupMenuItem(value: 'tcpip', child: Text('Enable port 5555 (no pairing)')),
                       PopupMenuItem(value: 'rename', child: Text('Rename')),
                       PopupMenuItem(value: 'forget', child: Text('Remove from list')),
                     ],
@@ -516,10 +525,10 @@ class _EnvChip extends StatelessWidget {
     if (env == null) return const Text('-');
     final color = switch (env) {
       'prod' || 'production' => Colors.red,
-      'staging' => Colors.orange,
-      _ => Colors.teal,
+      'qa' => Colors.teal,
+      _ => Colors.grey,
     };
-    return _Pill(text: env!, color: color);
+    return _Pill(text: env!.toLowerCase() == 'qa' ? 'QA' : (env!.startsWith('prod') ? 'Prod' : env!), color: color);
   }
 }
 
@@ -551,6 +560,9 @@ class _Pill extends StatelessWidget {
       decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
       child: Text(
         text,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.fade,
         style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );

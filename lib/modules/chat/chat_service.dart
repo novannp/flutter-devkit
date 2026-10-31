@@ -66,7 +66,7 @@ class ChatService extends ChangeNotifier {
 
   static final instance = ChatService._();
 
-  static const _beaconPort = 47232;
+  static const beaconPort = 47232;
   static const _preferredPort = 47231;
   static const _beaconEvery = Duration(seconds: 4);
   static const _peerTimeout = Duration(seconds: 15);
@@ -99,7 +99,8 @@ class ChatService extends ChangeNotifier {
 
   int get totalUnread => unread.values.fold(0, (a, b) => a + b);
 
-  List<Peer> get sortedPeers => peers.values.toList()
+  // Offline test bots are just noise in the list.
+  List<Peer> get sortedPeers => peers.values.where((p) => p.online || !p.id.startsWith('bot-')).toList()
     ..sort((a, b) {
       if (a.online != b.online) return a.online ? -1 : 1;
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
@@ -125,11 +126,11 @@ class ChatService extends ChangeNotifier {
     _server!.listen(_onConnection);
 
     try {
-      _udp = await RawDatagramSocket.bind(InternetAddress.anyIPv4, _beaconPort, reuseAddress: true)
+      _udp = await RawDatagramSocket.bind(InternetAddress.anyIPv4, beaconPort, reuseAddress: true)
         ..broadcastEnabled = true
         ..listen(_onDatagram);
     } on SocketException catch (e) {
-      error = 'Discovery port $_beaconPort unavailable: ${e.message}';
+      error = 'Discovery port $beaconPort unavailable: ${e.message}';
     }
     _beacon = Timer.periodic(_beaconEvery, (_) => _sendBeacon());
     await _sendBeacon();
@@ -176,7 +177,7 @@ class ChatService extends ChangeNotifier {
     );
     for (final t in await _broadcastTargets()) {
       try {
-        udp.send(data, t, _beaconPort);
+        udp.send(data, t, beaconPort);
       } catch (_) {}
     }
     _expirePeers();

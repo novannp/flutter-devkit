@@ -213,7 +213,9 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
 
   Future<void> _installLatest() async {
     await _loadBuilds();
-    if (_builds.isEmpty) return _toast('No APKs in project build folders yet. Set project folders in the Install menu.');
+    if (_builds.isEmpty) {
+      return _toast('No APKs in project build folders yet. Set project folders in the Install menu.');
+    }
     final build = _builds.where((b) => b.package == _focus.value).firstOrNull ?? _builds.first;
     _install(build.apk.path);
   }
@@ -858,11 +860,7 @@ class _ScreenshotButton extends StatelessWidget {
       ),
       PopupMenuItem(
         value: true,
-        child: ListTile(
-          leading: Icon(Icons.save_as_outlined),
-          title: Text('Save as…'),
-          subtitle: Text('Ctrl+Shift+S'),
-        ),
+        child: ListTile(leading: Icon(Icons.save_as_outlined), title: Text('Save as…'), subtitle: Text('Ctrl+Shift+S')),
       ),
     ],
   );

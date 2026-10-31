@@ -25,15 +25,13 @@ class DeviceAdb {
 
   Future<String> sh(String command) async => (await shell(command)).stdout.trim();
 
-  Future<Uint8List?> screenshot() =>
-      Tools.runBytes(_exe, ['-s', target, 'exec-out', 'screencap', '-p']);
+  Future<Uint8List?> screenshot() => Tools.runBytes(_exe, ['-s', target, 'exec-out', 'screencap', '-p']);
 
   Future<Process> logcat() => Process.start(_exe, ['-s', target, 'logcat', '-v', 'threadtime', '-T', '1000']);
 
   Future<void> clearLogcat() => run(['logcat', '-c']);
 
-  Future<ProcessOutput> install(String apk) =>
-      run(['install', '-r', '-d', apk], timeout: const Duration(minutes: 5));
+  Future<ProcessOutput> install(String apk) => run(['install', '-r', '-d', apk], timeout: const Duration(minutes: 5));
 
   Future<ProcessOutput> push(String local, String remote) =>
       run(['push', local, remote], timeout: const Duration(minutes: 10));
@@ -55,7 +53,9 @@ class DeviceAdb {
 
   /// pid → package for our running apps.
   Future<Map<int, String>> ourPids() async {
-    final out = await sh('for p in \$(pm list packages --user 0 $ourPackagePrefix | cut -d: -f2); do echo "\$p \$(pidof \$p)"; done');
+    final out = await sh(
+      'for p in \$(pm list packages --user 0 $ourPackagePrefix | cut -d: -f2); do echo "\$p \$(pidof \$p)"; done',
+    );
     return {
       for (final line in out.split('\n'))
         for (final pid in line.trim().split(' ').skip(1))
@@ -65,8 +65,10 @@ class DeviceAdb {
 
   /// package → versionName for all of our installed apps.
   Future<Map<String, String>> ourApps() async {
-    final out = await sh('for p in \$(pm list packages --user 0 $ourPackagePrefix | cut -d: -f2); do '
-        'echo "\$p \$(dumpsys package \$p | grep -m1 versionName | cut -d= -f2)"; done');
+    final out = await sh(
+      'for p in \$(pm list packages --user 0 $ourPackagePrefix | cut -d: -f2); do '
+      'echo "\$p \$(dumpsys package \$p | grep -m1 versionName | cut -d= -f2)"; done',
+    );
     return {
       for (final line in out.split('\n'))
         if (line.trim().isNotEmpty) line.trim().split(' ').first: line.trim().split(' ').skip(1).join(' '),
@@ -75,11 +77,7 @@ class DeviceAdb {
 
   Future<List<String>> packages({bool thirdParty = true}) async {
     final out = await sh('pm list packages --user 0 ${thirdParty ? '-3' : ''}');
-    return out
-        .split('\n')
-        .map((l) => l.trim().replaceFirst('package:', ''))
-        .where((p) => p.isNotEmpty)
-        .toList()
+    return out.split('\n').map((l) => l.trim().replaceFirst('package:', '')).where((p) => p.isNotEmpty).toList()
       ..sort();
   }
 
@@ -98,8 +96,7 @@ class DeviceAdb {
     return m?[1];
   }
 
-  Future<void> launch(String package) =>
-      shell('monkey -p $package -c android.intent.category.LAUNCHER 1');
+  Future<void> launch(String package) => shell('monkey -p $package -c android.intent.category.LAUNCHER 1');
 
   Future<void> forceStop(String package) => shell('am force-stop $package');
 
