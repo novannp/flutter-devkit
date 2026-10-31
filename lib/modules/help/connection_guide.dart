@@ -141,7 +141,7 @@ class _GuideDialogState extends State<_GuideDialog> {
       intro: 'DevKit acts as a LAN SNBC thermal printer. Receipts printed by the POS show up in the Printer menu.',
       steps: [
         'Open the Printer menu in DevKit and make sure the status is "Ready". Note the PC IP shown there.',
-        'In Backoffice, open the station's POS profile → printer: brand SNBC, connection WIFI (not USB), '
+        "In Backoffice, open the station's POS profile → printer: brand SNBC, connection WIFI (not USB), "
             'IP = the PC IP. The port is always 9100.',
         'On the POS, reload the profile (or restart the app) so it picks up the change.',
         'Real devices on the same Wi-Fi can also tap "Connect printer" in Workstation Profile: '
@@ -150,7 +150,7 @@ class _GuideDialogState extends State<_GuideDialog> {
       ],
       notes: [
         'Emulators (MEmu, Android Studio): use the PC IP, not 10.0.2.2 (that reaches Dart DevTools on port 9100). '
-            'Printer search may not work through the emulator's NAT, so set the IP in Backoffice.',
+            "Printer search may not work through the emulator's NAT, so set the IP in Backoffice.",
         'If the POS log says "SNBCUsb connection failed", the profile is still on USB: switch it to WIFI.',
         'Epson/Star use their own SDKs; status checks are answered, but SNBC is the reliable choice.',
       ],
