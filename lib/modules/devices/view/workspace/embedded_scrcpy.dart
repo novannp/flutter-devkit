@@ -2,11 +2,30 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../../../core/embed_window.dart';
 import '../../services/adb_service.dart';
 
 var _counter = 0;
+
+// One persistent frame callback for all embeds: follows layout on frames that happen anyway, never forces new ones.
+final _active = <_EmbeddedScrcpyState>{};
+var _frameHooked = false;
+
+void _watch(_EmbeddedScrcpyState s) {
+  _active.add(s);
+  if (_frameHooked) return;
+  _frameHooked = true;
+  SchedulerBinding.instance.addPersistentFrameCallback((_) {
+    if (_active.isEmpty) return;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      for (final e in _active.toList()) {
+        e._syncPosition();
+      }
+    });
+  });
+}
 
 /// scrcpy with its window embedded in this widget's area: smooth 60 fps, still inside DevKit.
 /// Note: the native window always sits above Flutter widgets, so it's hidden while a dialog/menu is open.
@@ -29,6 +48,7 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
   Process? _process;
   int? _hwnd;
   Timer? _sync;
+  DateTime _lastResize = DateTime(0);
   Rect? _lastRect;
   var _hidden = false;
   var _visibleInTree = true;
@@ -70,7 +90,11 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
       if (!mounted || _process != p) return;
       _process = null;
       _hwnd = null;
-      final reason = _log.toString().trim().split('\n').lastWhere((l) => l.contains('ERROR'), orElse: () => 'scrcpy stopped (exit $code)');
+      final reason = _log
+          .toString()
+          .trim()
+          .split('\n')
+          .lastWhere((l) => l.contains('ERROR'), orElse: () => 'scrcpy stopped (exit $code)');
       _fail(reason);
     });
 
@@ -80,7 +104,9 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
       if (h != 0 && parent != null) {
         EmbedWindow.adopt(h, parent);
         _hwnd = h;
-        _sync = Timer.periodic(const Duration(milliseconds: 40), (_) => _syncPosition());
+        _watch(this);
+        // Fallback for moves without a Flutter frame (e.g. window restored).
+        _sync ??= Timer.periodic(const Duration(milliseconds: 250), (_) => _syncPosition());
         _syncPosition();
         if (mounted) setState(() {});
         return;
@@ -92,6 +118,8 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
 
   void _fail(String reason) {
     _sync?.cancel();
+    _sync = null;
+    _active.remove(this);
     if (!mounted) return;
     setState(() => _error = reason);
     widget.onFailed?.call(reason);
@@ -112,6 +140,10 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
     final topLeft = box.localToGlobal(Offset.zero) * dpr;
     final rect = Rect.fromLTWH(topLeft.dx, topLeft.dy, box.size.width * dpr, box.size.height * dpr);
     if (rect == _lastRect && !_hidden) return;
+    // Resizing makes scrcpy re-layout its frame; throttle that while a splitter is dragged.
+    final resized = _lastRect != null && rect.size != _lastRect!.size;
+    if (resized && !_hidden && DateTime.now().difference(_lastResize).inMilliseconds < 80) return;
+    if (resized) _lastResize = DateTime.now();
     _lastRect = rect;
     _hidden = false;
     EmbedWindow.place(h, rect.left.round(), rect.top.round(), rect.width.round(), rect.height.round());
@@ -120,6 +152,7 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
   @override
   void dispose() {
     _sync?.cancel();
+    _active.remove(this);
     final p = _process;
     _process = null;
     if (p != null) Process.run('taskkill', ['/T', '/F', '/PID', '${p.pid}']);
@@ -141,22 +174,26 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: scheme.error)),
+                  Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: scheme.error),
+                  ),
                   const SizedBox(height: 8),
                   OutlinedButton(onPressed: _start, child: const Text('Retry')),
                 ],
               ),
             )
           : _hwnd == null
-              ? const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 8),
-                    Text('Opening screen (scrcpy)…', style: TextStyle(color: Colors.white70)),
-                  ],
-                )
-              : const SizedBox.expand(),
+          ? const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 8),
+                Text('Opening screen (scrcpy)…', style: TextStyle(color: Colors.white70)),
+              ],
+            )
+          : const SizedBox.expand(),
     );
   }
 }
