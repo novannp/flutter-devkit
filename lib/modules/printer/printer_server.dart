@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'escpos.dart';
@@ -233,6 +234,26 @@ class PrinterServer extends ChangeNotifier {
     if (receipts.length > 200) receipts.removeLast();
     _received.add(r);
     notifyListeners();
+    unawaited(_saveRaw(r));
+  }
+
+  /// Folder with the raw bytes of recent receipts, for debugging printer drivers.
+  static Future<Directory> rawDir() async =>
+      Directory('${(await getApplicationSupportDirectory()).path}${Platform.pathSeparator}printer_raw').create();
+
+  static String rawName(Receipt r) =>
+      'receipt_${r.time.toIso8601String().replaceAll(RegExp(r'[:.]'), '-')}_${r.raw.length}.bin';
+
+  Future<void> _saveRaw(Receipt r) async {
+    try {
+      final dir = await rawDir();
+      await File('${dir.path}${Platform.pathSeparator}${rawName(r)}').writeAsBytes(r.raw);
+      final files = dir.listSync().whereType<File>().toList()
+        ..sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+      for (final f in files.skip(30)) {
+        f.deleteSync();
+      }
+    } catch (_) {}
   }
 
   void clear() {
