@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'core/background.dart';
+import 'core/child_processes.dart';
 import 'core/theme.dart';
 import 'core/tools.dart';
 import 'modules/devices/cubit/devices_cubit.dart';
@@ -30,6 +31,7 @@ Future<void> main(List<String> args) async {
       ? null
       : Device.fromJson(jsonDecode(utf8.decode(base64Url.decode(ws.substring(workspaceArg.length)))) as Map<String, dynamic>);
   // Only the main window hosts the printer; workspace windows would fight over the port.
+  unawaited(ChildProcesses.killOrphans());
   if (device == null) {
     unawaited(printerServer.init());
     await BackgroundRunner.instance.init();
