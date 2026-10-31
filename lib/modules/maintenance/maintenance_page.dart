@@ -11,6 +11,8 @@ import '../../core/local_builds.dart';
 import '../devices/services/adb_service.dart';
 import '../emulators/avd_service.dart';
 import '../emulators/system_images_dialog.dart';
+import 'core_dep_dialog.dart';
+import 'core_deps.dart';
 
 /// Shared git packages our apps pull from Bitbucket.
 const corePackages = ['pos_core', 'pf_processor_plugin'];
@@ -67,6 +69,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
   late final _avd = AvdService(context.read<AdbService>().tools);
   List<FlutterProject>? _projects;
   final _deps = <String, List<String>>{};
+  final _coreDeps = <String, List<CoreDep>>{};
   int? _gradleSize, _pubSize, _gitSize, _imagesSize;
   final _log = <String>[];
   final _logScroll = ScrollController();
@@ -97,6 +100,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
         for (final c in corePackages)
           if (RegExp('^\\s+$c:', multiLine: true).hasMatch(pubspec)) c,
       ];
+      _coreDeps[p.path] = await CoreDeps.read(p.path, _deps[p.path]!);
     }
     if (mounted) setState(() => _projects = projects);
   }
@@ -144,6 +148,31 @@ class _MaintenancePageState extends State<MaintenancePage> {
     } finally {
       if (mounted) setState(() => _running = null);
     }
+  }
+
+  Future<void> _changeDep(FlutterProject p, CoreDep dep) async {
+    final change = await showCoreDepDialog(context, project: p.path, dep: dep);
+    if (change == null) return;
+    try {
+      switch (change) {
+        case UseRef(:final ref):
+          await CoreDeps.setLocal(p.path, dep.name, null);
+          await CoreDeps.setRef(p.path, dep.name, ref);
+          _append('${dep.name} → git $ref (pubspec.yaml)');
+        case UseLocal(:final folder):
+          await CoreDeps.setLocal(p.path, dep.name, folder);
+          _append('${dep.name} → local $folder (pubspec_overrides.yaml)');
+        case UseGit():
+          await CoreDeps.setLocal(p.path, dep.name, null);
+          _append('${dep.name} → back to git ${dep.ref ?? ''}');
+      }
+    } catch (e) {
+      _append('✗ $e');
+      return;
+    }
+    await _exec('pub upgrade ${dep.name} · ${p.name}', _flutter(p, 'pub upgrade ${dep.name}'), cwd: p.path);
+    _coreDeps[p.path] = await CoreDeps.read(p.path, _deps[p.path] ?? const []);
+    if (mounted) setState(() {});
   }
 
   String _flutter(FlutterProject p, String args) => '${p.usesFvm ? 'fvm ' : ''}flutter $args';
@@ -372,13 +401,36 @@ class _MaintenancePageState extends State<MaintenancePage> {
                             itemBuilder: (_, i) {
                               final p = _projects![i];
                               final deps = _deps[p.path] ?? const [];
+                              final core = _coreDeps[p.path] ?? const <CoreDep>[];
                               return ListTile(
                                 title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                subtitle: Text(
-                                  '${p.path}${deps.isEmpty ? '' : '\nUses ${deps.join(', ')}'}',
-                                  style: text.bodySmall?.copyWith(color: scheme.outline),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(p.path, style: text.bodySmall?.copyWith(color: scheme.outline)),
+                                    if (core.isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: [
+                                          for (final dep in core)
+                                            ActionChip(
+                                              visualDensity: VisualDensity.compact,
+                                              avatar: Icon(
+                                                dep.localPath != null ? Icons.folder_open : Icons.call_split,
+                                                size: 15,
+                                                color: dep.localPath != null ? Colors.orange : scheme.primary,
+                                              ),
+                                              label: Text('${dep.name} · ${dep.source}'),
+                                              tooltip: 'Switch branch or use a local folder',
+                                              onPressed: busy ? null : () => _changeDep(p, dep),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                                isThreeLine: deps.isNotEmpty,
                                 trailing: Wrap(
                                   spacing: 6,
                                   children: [
