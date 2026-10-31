@@ -24,16 +24,23 @@ class BackgroundRunner with WindowListener, TrayListener {
     try {
       await trayManager.setIcon('assets/tray.ico');
       await trayManager.setToolTip('Ravo DevKit');
-      await trayManager.setContextMenu(Menu(items: [
-        MenuItem(key: 'open', label: 'Open Ravo DevKit'),
-        MenuItem.separator(),
-        MenuItem(key: 'quit', label: 'Quit'),
-      ]));
+      await trayManager.setContextMenu(
+        Menu(
+          items: [
+            MenuItem(key: 'open', label: 'Open Ravo DevKit'),
+            MenuItem.separator(),
+            MenuItem(key: 'quit', label: 'Quit'),
+          ],
+        ),
+      );
       trayManager.addListener(this);
     } catch (_) {
       // Tray is a convenience; the taskbar still works without it.
     }
   }
+
+  /// Last words before exit (e.g. tell chat peers we're leaving).
+  Future<void> Function()? onQuit;
 
   Future<void> setKeepRunning(bool v) async {
     keepRunningOnClose.value = v;
@@ -47,6 +54,7 @@ class BackgroundRunner with WindowListener, TrayListener {
   }
 
   Future<void> quit() async {
+    await onQuit?.call();
     await trayManager.destroy();
     await windowManager.setPreventClose(false);
     await windowManager.destroy();

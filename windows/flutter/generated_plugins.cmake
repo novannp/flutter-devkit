@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   bonsoir_windows
   desktop_drop
   file_selector_windows
+  local_notifier
   screen_retriever_windows
   tray_manager
   window_manager
