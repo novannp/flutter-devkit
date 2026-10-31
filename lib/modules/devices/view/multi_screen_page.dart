@@ -340,7 +340,8 @@ class _Tile extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor, width: selected ? 2 : 1),
+        // Fixed width so selecting a tile doesn't shift the embedded screens.
+        border: Border.all(color: borderColor, width: 2),
         boxShadow: [
           if (selected) BoxShadow(color: scheme.primary.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4)),
         ],

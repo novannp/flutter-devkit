@@ -6,23 +6,35 @@ import 'package:ffi/ffi.dart';
 // Minimal user32 bindings; deliberately not using package:win32 since its API changes often between versions.
 final _user32 = DynamicLibrary.open('user32.dll');
 
-final _findWindowEx = _user32.lookupFunction<IntPtr Function(IntPtr, IntPtr, Pointer<Utf16>, Pointer<Utf16>),
-    int Function(int, int, Pointer<Utf16>, Pointer<Utf16>)>('FindWindowExW');
+final _findWindowEx = _user32
+    .lookupFunction<
+      IntPtr Function(IntPtr, IntPtr, Pointer<Utf16>, Pointer<Utf16>),
+      int Function(int, int, Pointer<Utf16>, Pointer<Utf16>)
+    >('FindWindowExW');
 final _getWindowThreadProcessId = _user32
-    .lookupFunction<Uint32 Function(IntPtr, Pointer<Uint32>), int Function(int, Pointer<Uint32>)>('GetWindowThreadProcessId');
-final _getWindowLongPtr =
-    _user32.lookupFunction<IntPtr Function(IntPtr, Int32), int Function(int, int)>('GetWindowLongPtrW');
-final _setWindowLongPtr =
-    _user32.lookupFunction<IntPtr Function(IntPtr, Int32, IntPtr), int Function(int, int, int)>('SetWindowLongPtrW');
+    .lookupFunction<Uint32 Function(IntPtr, Pointer<Uint32>), int Function(int, Pointer<Uint32>)>(
+      'GetWindowThreadProcessId',
+    );
+final _getWindowLongPtr = _user32.lookupFunction<IntPtr Function(IntPtr, Int32), int Function(int, int)>(
+  'GetWindowLongPtrW',
+);
+final _setWindowLongPtr = _user32.lookupFunction<IntPtr Function(IntPtr, Int32, IntPtr), int Function(int, int, int)>(
+  'SetWindowLongPtrW',
+);
 final _setParent = _user32.lookupFunction<IntPtr Function(IntPtr, IntPtr), int Function(int, int)>('SetParent');
-final _setWindowPos = _user32.lookupFunction<Int32 Function(IntPtr, IntPtr, Int32, Int32, Int32, Int32, Uint32),
-    int Function(int, int, int, int, int, int, int)>('SetWindowPos');
+final _setWindowPos = _user32
+    .lookupFunction<
+      Int32 Function(IntPtr, IntPtr, Int32, Int32, Int32, Int32, Uint32),
+      int Function(int, int, int, int, int, int, int)
+    >('SetWindowPos');
 final _showWindow = _user32.lookupFunction<Int32 Function(IntPtr, Int32), int Function(int, int)>('ShowWindow');
 final _isWindow = _user32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('IsWindow');
 
 const _gwlStyle = -16;
 const _gwlExStyle = -20;
 const _wsChild = 0x40000000;
+const _wsClipSiblings = 0x04000000;
+const _wsClipChildren = 0x02000000;
 const _wsVisible = 0x10000000;
 const _wsPopup = 0x80000000;
 const _wsCaption = 0x00C00000;
@@ -33,6 +45,10 @@ const _wsExAppWindow = 0x00040000;
 const _swpNoActivate = 0x0010;
 const _swpShowWindow = 0x0040;
 const _swpFrameChanged = 0x0020;
+const _swpNoZOrder = 0x0004;
+const _swpNoCopyBits = 0x0100;
+const _swpNoOwnerZOrder = 0x0200;
+const _swpAsyncWindowPos = 0x4000;
 const _swHide = 0;
 
 /// Embeds another process's window (scrcpy) inside this Flutter window.
@@ -69,18 +85,44 @@ class EmbedWindow {
     }
   }
 
+  static void _addStyle(int h, int bits) => _setWindowLongPtr(h, _gwlStyle, _getWindowLongPtr(h, _gwlStyle) | bits);
+
   static void adopt(int child, int parent) {
+    // Without clipping, the Flutter view and scrcpy repaint over each other every frame (flicker).
+    _addStyle(parent, _wsClipChildren);
+    final view = _flutterView(parent);
+    if (view != 0) _addStyle(view, _wsClipSiblings);
+
     var style = _getWindowLongPtr(child, _gwlStyle);
     style &= ~(_wsPopup | _wsCaption | _wsThickFrame | _wsSysMenu | _wsMinMaxBox);
-    style |= _wsChild | _wsVisible;
+    style |= _wsChild | _wsVisible | _wsClipSiblings;
     _setWindowLongPtr(child, _gwlStyle, style);
     _setWindowLongPtr(child, _gwlExStyle, _getWindowLongPtr(child, _gwlExStyle) & ~_wsExAppWindow);
     _setParent(child, parent);
+    // HWND_TOP (0) once so it sits above the Flutter view; later moves keep z-order.
+    _setWindowPos(child, 0, 0, 0, 0, 0, _swpNoActivate | _swpFrameChanged | 0x0001 | 0x0002);
+  }
+
+  static int _flutterView(int parent) {
+    final cls = 'FLUTTERVIEW'.toNativeUtf16();
+    try {
+      return _findWindowEx(parent, 0, cls, nullptr);
+    } finally {
+      calloc.free(cls);
+    }
   }
 
   /// Physical pixel coordinates, relative to the parent window's client area.
-  static void place(int child, int x, int y, int w, int h) =>
-      _setWindowPos(child, 0, x, y, w, h, _swpNoActivate | _swpShowWindow | _swpFrameChanged);
+  /// Async so the UI thread never waits on the scrcpy process.
+  static void place(int child, int x, int y, int w, int h) => _setWindowPos(
+    child,
+    0,
+    x,
+    y,
+    w,
+    h,
+    _swpNoActivate | _swpShowWindow | _swpNoZOrder | _swpNoOwnerZOrder | _swpNoCopyBits | _swpAsyncWindowPos,
+  );
 
   static void hide(int child) => _showWindow(child, _swHide);
 
