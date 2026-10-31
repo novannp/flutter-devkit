@@ -32,6 +32,16 @@ final _isIconic = _user32.lookupFunction<Int32 Function(IntPtr), int Function(in
 final _clientToScreen = _user32
     .lookupFunction<Int32 Function(IntPtr, Pointer<Int32>), int Function(int, Pointer<Int32>)>('ClientToScreen');
 
+final _gdi32 = DynamicLibrary.open('gdi32.dll');
+final _createRectRgn = _gdi32
+    .lookupFunction<IntPtr Function(Int32, Int32, Int32, Int32), int Function(int, int, int, int)>('CreateRectRgn');
+final _combineRgn = _gdi32
+    .lookupFunction<Int32 Function(IntPtr, IntPtr, IntPtr, Int32), int Function(int, int, int, int)>('CombineRgn');
+final _deleteObject = _gdi32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('DeleteObject');
+final _setWindowRgn = _user32.lookupFunction<Int32 Function(IntPtr, IntPtr, Int32), int Function(int, int, int)>(
+  'SetWindowRgn',
+);
+
 const _gwlStyle = -16;
 const _gwlExStyle = -20;
 const _gwlpHwndParent = -8;
@@ -117,6 +127,22 @@ class EmbedWindow {
   /// Moves (never resizes — scrcpy keeps its creation size) to screen coordinates in physical pixels.
   static void move(int child, int x, int y) =>
       _setWindowPos(child, 0, x, y, 0, 0, _swpNoActivate | _swpShowWindow | _swpNoZOrder | _swpNoSize);
+
+  /// Cuts [holes] (window-local physical px) out of the window so Flutter overlays under it show through.
+  /// Empty [holes] restores the full window. Returns false if Windows refused.
+  static bool setHoles(int child, int width, int height, List<(int, int, int, int)> holes) {
+    if (holes.isEmpty) return _setWindowRgn(child, 0, 1) != 0;
+    final rgn = _createRectRgn(0, 0, width, height);
+    for (final (l, t, r, b) in holes) {
+      final hole = _createRectRgn(l, t, r, b);
+      _combineRgn(rgn, rgn, hole, 4); // RGN_DIFF
+      _deleteObject(hole);
+    }
+    // On success the system owns the region; only free it if the call failed.
+    final ok = _setWindowRgn(child, rgn, 1) != 0;
+    if (!ok) _deleteObject(rgn);
+    return ok;
+  }
 
   static void hide(int child) => _showWindow(child, _swHide);
 
