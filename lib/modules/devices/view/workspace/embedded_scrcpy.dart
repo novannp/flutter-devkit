@@ -22,14 +22,17 @@ void _watch(_EmbeddedScrcpyState s) {
     if (_active.isEmpty) return;
     SchedulerBinding.instance.addPostFrameCallback((_) {
       for (final e in _active.toList()) {
-        e._syncPosition();
+        e._sync();
       }
     });
   });
 }
 
-/// scrcpy with its window embedded in this widget's area: smooth 60 fps, still inside DevKit.
-/// Note: the native window always sits above Flutter widgets, so it's hidden while a dialog/menu is open.
+/// scrcpy's window kept exactly over this widget's area: smooth 60 fps, still inside DevKit.
+///
+/// scrcpy only scales its picture to the size it was created with, so it's started at the exact
+/// area and restarted when that size changes; moves just reposition the window.
+/// The native window sits above Flutter widgets, so it's hidden while a dialog/menu is open.
 class EmbeddedScrcpy extends StatefulWidget {
   const EmbeddedScrcpy({super.key, required this.adb, required this.target, this.maxSize, this.onFailed});
 
@@ -45,12 +48,17 @@ class EmbeddedScrcpy extends StatefulWidget {
 }
 
 class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
-  final _title = 'devkit-embed-$pid-${_counter++}';
+  String _title = '';
   Process? _process;
   int? _hwnd;
-  Timer? _sync;
-  DateTime _lastResize = DateTime(0);
-  Rect? _lastRect;
+  int? _owner;
+  Timer? _poll;
+  Timer? _restart;
+
+  /// Screen rect (physical px) scrcpy was started with, and where its window currently is.
+  Rect? _spawned;
+  Offset? _placedAt;
+  var _starting = false;
   var _hidden = false;
   var _visibleInTree = true;
   String? _error;
@@ -59,39 +67,101 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
   @override
   void initState() {
     super.initState();
-    _start();
+    _owner = EmbedWindow.ownWindow();
+    _watch(this);
+    // Window moves don't produce Flutter frames; poll the (cheap) client origin to follow them.
+    _poll = Timer.periodic(const Duration(milliseconds: 30), (_) => _sync());
   }
 
-  Future<void> _start() async {
+  /// Where the widget is on screen, in physical pixels; null while hidden or not laid out.
+  Rect? _screenRect() {
+    final owner = _owner;
+    if (owner == null || !mounted || !_visibleInTree || EmbedWindow.isMinimized(owner)) return null;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize || box.size.isEmpty) return null;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final (ox, oy) = EmbedWindow.clientOrigin(owner);
+    final tl = box.localToGlobal(Offset.zero) * dpr + Offset(ox.toDouble(), oy.toDouble());
+    return Rect.fromLTWH(
+      tl.dx.roundToDouble(),
+      tl.dy.roundToDouble(),
+      (box.size.width * dpr).roundToDouble(),
+      (box.size.height * dpr).roundToDouble(),
+    );
+  }
+
+  void _sync() {
+    if (!mounted || _error != null) return;
+    final rect = _screenRect();
+    final h = _hwnd;
+    if (rect == null) {
+      if (h != null && !_hidden) EmbedWindow.hide(h);
+      _hidden = true;
+      return;
+    }
+    if (_process == null && !_starting) {
+      _start(rect);
+      return;
+    }
+    final spawned = _spawned;
+    if (h == null || spawned == null) return;
+    final sizeChanged = (rect.width - spawned.width).abs() > 2 || (rect.height - spawned.height).abs() > 2;
+    if (sizeChanged) {
+      // Hide the stale-size picture and restart once resizing settles.
+      if (!_hidden) EmbedWindow.hide(h);
+      _hidden = true;
+      if (!(_restart?.isActive ?? false) || _pendingSize != rect.size) {
+        _pendingSize = rect.size;
+        _restart?.cancel();
+        _restart = Timer(const Duration(milliseconds: 500), _relaunch);
+      }
+      return;
+    }
+    if (_hidden || rect.topLeft != _placedAt) {
+      EmbedWindow.move(h, rect.left.toInt(), rect.top.toInt());
+      _placedAt = rect.topLeft;
+      _hidden = false;
+    }
+  }
+
+  Size? _pendingSize;
+
+  void _relaunch() {
+    _kill();
+    if (mounted) setState(() {});
+    _sync();
+  }
+
+  Future<void> _start(Rect rect) async {
     final scrcpy = widget.adb.tools.scrcpy;
-    if (scrcpy == null) return _fail('scrcpy not found in PATH');
-    setState(() {
-      _error = null;
-      _hwnd = null;
-      _lastRect = null;
-    });
-    final p = await Process.start(
-      scrcpy,
-      [
+    if (scrcpy == null) return _fail('scrcpy not found');
+    _starting = true;
+    _title = 'devkit-embed-$pid-${_counter++}';
+    setState(() => _hwnd = null);
+    final Process p;
+    try {
+      p = await Process.start(scrcpy, [
         '-s', widget.target,
         '--window-title=$_title',
         '--window-borderless',
-        // Spawn off-screen first so it doesn't flicker before embedding.
-        '--window-x=-32000', '--window-y=-32000',
+        '--window-x=${rect.left.toInt()}', '--window-y=${rect.top.toInt()}',
+        '--window-width=${rect.width.toInt()}', '--window-height=${rect.height.toInt()}',
         '--no-audio',
         '--stay-awake',
         if (widget.maxSize != null) '--max-size=${widget.maxSize}',
-      ],
-      environment: {if (widget.adb.tools.adb != null) 'ADB': widget.adb.tools.adb!},
-    );
+      ], environment: {if (widget.adb.tools.adb != null) 'ADB': widget.adb.tools.adb!});
+    } catch (e) {
+      _starting = false;
+      return _fail('$e');
+    }
     _process = p;
+    _spawned = rect;
+    _placedAt = rect.topLeft;
     ChildProcesses.bind(p);
     p.stdout.transform(const SystemEncoding().decoder).listen(_log.write);
     p.stderr.transform(const SystemEncoding().decoder).listen(_log.write);
     p.exitCode.then((code) {
       if (!mounted || _process != p) return;
-      _process = null;
-      _hwnd = null;
       final reason = _log
           .toString()
           .trim()
@@ -100,64 +170,53 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
       _fail(reason);
     });
 
-    final parent = EmbedWindow.ownWindow();
+    final owner = _owner;
     for (var i = 0; i < 100 && mounted && _process == p; i++) {
       final h = EmbedWindow.findByTitle(_title);
-      if (h != 0 && parent != null) {
-        EmbedWindow.adopt(h, parent);
+      if (h != 0 && owner != null) {
+        EmbedWindow.adopt(h, owner);
         _hwnd = h;
-        _watch(this);
-        // Fallback for moves without a Flutter frame (e.g. window restored).
-        _sync ??= Timer.periodic(const Duration(milliseconds: 250), (_) => _syncPosition());
-        _syncPosition();
+        _hidden = false;
+        _starting = false;
         if (mounted) setState(() {});
+        _sync();
         return;
       }
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
+    _starting = false;
     if (mounted && _process == p && _hwnd == null) _fail('scrcpy window did not appear');
   }
 
+  void _kill() {
+    // Hide right away; taskkill is async and the window would otherwise linger as a ghost.
+    if (_hwnd case final h? when EmbedWindow.isWindow(h)) EmbedWindow.hide(h);
+    _hwnd = null;
+    _spawned = null;
+    _starting = false;
+    final p = _process;
+    _process = null;
+    if (p != null) Process.run('taskkill', ['/T', '/F', '/PID', '${p.pid}']);
+  }
+
   void _fail(String reason) {
-    _sync?.cancel();
-    _sync = null;
-    _active.remove(this);
+    _kill();
     if (!mounted) return;
     setState(() => _error = reason);
     widget.onFailed?.call(reason);
   }
 
-  void _syncPosition() {
-    final h = _hwnd;
-    if (h == null || !mounted) return;
-    final box = context.findRenderObject() as RenderBox?;
-    // Hide when another route (dialog, popup menu) is on top, or the widget isn't visible.
-    final visible = box != null && box.attached && box.hasSize && _visibleInTree;
-    if (!visible) {
-      if (!_hidden) EmbedWindow.hide(h);
-      _hidden = true;
-      return;
-    }
-    final dpr = MediaQuery.devicePixelRatioOf(context);
-    final topLeft = box.localToGlobal(Offset.zero) * dpr;
-    final rect = Rect.fromLTWH(topLeft.dx, topLeft.dy, box.size.width * dpr, box.size.height * dpr);
-    if (rect == _lastRect && !_hidden) return;
-    // Resizing makes scrcpy re-layout its frame; throttle that while a splitter is dragged.
-    final resized = _lastRect != null && rect.size != _lastRect!.size;
-    if (resized && !_hidden && DateTime.now().difference(_lastResize).inMilliseconds < 80) return;
-    if (resized) _lastResize = DateTime.now();
-    _lastRect = rect;
-    _hidden = false;
-    EmbedWindow.place(h, rect.left.round(), rect.top.round(), rect.width.round(), rect.height.round());
+  void _retry() {
+    setState(() => _error = null);
+    _sync();
   }
 
   @override
   void dispose() {
-    _sync?.cancel();
+    _poll?.cancel();
+    _restart?.cancel();
     _active.remove(this);
-    final p = _process;
-    _process = null;
-    if (p != null) Process.run('taskkill', ['/T', '/F', '/PID', '${p.pid}']);
+    _kill();
     super.dispose();
   }
 
@@ -166,7 +225,7 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
     final scheme = Theme.of(context).colorScheme;
     // Read in build so the widget rebuilds when a dialog/menu opens or the tab is hidden.
     _visibleInTree = (ModalRoute.of(context)?.isCurrent ?? true) && TickerMode.valuesOf(context).enabled;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncPosition());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
     return Container(
       color: Colors.black,
       alignment: Alignment.center,
@@ -176,13 +235,9 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: scheme.error),
-                  ),
+                  Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: scheme.error)),
                   const SizedBox(height: 8),
-                  OutlinedButton(onPressed: _start, child: const Text('Retry')),
+                  OutlinedButton(onPressed: _retry, child: const Text('Retry')),
                 ],
               ),
             )
