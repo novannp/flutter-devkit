@@ -107,6 +107,9 @@ class _GuideDialogState extends State<_GuideDialog> {
         label: const Text('Open Pair device'),
       ),
       notes: const [
+        'Skip pairing: plug the phone in by USB once and tap "Always allow from this computer". '
+            'Wireless debugging trusts the same key, so DevKit then connects over Wi-Fi with no QR or code.',
+        'Then use the device menu → "Enable port 5555" so it stays on ip:5555 (until the phone reboots).',
         'Office Wi-Fi that blocks device-to-device traffic (AP isolation) prevents devices from being detected.',
       ],
     ),
