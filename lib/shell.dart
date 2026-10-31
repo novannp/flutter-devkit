@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'core/background.dart';
 import 'core/theme.dart';
+import 'modules/console/console_page.dart';
 import 'modules/devices/view/devices_page.dart';
 import 'modules/devices/view/multi_screen_page.dart';
 import 'modules/emulators/emulators_page.dart';
@@ -35,16 +38,15 @@ const _groups = [
     _Module('Emulators', Icons.phone_android_outlined, EmulatorsPage()),
   ]),
   _Group('Tools', [
+    _Module('Terminal', Icons.terminal, ConsolePage()),
     _Module('Printer', Icons.receipt_long_outlined, PrinterPage()),
     _Module('Store Codes', Icons.storefront_outlined, StoresPage()),
     _Module('Maintenance', Icons.cleaning_services_outlined, MaintenancePage()),
-    _Module('Terminals', Icons.point_of_sale, TerminalPage()),
+    _Module('PAX Terminals', Icons.point_of_sale, TerminalPage()),
     _Module('Firebase', Icons.local_fire_department_outlined, null, phase: 4),
     _Module('Release', Icons.rocket_launch_outlined, null, phase: 4),
   ]),
-  _Group('Other', [
-    _Module('Settings', Icons.settings_outlined, SettingsPage()),
-  ]),
+  _Group('Other', [_Module('Settings', Icons.settings_outlined, SettingsPage())]),
 ];
 
 final _modules = [for (final g in _groups) ...g.modules];
@@ -163,6 +165,11 @@ class _Sidebar extends StatelessWidget {
                   ),
                 ),
                 IconButton(
+                  tooltip: 'Take a break 🎮',
+                  onPressed: () => _takeABreak(context),
+                  icon: const Icon(Icons.sports_esports_outlined, size: 20),
+                ),
+                IconButton(
                   tooltip: 'Quit DevKit',
                   onPressed: BackgroundRunner.instance.quit,
                   icon: const Icon(Icons.power_settings_new, size: 20),
@@ -185,6 +192,26 @@ class _Sidebar extends StatelessWidget {
       ),
     );
   }
+}
+
+// Easter egg: opens Steam for a well-earned break.
+Future<void> _takeABreak(BuildContext context) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final reg = await Process.run('reg', ['query', r'HKCU\Software\Valve\Steam', '/v', 'SteamExe']);
+  final installed = reg.exitCode == 0;
+  if (installed) await Process.run('explorer', ['steam://open/main']);
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        width: 420,
+        content: Text(
+          installed
+              ? 'Break time 🎮 — the devices will still be here when you get back.'
+              : "Steam isn't installed… maybe get a coffee instead ☕",
+        ),
+      ),
+    );
 }
 
 class _NavItem extends StatelessWidget {

@@ -29,6 +29,7 @@ import 'info_tab.dart';
 import 'logcat_tab.dart';
 import 'screen_panel.dart';
 import 'shell_tab.dart';
+import 'terminal_tab.dart';
 
 class DeviceWorkspacePage extends StatefulWidget {
   const DeviceWorkspacePage({super.key, required this.device, this.standalone = false, this.panelOnly = false});
@@ -112,7 +113,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
   var _dragging = false;
   var _fast = true;
 
-  static const _tabs = ['Flutter', 'Logcat', 'Apps', 'Dev', 'Info', 'Shell', 'Files'];
+  static const _tabs = ['Flutter', 'Logcat', 'Apps', 'Dev', 'Info', 'Shell', 'Files', 'Terminal'];
   static const _filesTab = 6;
 
   @override
@@ -762,6 +763,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
               InfoTab(dev: dev),
               ShellTab(dev: dev, focus: _focus),
               FilesTab(dev: dev, dir: _filesDir, refresh: _filesRefresh),
+              TerminalTab(dev: dev, focus: _focus, active: _tab == _tabs.length - 1),
             ],
           ),
         ),

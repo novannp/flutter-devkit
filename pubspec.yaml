@@ -46,6 +46,8 @@ dependencies:
   window_manager: ^0.5.2
   tray_manager: ^0.5.1
   path: ^1.9.1
+  xterm: ^4.0.0
+  flutter_pty: ^0.4.2
 
 dev_dependencies:
   flutter_test:
@@ -102,3 +104,7 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# xterm 4 still pins equatable ^2; its usage is compatible with 3.
+dependency_overrides:
+  equatable: ^3.0.0
