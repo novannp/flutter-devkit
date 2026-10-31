@@ -5,6 +5,7 @@ import 'modules/devices/view/devices_page.dart';
 import 'modules/devices/view/multi_screen_page.dart';
 import 'modules/emulators/emulators_page.dart';
 import 'modules/help/connection_guide.dart';
+import 'modules/maintenance/maintenance_page.dart';
 import 'modules/printer/printer_page.dart';
 import 'modules/settings/settings_page.dart';
 import 'modules/stores/view/stores_page.dart';
@@ -35,6 +36,7 @@ const _groups = [
   _Group('Tools', [
     _Module('Printer', Icons.receipt_long_outlined, PrinterPage()),
     _Module('Store Codes', Icons.storefront_outlined, StoresPage()),
+    _Module('Maintenance', Icons.cleaning_services_outlined, MaintenancePage()),
     _Module('Terminals', Icons.point_of_sale, TerminalPage()),
     _Module('Firebase', Icons.local_fire_department_outlined, null, phase: 4),
     _Module('Release', Icons.rocket_launch_outlined, null, phase: 4),

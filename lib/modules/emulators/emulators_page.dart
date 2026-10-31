@@ -10,6 +10,7 @@ import '../devices/models/device.dart';
 import '../devices/services/adb_service.dart';
 import '../devices/view/workspace/display_editor.dart';
 import 'avd_service.dart';
+import 'system_images_dialog.dart';
 
 class EmulatorsPage extends StatefulWidget {
   const EmulatorsPage({super.key});
@@ -140,9 +141,12 @@ class _EmulatorsPageState extends State<EmulatorsPage> {
   }
 
   Future<void> _create() async {
-    final images = _svc.systemImages();
+    var images = _svc.systemImages();
     if (images.isEmpty) {
-      return _toast('No system images found — download one in Android Studio → SDK Manager');
+      _toast('No system images yet — download one first');
+      await showSystemImagesDialog(context, _svc);
+      images = _svc.systemImages();
+      if (images.isEmpty || !mounted) return;
     }
     final created = await showDialog<bool>(
       context: context,
@@ -179,6 +183,12 @@ class _EmulatorsPageState extends State<EmulatorsPage> {
               ),
               const Spacer(),
               IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh)),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: noEmulator ? null : () => showSystemImagesDialog(context, _svc),
+                icon: const Icon(Icons.download_outlined, size: 18),
+                label: const Text('System images'),
+              ),
               const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: noEmulator ? null : _create,
@@ -398,6 +408,7 @@ class _HardwareFields extends StatelessWidget {
     required this.dpi,
     required this.ram,
     required this.onPreset,
+    this.showPresets = true,
   });
 
   final TextEditingController w;
@@ -405,6 +416,7 @@ class _HardwareFields extends StatelessWidget {
   final TextEditingController dpi;
   final TextEditingController ram;
   final ValueChanged<DisplayPreset> onPreset;
+  final bool showPresets;
 
   @override
   Widget build(BuildContext context) {
@@ -430,16 +442,76 @@ class _HardwareFields extends StatelessWidget {
             f(ram, 'RAM MB'),
           ],
         ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
+        if (showPresets) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final p in displayPresets)
+                ActionChip(label: Text(p.label), visualDensity: VisualDensity.compact, onPressed: () => onPreset(p)),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PresetCard extends StatelessWidget {
+  const _PresetCard({required this.preset, required this.selected, required this.onTap});
+
+  final DisplayPreset preset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = preset;
+    final scheme = Theme.of(context).colorScheme;
+    final landscape = p.w > p.h;
+    final icon = p.inches >= 20
+        ? Icons.desktop_windows_outlined
+        : p.label.startsWith('POS')
+        ? Icons.point_of_sale
+        : p.inches >= 8
+        ? Icons.tablet_android
+        : Icons.smartphone;
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: Container(
+        width: 150,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: selected ? scheme.primary.withValues(alpha: .08) : scheme.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant, width: selected ? 1.5 : 1),
+        ),
+        child: Row(
           children: [
-            for (final p in displayPresets)
-              ActionChip(label: Text(p.label), visualDensity: VisualDensity.compact, onPressed: () => onPreset(p)),
+            Icon(icon, size: 22, color: selected ? scheme.primary : scheme.outline),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    p.label,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '${p.inches}" · ${p.w}×${p.h}\n${p.dpi} dpi${landscape ? ' · landscape' : ''}',
+                    style: TextStyle(fontSize: 10.5, color: scheme.outline, height: 1.3),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -526,6 +598,15 @@ class _CreateDialogState extends State<_CreateDialog> {
   String? _error;
   var _busy = false;
 
+  void _applyPreset(DisplayPreset p) => setState(() {
+    _w.text = '${p.w}';
+    _h.text = '${p.h}';
+    _dpi.text = '${p.dpi}';
+    _ram.text = '${_ramFor(p)}';
+    _disk.text = p.inches >= 15 ? '8' : '6';
+    _name.text = p.label;
+  });
+
   String get _id => _name.text.trim().replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_').replaceAll(RegExp(r'^_+|_+$'), '');
 
   Future<void> _submit() async {
@@ -563,11 +644,30 @@ class _CreateDialogState extends State<_CreateDialog> {
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('Create virtual device'),
     content: SizedBox(
-      width: 560,
+      width: 660,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text(
+            'DEVICE SIZE',
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: Theme.of(context).colorScheme.outline, letterSpacing: .6),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final p in displayPresets)
+                _PresetCard(
+                  preset: p,
+                  selected: _w.text == '${p.w}' && _h.text == '${p.h}' && _dpi.text == '${p.dpi}',
+                  onTap: () => _applyPreset(p),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
           TextField(
             controller: _name,
             decoration: InputDecoration(labelText: 'Name', helperText: 'ID: $_id'),
@@ -581,19 +681,7 @@ class _CreateDialogState extends State<_CreateDialog> {
             onChanged: (v) => setState(() => _image = v ?? _image),
           ),
           const SizedBox(height: 12),
-          _HardwareFields(
-            w: _w,
-            h: _h,
-            dpi: _dpi,
-            ram: _ram,
-            onPreset: (p) => setState(() {
-              _w.text = '${p.w}';
-              _h.text = '${p.h}';
-              _dpi.text = '${p.dpi}';
-              _ram.text = '${_ramFor(p)}';
-              _name.text = p.label;
-            }),
-          ),
+          _HardwareFields(w: _w, h: _h, dpi: _dpi, ram: _ram, showPresets: false, onPreset: _applyPreset),
           const SizedBox(height: 12),
           SizedBox(
             width: 140,
