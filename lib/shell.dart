@@ -210,17 +210,19 @@ class _Sidebar extends StatelessWidget {
           ),
           const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 2),
+            child: TextButton.icon(
+              onPressed: () => showConnectionGuide(context),
+              icon: const Icon(Icons.help_outline, size: 18),
+              label: const Text('Connection guide', maxLines: 1, overflow: TextOverflow.ellipsis),
+              style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: TextButton.icon(
-                    onPressed: () => showConnectionGuide(context),
-                    icon: const Icon(Icons.help_outline, size: 18),
-                    label: const Text('Guide'),
-                    style: TextButton.styleFrom(alignment: Alignment.centerLeft),
-                  ),
-                ),
                 IconButton(
                   tooltip: 'Take a break 🎮',
                   onPressed: () => _takeABreak(context),
