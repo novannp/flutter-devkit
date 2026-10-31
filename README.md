@@ -51,7 +51,7 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 
 ### 🪟 Device workspace
 - Opens each device in **its own window**, made for multi-device testing
-- Screen mirror: **Fast** (embedded scrcpy) or **Lite** (screenshots)
+- Screen mirror: **Fast** (embedded scrcpy) or **Lite** (screenshots), auto-sized to the device's shape with no black bars (drag the divider to override, double-click it to go back to auto)
 - Logcat with **crash detection**, files, apps, info
 - **Interactive terminal**: `adb shell` on the device, or Git Bash / PowerShell already pointed at it (`ANDROID_SERIAL`)
 - **Flutter** run/attach with hot reload/restart, install latest build

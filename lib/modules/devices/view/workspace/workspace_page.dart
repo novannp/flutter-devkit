@@ -90,6 +90,7 @@ const _shortcuts = [
 
 const _prefTab = 'ws_tab';
 const _prefPanel = 'ws_panel_width';
+const _prefPanelAuto = 'ws_panel_auto';
 const _prefFast = 'ws_fast_screen';
 String _prefFocus(String id) => 'ws_focus_$id';
 
@@ -110,6 +111,20 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
   var _record = false;
   var _tab = 0;
   var _panelWidth = 520.0;
+
+  /// Size the screen area to the device's shape (no black bars) until the user drags the divider.
+  var _autoWidth = true;
+  Size? _screenSize;
+  Timer? _sizeProbe;
+
+  Future<void> _probeScreenSize() async {
+    final bytes = await dev.screenshot();
+    if (!mounted || bytes == null || bytes.length < 24) return;
+    final v = ByteData.sublistView(bytes);
+    final size = Size(v.getUint32(16).toDouble(), v.getUint32(20).toDouble());
+    if (size != _screenSize) setState(() => _screenSize = size);
+  }
+
   var _dragging = false;
   var _fast = true;
 
@@ -120,6 +135,11 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
   void initState() {
     super.initState();
     _restorePrefs();
+    if (!widget.panelOnly) {
+      _probeScreenSize();
+      // Re-check now and then so rotating the device resizes the screen area.
+      _sizeProbe = Timer.periodic(const Duration(seconds: 8), (_) => _probeScreenSize());
+    }
     dev.sh('getprop ro.build.version.release; getprop ro.build.version.sdk').then((v) {
       final p = v.split('\n');
       if (mounted && p.length >= 2) setState(() => _android = 'Android ${p[0].trim()} (API ${p[1].trim()})');
@@ -148,6 +168,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
     setState(() {
       _tab = (prefs.getInt(_prefTab) ?? 0).clamp(0, _tabs.length - 1);
       _panelWidth = prefs.getDouble(_prefPanel) ?? _panelWidth;
+      _autoWidth = prefs.getBool(_prefPanelAuto) ?? true;
       _fast = (prefs.getBool(_prefFast) ?? true) && dev.adb.tools.scrcpy != null;
     });
     _focus.value ??= prefs.getString(_prefFocus(widget.device.id));
@@ -172,6 +193,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
 
   @override
   void dispose() {
+    _sizeProbe?.cancel();
     _crashSub?.cancel();
     _flutter.removeListener(_onFlutter);
     _flutter.dispose();
@@ -434,37 +456,57 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
                       _buildTopBar(d, scheme),
                       const Divider(height: 1),
                       Expanded(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _fast
-                                  ? Padding(
-                                      padding: const EdgeInsets.all(8),
-                                      child: EmbeddedScrcpy(
-                                        key: ValueKey(dev.target),
-                                        adb: dev.adb,
-                                        target: dev.target,
-                                        onFailed: (reason) => _toast('Fast mode failed: $reason'),
-                                      ),
-                                    )
-                                  : ScreenPanel(dev: dev),
-                            ),
-                            DeviceToolbar(
-                              dev: dev,
-                              onScreenshot: _screenshot,
-                              recording: _record,
-                              onRecord: () {
-                                setState(() => _record = !_record);
-                                _toast(_record ? 'Recording on: click Remote to start recording' : 'Recording off');
-                              },
-                            ),
-                            _ResizeHandle(
-                              onDrag: (dx) => setState(() => _panelWidth = (_panelWidth - dx).clamp(380.0, 1100.0)),
-                              onEnd: () =>
-                                  SharedPreferences.getInstance().then((p) => p.setDouble(_prefPanel, _panelWidth)),
-                            ),
-                            SizedBox(width: _panelWidth, child: _buildPanel(d)),
-                          ],
+                        child: LayoutBuilder(
+                          builder: (context, box) {
+                            const toolbarW = 54.0, handleW = 7.0, pad = 16.0;
+                            var panelW = _panelWidth;
+                            final shape = _screenSize;
+                            if (_autoWidth && shape != null) {
+                              final screenW = (box.maxHeight - pad) * shape.width / shape.height + pad;
+                              panelW = (box.maxWidth - screenW - toolbarW - handleW).clamp(380.0, 1100.0);
+                            }
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: _fast
+                                      ? Padding(
+                                          padding: const EdgeInsets.all(8),
+                                          child: EmbeddedScrcpy(
+                                            key: ValueKey(dev.target),
+                                            adb: dev.adb,
+                                            target: dev.target,
+                                            onFailed: (reason) => _toast('Fast mode failed: $reason'),
+                                          ),
+                                        )
+                                      : ScreenPanel(dev: dev),
+                                ),
+                                DeviceToolbar(
+                                  dev: dev,
+                                  onScreenshot: _screenshot,
+                                  recording: _record,
+                                  onRecord: () {
+                                    setState(() => _record = !_record);
+                                    _toast(_record ? 'Recording on: click Remote to start recording' : 'Recording off');
+                                  },
+                                ),
+                                _ResizeHandle(
+                                  onDrag: (dx) => setState(() {
+                                    _autoWidth = false;
+                                    _panelWidth = (panelW - dx).clamp(380.0, 1100.0);
+                                  }),
+                                  onEnd: () => SharedPreferences.getInstance().then((p) {
+                                    p.setDouble(_prefPanel, _panelWidth);
+                                    p.setBool(_prefPanelAuto, false);
+                                  }),
+                                  onDoubleTap: () {
+                                    setState(() => _autoWidth = true);
+                                    SharedPreferences.getInstance().then((p) => p.setBool(_prefPanelAuto, true));
+                                  },
+                                ),
+                                SizedBox(width: panelW, child: _buildPanel(d)),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -819,10 +861,11 @@ class _PanelTab extends StatelessWidget {
 }
 
 class _ResizeHandle extends StatelessWidget {
-  const _ResizeHandle({required this.onDrag, required this.onEnd});
+  const _ResizeHandle({required this.onDrag, required this.onEnd, this.onDoubleTap});
 
   final void Function(double dx) onDrag;
   final VoidCallback onEnd;
+  final VoidCallback? onDoubleTap;
 
   @override
   Widget build(BuildContext context) => MouseRegion(
@@ -831,6 +874,7 @@ class _ResizeHandle extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onHorizontalDragUpdate: (e) => onDrag(e.delta.dx),
       onHorizontalDragEnd: (_) => onEnd(),
+      onDoubleTap: onDoubleTap,
       child: SizedBox(
         width: 7,
         child: Center(child: VerticalDivider(width: 1, color: Theme.of(context).dividerColor)),
