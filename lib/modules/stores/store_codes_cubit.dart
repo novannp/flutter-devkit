@@ -28,8 +28,7 @@ class StoreCodesCubit extends Cubit<List<StoreCode>> {
     await prefs.setString(_key, jsonEncode(codes.map((c) => c.toJson()).toList()));
   }
 
-  Future<void> upsert(StoreCode code) =>
-      _save([...state.where((c) => c.id != code.id), code]);
+  Future<void> upsert(StoreCode code) => _save([...state.where((c) => c.id != code.id), code]);
 
   Future<void> remove(StoreCode code) => _save(state.where((c) => c.id != code.id).toList());
 

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'device_adb.dart';
+import '../../../core/history.dart';
 
 class LogLine {
   LogLine(this.raw, {this.time, this.pid, this.level = 'V', this.tag = '', this.message = '', this.crash = false});
@@ -51,8 +52,10 @@ class LogcatController extends ChangeNotifier {
   var paused = false;
 
   Stream<LogLine> get onCrash => _crashEvents.stream;
+  SessionLog? _session;
 
   void start() {
+    History.session('logcat', dev.target).then((s) => _session = s);
     _restart();
     _pollPid();
     _pidPoll = Timer.periodic(const Duration(seconds: 3), (_) => _pollPid());
@@ -71,11 +74,19 @@ class LogcatController extends ChangeNotifier {
     p.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((raw) {
       if (paused) return;
       final line = LogLine.parse(raw);
+      _session?.writeln(raw);
       lines.add(line);
       if (lines.length > maxLines + 2000) lines.removeRange(0, lines.length - maxLines);
       if (line.crash) {
         crashes.add(line);
         _crashEvents.add(line);
+        // Keep the lead-up so the crash can be reviewed after the session is gone.
+        final context = lines.skip(lines.length > 60 ? lines.length - 60 : 0).map((l) => l.raw).join('\n');
+        History.add('crashes', 'crash', '${line.tag}: ${line.message}', {
+          'device': dev.target,
+          'app': ?ourPids[line.pid],
+          'log': context,
+        });
       }
       _dirty = true;
     });
@@ -112,6 +123,7 @@ class LogcatController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _session?.close();
     _process?.kill();
     _pidPoll?.cancel();
     _flush?.cancel();

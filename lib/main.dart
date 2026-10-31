@@ -21,6 +21,7 @@ import 'modules/devices/view/workspace/workspace_page.dart';
 import 'modules/printer/printer_page.dart';
 import 'modules/stores/store_codes_cubit.dart';
 import 'shell.dart';
+import 'core/history.dart';
 
 /// Workspace window argument: `--workspace=<device json>`; see [openWorkspaceWindow].
 const workspaceArg = '--workspace=';
@@ -37,6 +38,7 @@ Future<void> main(List<String> args) async {
         );
   // Only the main window hosts the printer; workspace windows would fight over the port.
   unawaited(ChildProcesses.killOrphans());
+  if (device == null) unawaited(History.prune());
   if (device == null) {
     unawaited(printerServer.init());
     await BackgroundRunner.instance.init();

@@ -11,6 +11,7 @@ import '../devices/services/adb_service.dart';
 import '../devices/view/workspace/display_editor.dart';
 import 'avd_service.dart';
 import 'system_images_dialog.dart';
+import '../../core/history.dart';
 
 class EmulatorsPage extends StatefulWidget {
   const EmulatorsPage({super.key});
@@ -52,6 +53,7 @@ class _EmulatorsPageState extends State<EmulatorsPage> {
     setState(() => _busy.add(a.name));
     try {
       await action();
+      History.activity('emulator', done, {'avd': a.name});
       _toast(done);
     } catch (e) {
       _toast('Failed: $e');
@@ -621,6 +623,7 @@ class _CreateDialogState extends State<_CreateDialog> {
     }
     setState(() => _busy = true);
     try {
+      History.activity('emulator', 'Create AVD $id', {'image': _image.label});
       await widget.svc.create(
         name: id,
         displayName: _name.text.trim(),

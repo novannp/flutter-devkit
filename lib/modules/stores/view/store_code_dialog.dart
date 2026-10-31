@@ -5,8 +5,10 @@ import '../models/store_code.dart';
 
 const storeEnvs = ['prod', 'qa'];
 
-Future<StoreCode?> showStoreCodeDialog(BuildContext context, {StoreCode? initial}) =>
-    showDialog<StoreCode>(context: context, builder: (_) => _StoreCodeDialog(initial: initial));
+Future<StoreCode?> showStoreCodeDialog(BuildContext context, {StoreCode? initial}) => showDialog<StoreCode>(
+  context: context,
+  builder: (_) => _StoreCodeDialog(initial: initial),
+);
 
 class _StoreCodeDialog extends StatefulWidget {
   const _StoreCodeDialog({this.initial});
@@ -95,7 +97,9 @@ class _StoreCodeDialogState extends State<_StoreCodeDialog> {
                 initialValue: _env,
                 decoration: const InputDecoration(labelText: 'Environment'),
                 // Older saved codes may still use a removed env; keep it selectable.
-                items: [for (final e in {...storeEnvs, _env}) DropdownMenuItem(value: e, child: Text(e))],
+                items: [
+                  for (final e in {...storeEnvs, _env}) DropdownMenuItem(value: e, child: Text(e)),
+                ],
                 onChanged: (v) => setState(() => _env = v!),
               ),
               const SizedBox(height: 12),
@@ -128,9 +132,7 @@ class _StoreCodeDialogState extends State<_StoreCodeDialog> {
                   TextButton.icon(
                     onPressed: _pickExpire,
                     icon: const Icon(Icons.event),
-                    label: Text(_expire == null
-                        ? 'Expiry?'
-                        : '${_expire!.day}/${_expire!.month}/${_expire!.year}'),
+                    label: Text(_expire == null ? 'Expiry?' : '${_expire!.day}/${_expire!.month}/${_expire!.year}'),
                   ),
                   if (_expire != null)
                     IconButton(
@@ -141,7 +143,10 @@ class _StoreCodeDialogState extends State<_StoreCodeDialog> {
                 ],
               ),
               const SizedBox(height: 12),
-              TextFormField(controller: _prefix, decoration: const InputDecoration(labelText: 'Device prefix (optional)')),
+              TextFormField(
+                controller: _prefix,
+                decoration: const InputDecoration(labelText: 'Device prefix (optional)'),
+              ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _notes,

@@ -28,10 +28,8 @@ class Tools {
   }
 
   // Prefer a system adb so we don't fight an already-running adb server of another version.
-  static Future<Tools> resolve() async => Tools._(
-        await _which('adb') ?? _bundled('adb.exe'),
-        _bundled('scrcpy.exe') ?? await _which('scrcpy'),
-      );
+  static Future<Tools> resolve() async =>
+      Tools._(await _which('adb') ?? _bundled('adb.exe'), _bundled('scrcpy.exe') ?? await _which('scrcpy'));
 
   static Future<String?> _which(String name) async {
     try {
@@ -53,10 +51,13 @@ class Tools {
     final p = await Process.start(exe, args, environment: environment);
     final out = p.stdout.transform(utf8.decoder).join();
     final err = p.stderr.transform(utf8.decoder).join();
-    final code = await p.exitCode.timeout(timeout, onTimeout: () {
-      p.kill();
-      return -1;
-    });
+    final code = await p.exitCode.timeout(
+      timeout,
+      onTimeout: () {
+        p.kill();
+        return -1;
+      },
+    );
     return ProcessOutput(code, await out, await err);
   }
 
@@ -69,10 +70,13 @@ class Tools {
     p.stderr.drain<void>();
     final builder = BytesBuilder(copy: false);
     final done = p.stdout.forEach(builder.add);
-    final code = await p.exitCode.timeout(timeout, onTimeout: () {
-      p.kill();
-      return -1;
-    });
+    final code = await p.exitCode.timeout(
+      timeout,
+      onTimeout: () {
+        p.kill();
+        return -1;
+      },
+    );
     await done;
     return code == 0 ? builder.takeBytes() : null;
   }

@@ -6,8 +6,10 @@ import '../models/store_code.dart';
 import '../store_codes_cubit.dart';
 
 /// Search a store, then type its activation/support code into the focused field on the device.
-Future<String?> showCodePicker(BuildContext context, DeviceAdb dev) =>
-    showDialog<String>(context: context, builder: (_) => _CodePicker(dev: dev));
+Future<String?> showCodePicker(BuildContext context, DeviceAdb dev) => showDialog<String>(
+  context: context,
+  builder: (_) => _CodePicker(dev: dev),
+);
 
 class _CodePicker extends StatefulWidget {
   const _CodePicker({required this.dev});

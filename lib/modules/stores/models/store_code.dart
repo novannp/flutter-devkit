@@ -50,41 +50,39 @@ class StoreCode extends Equatable {
     bool clearSupportExpire = false,
     String? devicePrefix,
     String? notes,
-  }) =>
-      StoreCode(
-        id: id,
-        storeName: storeName ?? this.storeName,
-        env: env ?? this.env,
-        activationCode: activationCode ?? this.activationCode,
-        supportCode: supportCode ?? this.supportCode,
-        supportExpire: clearSupportExpire ? null : (supportExpire ?? this.supportExpire),
-        devicePrefix: devicePrefix ?? this.devicePrefix,
-        notes: notes ?? this.notes,
-      );
+  }) => StoreCode(
+    id: id,
+    storeName: storeName ?? this.storeName,
+    env: env ?? this.env,
+    activationCode: activationCode ?? this.activationCode,
+    supportCode: supportCode ?? this.supportCode,
+    supportExpire: clearSupportExpire ? null : (supportExpire ?? this.supportExpire),
+    devicePrefix: devicePrefix ?? this.devicePrefix,
+    notes: notes ?? this.notes,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'storeName': storeName,
-        'env': env,
-        'activationCode': activationCode,
-        'supportCode': supportCode,
-        'supportExpire': supportExpire?.toIso8601String(),
-        'devicePrefix': devicePrefix,
-        'notes': notes,
-      };
+    'id': id,
+    'storeName': storeName,
+    'env': env,
+    'activationCode': activationCode,
+    'supportCode': supportCode,
+    'supportExpire': supportExpire?.toIso8601String(),
+    'devicePrefix': devicePrefix,
+    'notes': notes,
+  };
 
   factory StoreCode.fromJson(Map<String, dynamic> json) => StoreCode(
-        id: json['id'] as String? ?? DateTime.now().microsecondsSinceEpoch.toString(),
-        storeName: json['storeName'] as String? ?? '',
-        env: json['env'] as String? ?? 'prod',
-        activationCode: json['activationCode'] as String? ?? '',
-        supportCode: json['supportCode'] as String? ?? '',
-        supportExpire: DateTime.tryParse(json['supportExpire'] as String? ?? ''),
-        devicePrefix: json['devicePrefix'] as String? ?? '',
-        notes: json['notes'] as String? ?? '',
-      );
+    id: json['id'] as String? ?? DateTime.now().microsecondsSinceEpoch.toString(),
+    storeName: json['storeName'] as String? ?? '',
+    env: json['env'] as String? ?? 'prod',
+    activationCode: json['activationCode'] as String? ?? '',
+    supportCode: json['supportCode'] as String? ?? '',
+    supportExpire: DateTime.tryParse(json['supportExpire'] as String? ?? ''),
+    devicePrefix: json['devicePrefix'] as String? ?? '',
+    notes: json['notes'] as String? ?? '',
+  );
 
   @override
-  List<Object?> get props =>
-      [id, storeName, env, activationCode, supportCode, supportExpire, devicePrefix, notes];
+  List<Object?> get props => [id, storeName, env, activationCode, supportCode, supportExpire, devicePrefix, notes];
 }

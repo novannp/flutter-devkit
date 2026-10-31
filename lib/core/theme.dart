@@ -18,22 +18,26 @@ Future<void> setThemeMode(ThemeMode mode) async {
 
 ThemeData buildTheme(Brightness brightness) {
   final light = brightness == Brightness.light;
-  final scheme = ColorScheme.fromSeed(
-    seedColor: brandColor,
-    brightness: brightness,
-    dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
-  ).copyWith(
-    primary: light ? const Color(0xFF059669) : const Color(0xFF34D399),
-    surface: light ? Colors.white : const Color(0xFF15181D),
-    surfaceContainerLowest: light ? const Color(0xFFFAFBFC) : const Color(0xFF0E1013),
-    surfaceContainerLow: light ? const Color(0xFFF6F7F9) : const Color(0xFF1A1D23),
-    surfaceContainer: light ? const Color(0xFFF1F3F5) : const Color(0xFF1F232A),
-    surfaceContainerHigh: light ? const Color(0xFFEBEEF1) : const Color(0xFF262B33),
-    outline: light ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
-    outlineVariant: light ? const Color(0xFFE5E7EB) : const Color(0xFF2E333B),
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: brandColor,
+        brightness: brightness,
+        dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+      ).copyWith(
+        primary: light ? const Color(0xFF059669) : const Color(0xFF34D399),
+        surface: light ? Colors.white : const Color(0xFF15181D),
+        surfaceContainerLowest: light ? const Color(0xFFFAFBFC) : const Color(0xFF0E1013),
+        surfaceContainerLow: light ? const Color(0xFFF6F7F9) : const Color(0xFF1A1D23),
+        surfaceContainer: light ? const Color(0xFFF1F3F5) : const Color(0xFF1F232A),
+        surfaceContainerHigh: light ? const Color(0xFFEBEEF1) : const Color(0xFF262B33),
+        outline: light ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+        outlineVariant: light ? const Color(0xFFE5E7EB) : const Color(0xFF2E333B),
+      );
   final radius = BorderRadius.circular(10);
-  final border = OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: scheme.outlineVariant));
+  final border = OutlineInputBorder(
+    borderRadius: radius,
+    borderSide: BorderSide(color: scheme.outlineVariant),
+  );
 
   return ThemeData(
     colorScheme: scheme,
@@ -47,7 +51,10 @@ ThemeData buildTheme(Brightness brightness) {
       color: scheme.surface,
       elevation: 0,
       margin: const EdgeInsets.symmetric(vertical: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: scheme.outlineVariant)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -104,7 +111,10 @@ ThemeData buildTheme(Brightness brightness) {
     popupMenuTheme: PopupMenuThemeData(
       color: scheme.surface,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: radius, side: BorderSide(color: scheme.outlineVariant)),
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: scheme.surface,
@@ -123,11 +133,14 @@ ThemeData buildTheme(Brightness brightness) {
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : null),
       trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? scheme.primary : null),
-      trackOutlineColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? scheme.primary : null),
+      trackOutlineColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected) ? scheme.primary : null,
+      ),
     ),
-    listTileTheme: const ListTileThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10)))),
-    textTheme: Typography.material2021(platform: TargetPlatform.windows)
-        .englishLike
+    listTileTheme: const ListTileThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+    ),
+    textTheme: Typography.material2021(platform: TargetPlatform.windows).englishLike
         .merge(light ? Typography.blackMountainView : Typography.whiteMountainView)
         .copyWith(
           headlineSmall: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -.3),
@@ -144,7 +157,12 @@ ThemeData buildTheme(Brightness brightness) {
       scrolledUnderElevation: 0,
       centerTitle: false,
       shape: Border(bottom: BorderSide(color: scheme.outlineVariant)),
-      titleTextStyle: TextStyle(fontFamily: 'Segoe UI', fontSize: 16, fontWeight: FontWeight.w700, color: scheme.onSurface),
+      titleTextStyle: TextStyle(
+        fontFamily: 'Segoe UI',
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: scheme.onSurface,
+      ),
     ),
     tabBarTheme: TabBarThemeData(
       labelColor: scheme.primary,
@@ -171,7 +189,10 @@ ThemeData buildTheme(Brightness brightness) {
         backgroundColor: WidgetStatePropertyAll(scheme.surface),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: radius, side: BorderSide(color: scheme.outlineVariant)),
+          RoundedRectangleBorder(
+            borderRadius: radius,
+            side: BorderSide(color: scheme.outlineVariant),
+          ),
         ),
       ),
     ),

@@ -27,12 +27,31 @@ const _reads = {
   'wifi': 'settings get global wifi_on',
   'data': 'settings get global mobile_data',
   'airplane': 'settings get global airplane_mode_on',
+  'sdk': 'getprop ro.build.version.sdk',
+  'ratelimit': 'settings get global ingress_rate_limit_bytes_per_second',
+  'drop': 'p=\$(cat $_dropPid) && kill -0 \$p && echo 1',
+};
+
+const _dropPid = '/data/local/tmp/ravo_net.pid';
+const _dropRestore = '/data/local/tmp/ravo_net.restore';
+
+// Bytes/s for Android's "Network download rate limit" developer option.
+const _rateLimits = {'-1': 'Off', '6250': '2G', '125000': '3G', '1250000': '4G'};
+
+// Emulator console presets: label → (speed, delay).
+const _emuProfiles = {
+  'full': ('full', 'none'),
+  'lte': ('lte', 'none'),
+  'umts': ('umts', 'umts'),
+  'edge': ('edge', 'edge'),
+  'gsm': ('gsm', 'gprs'),
 };
 
 class _DevTabState extends State<DevTab> {
   Map<String, String> _v = const {};
   var _batteryLevel = 50.0;
   var _loading = false;
+  var _emuProfile = 'full';
 
   DeviceAdb get dev => widget.dev;
 
@@ -73,6 +92,32 @@ class _DevTabState extends State<DevTab> {
     await dev.shell(cmd);
     await _load();
   }
+
+  Future<void> _emuNetwork(String profile) async {
+    final (speed, delay) = _emuProfiles[profile]!;
+    setState(() => _emuProfile = profile);
+    await dev.run(['emu', 'network', 'speed', speed]);
+    await dev.run(['emu', 'network', 'delay', delay]);
+  }
+
+  /// Turns the network off/on in a loop on the device itself, so it still recovers when
+  /// ADB over Wi-Fi drops with it.
+  Future<void> _drop({required int offSec, int onSec = 0, int cycles = 1}) async {
+    final radios = [if (_on('wifi')) 'wifi', if (_on('data')) 'data'];
+    final off = radios.isEmpty
+        ? 'cmd connectivity airplane-mode enable'
+        : radios.map((r) => 'svc $r disable').join('; ');
+    final on = radios.isEmpty
+        ? 'cmd connectivity airplane-mode disable'
+        : radios.map((r) => 'svc $r enable').join('; ');
+    final loop =
+        'echo \$\$ > $_dropPid; i=0; while [ \$i -lt $cycles ]; do $off; sleep $offSec; $on; sleep $onSec; i=\$((i+1)); done; rm -f $_dropPid';
+    await dev.shell("echo '$on' > $_dropRestore; nohup sh -c '$loop' > /dev/null 2>&1 &");
+    if (mounted) setState(() => _v = {..._v, 'drop': '1'});
+  }
+
+  Future<void> _stopDrop() =>
+      _run('kill \$(cat $_dropPid) 2>/dev/null; rm -f $_dropPid; sh $_dropRestore 2>/dev/null');
 
   bool _on(String key) => _v[key] != null && _v[key] != '0' && _v[key] != 'null' && _v[key] != 'false';
 
@@ -224,6 +269,58 @@ class _DevTabState extends State<DevTab> {
           'cmd connectivity airplane-mode enable',
           'cmd connectivity airplane-mode disable',
           subtitle: 'For testing offline mode',
+        ),
+        if ((int.tryParse(_v['sdk'] ?? '') ?? 0) >= 31)
+          ListTile(
+            dense: true,
+            title: const Text('Download speed limit'),
+            subtitle: const Text('All apps on the device. Also slows ADB over Wi-Fi.'),
+            trailing: SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: [for (final e in _rateLimits.entries) ButtonSegment(value: e.key, label: Text(e.value))],
+              selected: {_rateLimits.containsKey(_v['ratelimit']) ? _v['ratelimit']! : '-1'},
+              onSelectionChanged: (v) => _run('settings put global ingress_rate_limit_bytes_per_second ${v.first}'),
+            ),
+          ),
+        if (dev.target.startsWith('emulator-'))
+          ListTile(
+            dense: true,
+            title: const Text('Emulator network'),
+            subtitle: const Text('Speed and latency profile'),
+            trailing: SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: 'full', label: Text('Full')),
+                ButtonSegment(value: 'lte', label: Text('LTE')),
+                ButtonSegment(value: 'umts', label: Text('3G')),
+                ButtonSegment(value: 'edge', label: Text('EDGE')),
+                ButtonSegment(value: 'gsm', label: Text('GSM')),
+              ],
+              selected: {_emuProfile},
+              onSelectionChanged: (v) => _emuNetwork(v.first),
+            ),
+          ),
+        ListTile(
+          dense: true,
+          title: Text(_v['drop'] == '1' ? 'Connection drop running…' : 'Connection drop'),
+          subtitle: const Text('Turns Wi-Fi/data off, then back on by itself. ADB over Wi-Fi reconnects after.'),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton(onPressed: () => _drop(offSec: 10), child: const Text('Drop 10s')),
+              OutlinedButton(onPressed: () => _drop(offSec: 30), child: const Text('Drop 30s')),
+              OutlinedButton(
+                onPressed: () => _drop(offSec: 5, onSec: 15, cycles: 5),
+                child: const Text('Flaky (5× off 5s / on 15s)'),
+              ),
+              if (_v['drop'] == '1')
+                FilledButton.tonal(onPressed: _stopDrop, child: const Text('Stop & restore')),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
       ],

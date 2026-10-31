@@ -13,6 +13,7 @@ import '../services/device_adb.dart';
 import '../services/device_store.dart';
 import '../services/mdns_service.dart';
 import '../services/network_scanner.dart';
+import '../../../core/history.dart';
 
 class DevicesState extends Equatable {
   const DevicesState({
@@ -352,6 +353,7 @@ class DevicesCubit extends Cubit<DevicesState> {
   }
 
   Future<String> connectTarget(String target) async {
+    History.activity('device', 'Connect $target');
     if (state.demo) return '(demo) connect $target';
     final ip = target.split(':').first;
     _manualOff.remove(ip);
@@ -369,6 +371,7 @@ class DevicesCubit extends Cubit<DevicesState> {
     final target = d.adbTarget;
     if (target == null || d.ip == null) return '${d.displayName} is on USB, unplug the cable to disconnect';
     _manualOff.addAll([d.serial, d.ip].nonNulls);
+    History.activity('device', 'Disconnect ${d.displayName}', {'target': target});
     await adb.disconnect(target);
     await refreshAdb();
     return '${d.displayName} disconnected';
@@ -408,6 +411,7 @@ class DevicesCubit extends Cubit<DevicesState> {
       ok = await adb.connect('$ip:5555');
     }
     await refreshNow();
+    History.activity('device', 'Port 5555 on ${d.displayName}: ${ok ? 'ok' : 'pending'}', {'ip': ip});
     return ok
         ? '${d.displayName} is on $ip:5555 — scans find it without pairing until it reboots'
         : 'Port 5555 is on; connect to $ip:5555 in a moment';

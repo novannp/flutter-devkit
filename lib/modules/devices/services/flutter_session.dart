@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/local_builds.dart';
+import '../../../core/history.dart';
 
 enum FlutterLineKind { build, log, error, info, success }
 
@@ -47,7 +48,10 @@ class FlutterSession extends ChangeNotifier {
       status == FlutterStatus.starting || status == FlutterStatus.running || status == FlutterStatus.reloading;
   bool get canReload => status == FlutterStatus.running && _appId != null;
 
+  SessionLog? _session;
+
   void _add(String text, FlutterLineKind kind) {
+    _session?.writeln(text);
     lines.add(FlutterLine(text, kind));
     if (lines.length > maxLines + 1000) lines.removeRange(0, lines.length - maxLines);
     _dirty = true;
@@ -80,6 +84,13 @@ class FlutterSession extends ChangeNotifier {
       notifyListeners();
     });
     final args = [attach ? 'attach' : 'run', '--machine', '-d', deviceId, ...extraArgs];
+    await _session?.close();
+    _session = await History.session('flutter', '${deviceId}_${p.name}');
+    History.activity('flutter', '${attach ? 'Attach' : 'Run'} ${p.name} on $deviceId', {
+      'project': p.path,
+      'args': extraArgs.join(' '),
+      'log': _session!.file.path,
+    });
     final (exe, fullArgs) = p.usesFvm ? ('fvm', ['flutter', ...args]) : ('flutter', args);
     _add('\$ ${p.usesFvm ? 'fvm ' : ''}flutter ${args.join(' ')}   (${p.path})', FlutterLineKind.info);
     _set(FlutterStatus.starting, progressText: attach ? 'Waiting for debug app on device…' : 'Building…');

@@ -32,18 +32,23 @@ class _StoresPageState extends State<StoresPage> {
   }
 
   Future<void> _export() async {
-    final loc = await getSaveLocation(suggestedName: 'store_codes.json', acceptedTypeGroups: const [
-      XTypeGroup(label: 'JSON', extensions: ['json']),
-    ]);
+    final loc = await getSaveLocation(
+      suggestedName: 'store_codes.json',
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'JSON', extensions: ['json']),
+      ],
+    );
     if (loc == null || !mounted) return;
     await context.read<StoreCodesCubit>().exportTo(loc.path);
     _toast('Exported to ${loc.path}');
   }
 
   Future<void> _import() async {
-    final file = await openFile(acceptedTypeGroups: const [
-      XTypeGroup(label: 'JSON', extensions: ['json']),
-    ]);
+    final file = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'JSON', extensions: ['json']),
+      ],
+    );
     if (file == null || !mounted) return;
     try {
       final n = await context.read<StoreCodesCubit>().importFrom(file.path);
@@ -61,8 +66,15 @@ class _StoresPageState extends State<StoresPage> {
         final q = _query.toLowerCase();
         final visible = codes
             .where((c) => _env == null || c.env == _env)
-            .where((c) => [c.storeName, c.activationCode, c.supportCode, c.devicePrefix, c.notes]
-                .any((v) => v.toLowerCase().contains(q)))
+            .where(
+              (c) => [
+                c.storeName,
+                c.activationCode,
+                c.supportCode,
+                c.devicePrefix,
+                c.notes,
+              ].any((v) => v.toLowerCase().contains(q)),
+            )
             .toList();
 
         return Padding(
@@ -76,7 +88,11 @@ class _StoresPageState extends State<StoresPage> {
                   const SizedBox(width: 12),
                   Text('${codes.length} stores', style: TextStyle(color: Theme.of(context).colorScheme.outline)),
                   const Spacer(),
-                  TextButton.icon(onPressed: _import, icon: const Icon(Icons.file_open_outlined), label: const Text('Import')),
+                  TextButton.icon(
+                    onPressed: _import,
+                    icon: const Icon(Icons.file_open_outlined),
+                    label: const Text('Import'),
+                  ),
                   TextButton.icon(onPressed: _export, icon: const Icon(Icons.ios_share), label: const Text('Export')),
                   const SizedBox(width: 8),
                   FilledButton.icon(onPressed: _add, icon: const Icon(Icons.add), label: const Text('Add store')),
@@ -151,8 +167,11 @@ class _StoreRow extends StatelessWidget {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(c.storeName,
-                          style: const TextStyle(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        c.storeName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     _Tag(text: c.env, color: c.env == 'prod' ? Colors.red : Colors.teal),
@@ -170,7 +189,7 @@ class _StoreRow extends StatelessWidget {
               hint: c.activationCode.isEmpty
                   ? null
                   : 'Server ${c.server}${StoreCode.isTestCode(c.activationCode) ? ' · test' : ''}'
-                      '${c.devicePrefix.isNotEmpty ? ' · prefix ${c.devicePrefix}' : ''}',
+                        '${c.devicePrefix.isNotEmpty ? ' · prefix ${c.devicePrefix}' : ''}',
               toast: toast,
             ),
           ),
@@ -242,7 +261,10 @@ class _CodeCell extends StatelessWidget {
             Row(
               children: [
                 Text('$label  ', style: TextStyle(color: scheme.outline, fontSize: 12)),
-                Text(value, style: const TextStyle(fontFamily: 'Consolas', fontSize: 15, fontWeight: FontWeight.w600)),
+                Text(
+                  value,
+                  style: const TextStyle(fontFamily: 'Consolas', fontSize: 15, fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(width: 6),
                 Icon(Icons.copy, size: 14, color: scheme.outline),
               ],
@@ -303,10 +325,13 @@ class _Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(6)),
-        child: Text(text, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(6)),
+    child: Text(
+      text,
+      style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+    ),
+  );
 }
 
 class _Empty extends StatelessWidget {

@@ -13,6 +13,7 @@ import '../emulators/avd_service.dart';
 import '../emulators/system_images_dialog.dart';
 import 'core_dep_dialog.dart';
 import 'core_deps.dart';
+import '../../core/history.dart';
 
 /// Shared git packages our apps pull from Bitbucket.
 const corePackages = ['pos_core', 'pf_processor_plugin'];
@@ -124,6 +125,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
   }
 
   void _append(String line) {
+    _session?.writeln(line);
     if (!mounted) return;
     setState(() => _log.add(line));
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -131,8 +133,12 @@ class _MaintenancePageState extends State<MaintenancePage> {
     });
   }
 
+  SessionLog? _session;
+
   Future<bool> _exec(String label, String command, {String? cwd}) async {
     setState(() => _running = label);
+    _session ??= await History.session('maintenance', 'output');
+    History.activity('maintenance', label, {'command': command, 'cwd': ?cwd});
     _append('\$ $command${cwd == null ? '' : '   ($cwd)'}');
     try {
       final p = await Process.start(command, const [], workingDirectory: cwd, runInShell: true);
@@ -205,6 +211,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
   Future<void> _deleteDirs(String label, List<Directory> dirs) async {
     setState(() => _running = label);
+    History.activity('maintenance', 'Clear $label', {'paths': dirs.map((d) => d.path).join(', ')});
     _append('Deleting $label…');
     for (final d in dirs) {
       try {
