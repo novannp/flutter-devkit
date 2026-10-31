@@ -117,6 +117,13 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 - Asks for your name on first launch
 - Built-in **🤖 Test bot** to try it on a single PC
 
+### 🗂️ History
+- Everything worth reviewing later is kept on this PC for **30 days**
+- **Activity**: connects, port 5555, installs, screenshots, bug reports, `flutter run`, emulator and maintenance actions
+- **Crashes**: each one with the log lines that led to it
+- **Session logs**: full logcat per device, `flutter run`, maintenance output
+- Printer receipts survive restarts too
+
 ### 🧰 And more
 - **Terminal**: tabs of Git Bash / PowerShell / cmd opened in any project folder, plus open in VS Code / Explorer / Windows Terminal
 - **Store codes**: activation & support codes per store
