@@ -215,6 +215,17 @@ class _PrinterPageState extends State<PrinterPage> {
                                           selected: _showRaw,
                                           onSelected: (v) => setState(() => _showRaw = v),
                                         ),
+                                        const SizedBox(width: 8),
+                                        TextButton.icon(
+                                          onPressed: () async {
+                                            final dir = await PrinterServer.rawDir();
+                                            revealInExplorer(
+                                              '${dir.path}${Platform.pathSeparator}${PrinterServer.rawName(selected)}',
+                                            );
+                                          },
+                                          icon: const Icon(Icons.save_alt, size: 18),
+                                          label: const Text('Raw file'),
+                                        ),
                                         const Spacer(),
                                         TextButton.icon(
                                           onPressed: () {

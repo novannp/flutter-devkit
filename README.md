@@ -83,6 +83,8 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 - Acts as a network thermal printer on **TCP 9100**, the port our POS apps always use (Backoffice only stores the IP)
 - Answers Epson (ePOS2 ASB) and Star (StarIO, status on 9101) status checks, so the POS sees the printer as online
 - Shows up in the POS **SNBC printer search** (UDP 3000) as "DevKit Printer"
+- Understands SNBC's line-raster images (logos, signatures), so receipts render exactly as printed
+- Keeps the raw bytes of the last 30 receipts (**Raw file** button) for debugging printer drivers
 - Renders ESC/POS receipts on 58 / 80 mm paper
 - Copy a receipt as an image (paste straight into Jira) or text, or view raw hex
 

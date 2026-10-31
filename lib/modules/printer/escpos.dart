@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -152,6 +153,7 @@ class EscPosParser {
   }
 
   void _cut() {
+    _flushSnbcRaster();
     _endLine(force: false);
     onCut(List.of(elements));
     elements.clear();
@@ -163,9 +165,65 @@ class EscPosParser {
     _ => ReceiptAlign.left,
   };
 
+  // SNBC line raster (GS D 1 … GS D 0): SYN n <n bytes> prints a dot line, NAK n advances n lines.
+  var _snbcRaster = false;
+  final _snbcRows = <Uint8List>[];
+
+  void _flushSnbcRaster() {
+    if (_snbcRows.isEmpty) return;
+    final bytesPerRow = _snbcRows.map((r) => r.length).fold(0, max);
+    final bits = Uint8List(bytesPerRow * _snbcRows.length);
+    for (var y = 0; y < _snbcRows.length; y++) {
+      final row = _snbcRows[y];
+      for (var x = 0; x < bytesPerRow; x++) {
+        // SNBC sends 1 = paper (white); blank lines/padding stay white.
+        bits[y * bytesPerRow + x] = x < row.length ? (~row[x] & 0xFF) : 0;
+      }
+    }
+    // Row padding (width rounded up to whole bytes) comes out black after inverting; drop columns of the
+    // last byte that are black on every non-empty row.
+    final rows = [
+      for (var y = 0; y < _snbcRows.length; y++)
+        if (_snbcRows[y].length == bytesPerRow) y,
+    ];
+    for (var bit = 0; bit < 8 && rows.isNotEmpty; bit++) {
+      final mask = 0x80 >> bit;
+      if (rows.every((y) => bits[y * bytesPerRow + bytesPerRow - 1] & mask != 0)) {
+        for (final y in rows) {
+          bits[y * bytesPerRow + bytesPerRow - 1] &= ~mask;
+        }
+      }
+    }
+    _endLine(force: false);
+    elements.add(RasterImage(bytesPerRow * 8, _snbcRows.length, bits, _align));
+    _snbcRows.clear();
+  }
+
+  int _snbcStep(int i) {
+    final b = _buf[i];
+    final n = _at(i + 1);
+    if (b == 0x16) {
+      if (n == null || _buf.length < i + 2 + n) return 0;
+      _snbcRows.add(Uint8List.fromList(_buf.sublist(i + 2, i + 2 + n)));
+      return 2 + n;
+    }
+    if (b == 0x15) {
+      if (n == null) return 0;
+      for (var k = 1; k < n; k++) {
+        _snbcRows.add(Uint8List(0));
+      }
+      return 2;
+    }
+    return -1;
+  }
+
   /// Processes one command/char at [i]; returns bytes consumed, or 0 if incomplete.
   int _step(int i) {
     final b = _buf[i];
+    if (_snbcRaster) {
+      final used = _snbcStep(i);
+      if (used >= 0) return used;
+    }
     switch (b) {
       case 0x0A:
         _endLine();
@@ -290,6 +348,11 @@ class EscPosParser {
     if (c == null) return 0;
     final n = _at(i + 2);
     switch (c) {
+      case 0x44: // GS D n: SNBC line raster mode on/off
+        if (n == null) return 0;
+        if (n == 0) _flushSnbcRaster();
+        _snbcRaster = n == 1;
+        return 3;
       case 0x21: // GS ! character size
         if (n == null) return 0;
         _style = _style.copyWith(width: (n >> 4) + 1, height: (n & 0x0F) + 1);
