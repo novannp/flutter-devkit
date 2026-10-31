@@ -62,6 +62,24 @@ class CoreDeps {
   }
 
   /// Rewrites `ref:` inside the package's git block in pubspec.yaml.
+  static bool isHttps(String? url) => url != null && url.startsWith('http');
+
+  /// `https://user:token@bitbucket.org/team/repo.git` → `git@bitbucket.org:team/repo.git`.
+  static String? toSsh(String url) {
+    final m = RegExp(r'^https?://(?:[^@/]+@)?([^/]+)/(.+?)(?:\.git)?/?$').firstMatch(url);
+    return m == null ? null : 'git@${m[1]}:${m[2]}.git';
+  }
+
+  static Future<void> setUrl(String project, String name, String url) async {
+    final file = _pubspec(project);
+    final lines = (await file.readAsString()).split('\n');
+    final (s, e) = _block(lines, name) ?? (throw StateError('$name not found in pubspec.yaml'));
+    for (var i = s; i < e; i++) {
+      if (RegExp(r'^\s+url:').hasMatch(lines[i])) lines[i] = lines[i].replaceFirst(RegExp(r'url:.*'), 'url: $url');
+    }
+    await file.writeAsString(lines.join('\n'));
+  }
+
   static Future<void> setRef(String project, String name, String ref) async {
     final file = _pubspec(project);
     final lines = (await file.readAsString()).split('\n');
