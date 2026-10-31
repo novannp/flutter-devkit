@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/background.dart';
 import 'core/theme.dart';
 import 'modules/devices/view/devices_page.dart';
 import 'modules/devices/view/multi_screen_page.dart';
@@ -151,6 +152,11 @@ class _Sidebar extends StatelessWidget {
                     label: const Text('Guide'),
                     style: TextButton.styleFrom(alignment: Alignment.centerLeft),
                   ),
+                ),
+                IconButton(
+                  tooltip: 'Quit DevKit',
+                  onPressed: BackgroundRunner.instance.quit,
+                  icon: const Icon(Icons.power_settings_new, size: 20),
                 ),
                 ValueListenableBuilder(
                   valueListenable: themeMode,

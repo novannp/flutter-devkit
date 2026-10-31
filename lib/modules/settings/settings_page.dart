@@ -2,6 +2,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/background.dart';
 import '../../core/local_builds.dart';
 import '../devices/services/adb_service.dart';
 
@@ -52,6 +53,21 @@ class _SettingsPageState extends State<SettingsPage> {
         Text('Settings', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text('Saved on this machine only, so each developer can differ.', style: TextStyle(color: scheme.outline)),
+        const SizedBox(height: 16),
+        ValueListenableBuilder(
+          valueListenable: keepRunningOnClose,
+          builder: (_, on, _) => Card(
+            child: SwitchListTile(
+              value: on,
+              onChanged: BackgroundRunner.instance.setKeepRunning,
+              title: const Text('Keep running when closed'),
+              subtitle: const Text(
+                'The close button minimizes DevKit so the printer emulator and scans keep running. '
+                'Reopen it from the taskbar or tray icon; quit from the tray or the power button in the sidebar.',
+              ),
+            ),
+          ),
+        ),
         const SizedBox(height: 24),
         Row(
           children: [
