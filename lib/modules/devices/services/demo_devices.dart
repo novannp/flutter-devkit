@@ -19,12 +19,12 @@ final demoDevices = List.generate(28, (i) {
             if (n % 3 == 0) knownApps[1].package: '2.4.1',
             if (n % 4 == 1) knownApps[n % knownApps.length].package: '1.${n % 6}.0',
           },
-    env: isSunbay ? null : (n % 4 == 0 ? 'dev' : 'staging'),
+    env: isSunbay ? null : (n % 4 == 0 ? 'prod' : 'qa'),
     adb: !online
         ? AdbState.offline
         : isSunbay
-            ? AdbState.unknown
-            : (n % 6 == 0 ? AdbState.unauthorized : AdbState.connected),
+        ? AdbState.unknown
+        : (n % 6 == 0 ? AdbState.unauthorized : AdbState.connected),
     online: online,
     lastSeen: DateTime.now().subtract(Duration(minutes: online ? 0 : n * 13)),
     sources: {isSunbay ? DeviceSource.scan : DeviceSource.mdns},

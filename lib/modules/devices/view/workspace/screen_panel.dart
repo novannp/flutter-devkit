@@ -180,38 +180,43 @@ class _ScreenPanelState extends State<ScreenPanel> {
           ),
         ),
         if (!widget.compact)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 8, 6),
-          child: Row(
-            children: [
-              InkWell(
-                onTap: _toggleLive,
-                borderRadius: BorderRadius.circular(6),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  child: Row(
-                    children: [
-                      Icon(_live ? Icons.circle : Icons.pause_circle_outline,
-                          size: 9, color: _live ? Colors.green : scheme.outline),
-                      const SizedBox(width: 6),
-                      Text(
-                        _live
-                            ? '${_fps.toStringAsFixed(1)} fps · ${size == null ? '-' : '${size.width.round()}×${size.height.round()}'} · adb'
-                            : 'Paused (click to resume)',
-                        style: muted,
-                      ),
-                    ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 8, 6),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: _toggleLive,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _live ? Icons.circle : Icons.pause_circle_outline,
+                          size: 9,
+                          color: _live ? Colors.green : scheme.outline,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _live
+                              ? '${_fps.toStringAsFixed(1)} fps · ${size == null ? '-' : '${size.width.round()}×${size.height.round()}'} · adb'
+                              : 'Paused (click to resume)',
+                          style: muted,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                _keys.hasFocus ? '⌨ keyboard → device · Esc = Back · Ctrl+V = paste' : 'click screen to type from keyboard',
-                style: _keys.hasFocus ? muted.copyWith(color: scheme.primary) : muted,
-              ),
-            ],
+                const Spacer(),
+                Text(
+                  _keys.hasFocus
+                      ? '⌨ keyboard → device · Esc = Back · Ctrl+V = paste'
+                      : 'click screen to type from keyboard',
+                  style: _keys.hasFocus ? muted.copyWith(color: scheme.primary) : muted,
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -222,7 +227,11 @@ class _ScreenPanelState extends State<ScreenPanel> {
           ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: scheme.error)),
+                Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: scheme.error),
+                ),
                 const SizedBox(height: 8),
                 OutlinedButton(onPressed: _capture, child: const Text('Retry')),
               ],
@@ -293,7 +302,13 @@ class _ScreenPanelState extends State<ScreenPanel> {
 
 /// Vertical toolbar beside the screen.
 class DeviceToolbar extends StatelessWidget {
-  const DeviceToolbar({super.key, required this.dev, required this.onScreenshot, required this.onRecord, required this.recording});
+  const DeviceToolbar({
+    super.key,
+    required this.dev,
+    required this.onScreenshot,
+    required this.onRecord,
+    required this.recording,
+  });
 
   final DeviceAdb dev;
   final VoidCallback onScreenshot;
@@ -303,31 +318,35 @@ class DeviceToolbar extends StatelessWidget {
   // user_rotation 0..3; rotation relative to the current position.
   Future<void> _rotate(int delta) async {
     final current = int.tryParse(await dev.sh('settings get system user_rotation')) ?? 0;
-    await dev.shell('settings put system accelerometer_rotation 0; '
-        'settings put system user_rotation ${(current + delta) % 4}');
+    await dev.shell(
+      'settings put system accelerometer_rotation 0; '
+      'settings put system user_rotation ${(current + delta) % 4}',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     Widget btn(IconData icon, String tip, VoidCallback onTap, {Color? color}) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: IconButton(
-            tooltip: tip,
-            onPressed: onTap,
-            style: IconButton.styleFrom(
-              backgroundColor: scheme.surfaceContainerHigh,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: Icon(icon, size: 18, color: color),
-          ),
-        );
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: IconButton(
+        tooltip: tip,
+        onPressed: onTap,
+        style: IconButton.styleFrom(
+          backgroundColor: scheme.surfaceContainerHigh,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        icon: Icon(icon, size: 18, color: color),
+      ),
+    );
     const gap = SizedBox(height: 10);
 
     return Container(
       width: 54,
       padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(border: Border.symmetric(vertical: BorderSide(color: scheme.outlineVariant))),
+      decoration: BoxDecoration(
+        border: Border.symmetric(vertical: BorderSide(color: scheme.outlineVariant)),
+      ),
       child: SingleChildScrollView(
         child: Column(
           children: [
@@ -349,7 +368,11 @@ class DeviceToolbar extends StatelessWidget {
               onRecord,
               color: recording ? Colors.red : null,
             ),
-            btn(Icons.notifications_outlined, 'Open notifications', () => dev.shell('cmd statusbar expand-notifications')),
+            btn(
+              Icons.notifications_outlined,
+              'Open notifications',
+              () => dev.shell('cmd statusbar expand-notifications'),
+            ),
             btn(Icons.lock_open, 'Wake & unlock', () => dev.shell('input keyevent KEYCODE_WAKEUP; input keyevent 82')),
           ],
         ),

@@ -13,13 +13,13 @@ const _quickCommands = {
 };
 
 Map<String, String> _appCommands(String pkg) => {
-      'Version': 'dumpsys package $pkg | grep -E "versionName|versionCode|lastUpdateTime"',
-      // run-as only works on debuggable builds.
-      'Shared prefs': 'run-as $pkg cat shared_prefs/FlutterSharedPreferences.xml',
-      'App files': 'run-as $pkg ls -la files app_flutter',
-      'Restart': 'am force-stop $pkg && monkey -p $pkg -c android.intent.category.LAUNCHER 1 >/dev/null && echo restarted',
-      'Permission': 'dumpsys package $pkg | grep -A50 "runtime permissions:" | grep granted',
-    };
+  'Version': 'dumpsys package $pkg | grep -E "versionName|versionCode|lastUpdateTime"',
+  // run-as only works on debuggable builds.
+  'Shared prefs': 'run-as $pkg cat shared_prefs/FlutterSharedPreferences.xml',
+  'App files': 'run-as $pkg ls -la files app_flutter',
+  'Restart': 'am force-stop $pkg && monkey -p $pkg -c android.intent.category.LAUNCHER 1 >/dev/null && echo restarted',
+  'Permission': 'dumpsys package $pkg | grep -A50 "runtime permissions:" | grep granted',
+};
 
 class _Entry {
   _Entry(this.command);
@@ -78,8 +78,8 @@ class _ShellTabState extends State<ShellTab> {
   }
 
   void _scrollToEnd() => WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
-      });
+    if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
+  });
 
   KeyEventResult _onKey(FocusNode _, KeyEvent e) {
     if (e is! KeyDownEvent || _history.isEmpty) return KeyEventResult.ignored;
@@ -146,7 +146,10 @@ class _ShellTabState extends State<ShellTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('\$ ${e.command}', style: mono.copyWith(color: scheme.primary, fontWeight: FontWeight.bold)),
+                        Text(
+                          '\$ ${e.command}',
+                          style: mono.copyWith(color: scheme.primary, fontWeight: FontWeight.bold),
+                        ),
                         if (e.output == null)
                           const Padding(padding: EdgeInsets.all(4), child: LinearProgressIndicator())
                         else if (e.output!.isNotEmpty)

@@ -89,9 +89,7 @@ class _MultiScreenPageState extends State<MultiScreenPage> {
       final cellH = (area.height - gap * (rows - 1)) / rows - header;
       if (cellW <= 0 || cellH <= 0) continue;
       // The smallest rendered device is what determines usability.
-      final scale = ratios
-          .map((r) => min(cellW / r.width, cellH / r.height) * sqrt(r.width * r.height))
-          .reduce(min);
+      final scale = ratios.map((r) => min(cellW / r.width, cellH / r.height) * sqrt(r.width * r.height)).reduce(min);
       if (scale > bestScale) {
         bestScale = scale;
         best = cols;
@@ -293,7 +291,11 @@ class _Header extends StatelessWidget {
               icon(Icons.circle_outlined, 'Home all', onHome),
               icon(Icons.light_mode_outlined, 'Wake all', onWake),
               icon(Icons.photo_library_outlined, 'Screenshot all', onScreenshotAll),
-              icon(showPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined, showPanel ? 'Hide panel' : 'Show panel', onPanel),
+              icon(
+                showPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+                showPanel ? 'Hide panel' : 'Show panel',
+                onPanel,
+              ),
             ],
           ),
         ],
@@ -327,12 +329,12 @@ class _Tile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     Widget btn(IconData icon, String tip, VoidCallback onTap) => IconButton(
-          tooltip: tip,
-          onPressed: onTap,
-          visualDensity: VisualDensity.compact,
-          iconSize: 16,
-          icon: Icon(icon),
-        );
+      tooltip: tip,
+      onPressed: onTap,
+      visualDensity: VisualDensity.compact,
+      iconSize: 16,
+      icon: Icon(icon),
+    );
     final borderColor = selected ? scheme.primary : (broadcast ? Colors.orange : scheme.outlineVariant);
 
     return AnimatedContainer(
@@ -343,7 +345,8 @@ class _Tile extends StatelessWidget {
         // Fixed width so selecting a tile doesn't shift the embedded screens.
         border: Border.all(color: borderColor, width: 2),
         boxShadow: [
-          if (selected) BoxShadow(color: scheme.primary.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4)),
+          if (selected)
+            BoxShadow(color: scheme.primary.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4)),
         ],
       ),
       clipBehavior: Clip.antiAlias,
@@ -366,11 +369,19 @@ class _Tile extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text.rich(
-                      TextSpan(children: [
-                        TextSpan(text: device.displayName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        if (device.model != null && device.model != device.displayName)
-                          TextSpan(text: '  ${device.model}', style: TextStyle(color: scheme.outline, fontSize: 11.5)),
-                      ]),
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: device.displayName,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                          if (device.model != null && device.model != device.displayName)
+                            TextSpan(
+                              text: '  ${device.model}',
+                              style: TextStyle(color: scheme.outline, fontSize: 11.5),
+                            ),
+                        ],
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

@@ -42,6 +42,7 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 - Auto-discovery: USB, `adb` Wi-Fi (5555), Wireless debugging via mDNS
 - Pair by **QR**, **pairing code** (IP + port), or **connect by IP**
 - One-click connect / disconnect / copy IP
+- **Enable port 5555** on connected devices so Wireless-debugging phones become plain `ip:5555` targets (no pairing until reboot)
 - Shows which of our apps and versions are installed
 
 </td>
@@ -109,6 +110,7 @@ Testing POS, Signature, Checkout & friends used to look like this: check the dev
 - **Everyone** channel plus direct messages, history kept locally
 - **Windows notifications**, taskbar flash, and unread badges
 - Asks for your name on first launch
+- Built-in **🤖 Test bot** to try it on a single PC
 
 ### 🧰 And more
 - **Terminal**: tabs of Git Bash / PowerShell / cmd opened in any project folder, plus open in VS Code / Explorer / Windows Terminal
@@ -156,10 +158,11 @@ fvm flutter build windows --release --no-tree-shake-icons
 | Problem | Try this |
 | --- | --- |
 | Phone doesn't show up after a scan | Same Wi-Fi as the PC? Wireless debugging on? If Devices shows **Network scan may miss devices**, click **Fix network access** (one admin prompt): it allows DevKit through Windows Firewall and can switch a Public network to Private. |
+| Tired of re-pairing Wireless debugging | Once a phone is connected, use its menu → **Enable port 5555** (or the ⟷ button for all). Scans then find it on `ip:5555` until it reboots. |
 | "Needs pairing" won't go away | Phone: **Wireless debugging → Pair device with pairing code**, then in DevKit: **Pair device → Pairing code**. |
 | `adb` keeps restarting | Another `adb` version is running (Android Studio, an older SDK). DevKit prefers the `adb` on your `PATH`, so keep just one. |
 | Core packages stuck on an old commit | **Maintenance → Core packages cache → Clear**, then **Update core**. |
-| Teammates don't show up in Chat | Same network? Click **Fix network access** on Devices (Chat uses UDP 47232 + TCP 47231). To test alone, run `python tool/chat_bot.py`: a bot joins and echoes your messages. |
+| Teammates don't show up in Chat | Same network? Click **Fix network access** on Devices (Chat uses UDP 47232 + TCP 47231). To test alone, turn on **🤖 Test bot** in Chat: a fake teammate joins and echoes your messages. |
 | Need a `pos_core` / plugin fix that isn't merged yet | **Maintenance → click the package chip → Git branch** (or **Local folder** for your own clone). |
 
 ## 🗂️ Project layout
@@ -179,16 +182,10 @@ lib/
     help/          connection guide
     settings/
 tool/make_icon.py  regenerates the app icon
-tool/chat_bot.py   fake chat peer for testing Chat on one PC
 windows/third_party/scrcpy/   bundled scrcpy + adb (Apache-2.0)
 ```
 
 New app? Add it to `knownApps` in `lib/core/apps.dart`, and DevKit will recognise it everywhere.
-
-## 🗺️ Roadmap
-
-- [ ] Firebase tools (Remote Config, Crashlytics shortcuts)
-- [ ] Release helper (build, sign, upload)
 
 ---
 

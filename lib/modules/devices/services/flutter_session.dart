@@ -43,7 +43,8 @@ class FlutterSession extends ChangeNotifier {
   var _dirty = false;
   final _stopwatch = Stopwatch();
 
-  bool get active => status == FlutterStatus.starting || status == FlutterStatus.running || status == FlutterStatus.reloading;
+  bool get active =>
+      status == FlutterStatus.starting || status == FlutterStatus.running || status == FlutterStatus.reloading;
   bool get canReload => status == FlutterStatus.running && _appId != null;
 
   void _add(String text, FlutterLineKind kind) {
@@ -94,7 +95,10 @@ class FlutterSession extends ChangeNotifier {
       ..reset()
       ..start();
     _process!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(_onLine);
-    _process!.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen((l) => _add(l, FlutterLineKind.error));
+    _process!.stderr
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((l) => _add(l, FlutterLineKind.error));
     _process!.exitCode.then((code) {
       _add('flutter process exited (exit $code)', code == 0 ? FlutterLineKind.info : FlutterLineKind.error);
       _process = null;
@@ -175,13 +179,18 @@ class FlutterSession extends ChangeNotifier {
     final id = ++_nextId;
     final c = Completer<Map<String, dynamic>>();
     _pending[id] = c;
-    p.stdin.writeln(jsonEncode([
-      {'id': id, 'method': method, 'params': params},
-    ]));
-    return c.future.timeout(const Duration(minutes: 2), onTimeout: () {
-      _pending.remove(id);
-      return {'error': 'timeout'};
-    });
+    p.stdin.writeln(
+      jsonEncode([
+        {'id': id, 'method': method, 'params': params},
+      ]),
+    );
+    return c.future.timeout(
+      const Duration(minutes: 2),
+      onTimeout: () {
+        _pending.remove(id);
+        return {'error': 'timeout'};
+      },
+    );
   }
 
   Future<void> reload({bool full = false}) async {
@@ -189,12 +198,7 @@ class FlutterSession extends ChangeNotifier {
     final label = full ? 'Hot restart' : 'Hot reload';
     _set(FlutterStatus.reloading, progressText: '$label…');
     final sw = Stopwatch()..start();
-    final r = await _request('app.restart', {
-      'appId': _appId,
-      'fullRestart': full,
-      'pause': false,
-      'reason': 'manual',
-    });
+    final r = await _request('app.restart', {'appId': _appId, 'fullRestart': full, 'pause': false, 'reason': 'manual'});
     final result = (r?['result'] as Map?)?.cast<String, dynamic>();
     final ok = result != null && result['code'] == 0;
     final msg = result?['message'] ?? r?['error'] ?? 'failed';

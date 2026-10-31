@@ -63,10 +63,16 @@ class _FilesTabState extends State<FilesTab> {
       if (name == '.' || name == '..') continue;
       files.add(_RemoteFile(name, isDir: m[1] != '-', size: int.parse(m[2]!), modified: m[3]!));
     }
-    files.sort((a, b) => a.isDir != b.isDir ? (a.isDir ? -1 : 1) : a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    files.sort(
+      (a, b) => a.isDir != b.isDir ? (a.isDir ? -1 : 1) : a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
     setState(() {
       _files = files;
-      _error = r.ok ? null : r.stderr.trim().isEmpty ? r.stdout.trim() : r.stderr.trim();
+      _error = r.ok
+          ? null
+          : r.stderr.trim().isEmpty
+          ? r.stdout.trim()
+          : r.stderr.trim();
     });
   }
 
@@ -80,8 +86,9 @@ class _FilesTabState extends State<FilesTab> {
 
   String _join(String name) => _dir == '/' ? '/$name' : '$_dir/$name';
 
-  void _toast(String text, {SnackBarAction? action}) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(text), action: action, behavior: SnackBarBehavior.floating, width: 520));
+  void _toast(String text, {SnackBarAction? action}) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(text), action: action, behavior: SnackBarBehavior.floating, width: 520));
 
   Future<void> _pull(_RemoteFile f) async {
     final dir = await outputDir();
@@ -89,8 +96,10 @@ class _FilesTabState extends State<FilesTab> {
     final r = await widget.dev.pull(_join(f.name), local);
     if (!mounted) return;
     r.ok
-        ? _toast('Saved to $local',
-            action: SnackBarAction(label: 'Open folder', onPressed: () => revealInExplorer(local)))
+        ? _toast(
+            'Saved to $local',
+            action: SnackBarAction(label: 'Open folder', onPressed: () => revealInExplorer(local)),
+          )
         : _toast('Pull failed: ${r.stderr.trim()}');
   }
 
@@ -121,7 +130,12 @@ class _FilesTabState extends State<FilesTab> {
   Widget build(BuildContext context) {
     final files = _files;
     final scheme = Theme.of(context).colorScheme;
-    const shortcuts = {'Download': '/sdcard/Download', 'DCIM': '/sdcard/DCIM', 'sdcard': '/sdcard', 'tmp': '/data/local/tmp'};
+    const shortcuts = {
+      'Download': '/sdcard/Download',
+      'DCIM': '/sdcard/DCIM',
+      'sdcard': '/sdcard',
+      'tmp': '/data/local/tmp',
+    };
 
     return Column(
       children: [
@@ -130,7 +144,9 @@ class _FilesTabState extends State<FilesTab> {
           child: Row(
             children: [
               IconButton(tooltip: 'Up', onPressed: _up, icon: const Icon(Icons.arrow_upward)),
-              Expanded(child: SelectableText(_dir, style: const TextStyle(fontFamily: 'Consolas'))),
+              Expanded(
+                child: SelectableText(_dir, style: const TextStyle(fontFamily: 'Consolas')),
+              ),
               for (final s in shortcuts.entries)
                 Padding(
                   padding: const EdgeInsets.only(left: 4),
@@ -142,12 +158,17 @@ class _FilesTabState extends State<FilesTab> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text('Drag files onto this window to upload to this folder.',
-              style: TextStyle(color: scheme.outline, fontSize: 12)),
+          child: Text(
+            'Drag files onto this window to upload to this folder.',
+            style: TextStyle(color: scheme.outline, fontSize: 12),
+          ),
         ),
         const Divider(),
         if (_error != null)
-          Padding(padding: const EdgeInsets.all(8), child: Text(_error!, style: TextStyle(color: scheme.error))),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(_error!, style: TextStyle(color: scheme.error)),
+          ),
         Expanded(
           child: files == null
               ? const Center(child: CircularProgressIndicator())
@@ -157,8 +178,10 @@ class _FilesTabState extends State<FilesTab> {
                     final f = files[i];
                     return ListTile(
                       dense: true,
-                      leading: Icon(f.isDir ? Icons.folder : Icons.insert_drive_file_outlined,
-                          color: f.isDir ? Colors.amber.shade700 : null),
+                      leading: Icon(
+                        f.isDir ? Icons.folder : Icons.insert_drive_file_outlined,
+                        color: f.isDir ? Colors.amber.shade700 : null,
+                      ),
                       title: Text(f.name),
                       subtitle: Text(f.isDir ? f.modified : '${_size(f.size)} · ${f.modified}'),
                       onTap: f.isDir ? () => _open(_join(f.name)) : null,

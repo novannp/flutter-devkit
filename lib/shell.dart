@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'core/background.dart';
+import 'core/jokes.dart';
 import 'core/theme.dart';
 import 'modules/chat/chat_notifier.dart';
 import 'modules/chat/chat_page.dart';
@@ -21,12 +23,11 @@ import 'modules/stores/view/stores_page.dart';
 import 'modules/terminal/terminal_page.dart';
 
 class _Module {
-  const _Module(this.label, this.icon, this.page, {this.phase});
+  const _Module(this.label, this.icon, this.page);
 
   final String label;
   final IconData icon;
-  final Widget? page;
-  final int? phase;
+  final Widget page;
 }
 
 class _Group {
@@ -48,8 +49,6 @@ const _groups = [
     _Module('Store Codes', Icons.storefront_outlined, StoresPage()),
     _Module('Maintenance', Icons.cleaning_services_outlined, MaintenancePage()),
     _Module('PAX Terminals', Icons.point_of_sale, TerminalPage()),
-    _Module('Firebase', Icons.local_fire_department_outlined, null, phase: 4),
-    _Module('Release', Icons.rocket_launch_outlined, null, phase: 4),
   ]),
   _Group('Team', [_Module('Chat', Icons.forum_outlined, ChatPage())]),
   _Group('Other', [_Module('Settings', Icons.settings_outlined, SettingsPage())]),
@@ -71,9 +70,34 @@ class _ShellState extends State<Shell> {
 
   static final _chatIndex = _modules.indexWhere((m) => m.page is ChatPage);
 
+  static const _konami = [
+    LogicalKeyboardKey.arrowUp,
+    LogicalKeyboardKey.arrowUp,
+    LogicalKeyboardKey.arrowDown,
+    LogicalKeyboardKey.arrowDown,
+    LogicalKeyboardKey.arrowLeft,
+    LogicalKeyboardKey.arrowRight,
+    LogicalKeyboardKey.arrowLeft,
+    LogicalKeyboardKey.arrowRight,
+    LogicalKeyboardKey.keyB,
+    LogicalKeyboardKey.keyA,
+  ];
+  var _konamiPos = 0;
+
+  bool _onKey(KeyEvent e) {
+    if (e is! KeyDownEvent) return false;
+    _konamiPos = e.logicalKey == _konami[_konamiPos] ? _konamiPos + 1 : (e.logicalKey == _konami[0] ? 1 : 0);
+    if (_konamiPos == _konami.length) {
+      _konamiPos = 0;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(width: 460, content: Text(konamiLine)));
+    }
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
     _chatSub = ChatService.instance.incoming.stream.listen(_onChat);
     BackgroundRunner.instance.onQuit = ChatService.instance.stop;
     WidgetsBinding.instance.addPostFrameCallback((_) => _askNameIfNeeded());
@@ -81,6 +105,7 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
     _chatSub?.cancel();
     super.dispose();
   }
@@ -133,10 +158,7 @@ class _ShellState extends State<Shell> {
                 // Disabled TickerMode tells hidden pages to hide native windows (embedded scrcpy) too.
                 // Built on first visit so e.g. Multi Screen doesn't start scrcpy at launch.
                 for (final (i, m) in _modules.indexed)
-                  TickerMode(
-                    enabled: i == _index,
-                    child: _visited.contains(i) ? (m.page ?? _ComingSoon(module: m)) : const SizedBox.shrink(),
-                  ),
+                  TickerMode(enabled: i == _index, child: _visited.contains(i) ? m.page : const SizedBox.shrink()),
               ],
             ),
           ),
@@ -144,6 +166,36 @@ class _ShellState extends State<Shell> {
       ),
     );
   }
+}
+
+final _tagline = tagline();
+
+class _Logo extends StatefulWidget {
+  const _Logo({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_Logo> createState() => _LogoState();
+}
+
+class _LogoState extends State<_Logo> {
+  var _taps = 0;
+  var _turns = 0.0;
+
+  void _tap() {
+    setState(() => _turns += 1);
+    if (++_taps % 7 != 0) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(width: 420, content: Text(pick(logoLines))));
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: _tap,
+    child: AnimatedRotation(turns: _turns, duration: const Duration(milliseconds: 500), child: widget.child),
+  );
 }
 
 class _Sidebar extends StatelessWidget {
@@ -171,21 +223,23 @@ class _Sidebar extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
             child: Row(
               children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [scheme.primary, brandColor.withValues(alpha: .7)]),
-                    borderRadius: BorderRadius.circular(9),
+                _Logo(
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [scheme.primary, brandColor.withValues(alpha: .7)]),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Icon(Icons.bolt_rounded, color: scheme.onPrimary, size: 20),
                   ),
-                  child: Icon(Icons.bolt_rounded, color: scheme.onPrimary, size: 20),
                 ),
                 const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Ravo DevKit', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('Testing toolkit', style: text.labelSmall?.copyWith(color: scheme.outline)),
+                    Text(_tagline, style: text.labelSmall?.copyWith(color: scheme.outline)),
                   ],
                 ),
               ],
@@ -229,7 +283,7 @@ class _Sidebar extends StatelessWidget {
                   icon: const Icon(Icons.sports_esports_outlined, size: 20),
                 ),
                 IconButton(
-                  tooltip: 'Quit DevKit',
+                  tooltip: 'Quit DevKit (the bugs will wait)',
                   onPressed: BackgroundRunner.instance.quit,
                   icon: const Icon(Icons.power_settings_new, size: 20),
                 ),
@@ -261,16 +315,7 @@ Future<void> _takeABreak(BuildContext context) async {
   if (installed) await Process.run('explorer', ['steam://open/main']);
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        width: 420,
-        content: Text(
-          installed
-              ? 'Break time 🎮 — the devices will still be here when you get back.'
-              : "Steam isn't installed… maybe get a coffee instead ☕",
-        ),
-      ),
-    );
+    ..showSnackBar(SnackBar(width: 420, content: Text(installed ? pick(breakLines) : pick(noBreakLines))));
 }
 
 class _NavItem extends StatelessWidget {
@@ -315,41 +360,10 @@ class _NavItem extends StatelessWidget {
                       return n == 0 ? const SizedBox.shrink() : Badge(label: Text('$n'));
                     },
                   ),
-                if (module.page == null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text('Soon', style: TextStyle(fontSize: 10, color: scheme.outline)),
-                  ),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.module});
-
-  final _Module module;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(module.icon, size: 56, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(height: 12),
-          Text(module.label, style: text.titleLarge),
-          Text('Coming soon · Phase ${module.phase}', style: text.bodyMedium),
-        ],
       ),
     );
   }

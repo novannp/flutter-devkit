@@ -130,7 +130,6 @@ class _InfoTabState extends State<InfoTab> {
       'ADB target': widget.dev.target,
     };
 
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -230,17 +229,13 @@ class _InfoCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       onTap: () {
         Clipboard.setData(ClipboardData(text: value));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$label copied'), behavior: SnackBarBehavior.floating, width: 300),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$label copied'), behavior: SnackBarBehavior.floating, width: 300));
       },
       child: Container(
         width: 230,
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(12),
-        ),
+        decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(12)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

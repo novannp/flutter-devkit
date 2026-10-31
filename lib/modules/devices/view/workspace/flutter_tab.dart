@@ -86,12 +86,12 @@ class _FlutterTabState extends State<FlutterTab> {
   }
 
   Color? _color(FlutterLineKind k, ColorScheme scheme) => switch (k) {
-        FlutterLineKind.error => Colors.red.shade400,
-        FlutterLineKind.success => Colors.green.shade400,
-        FlutterLineKind.info => scheme.primary,
-        FlutterLineKind.build => scheme.outline,
-        FlutterLineKind.log => scheme.onSurface,
-      };
+    FlutterLineKind.error => Colors.red.shade400,
+    FlutterLineKind.success => Colors.green.shade400,
+    FlutterLineKind.info => scheme.primary,
+    FlutterLineKind.build => scheme.outline,
+    FlutterLineKind.log => scheme.onSurface,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +115,11 @@ class _FlutterTabState extends State<FlutterTab> {
                     child: DropdownButtonFormField<FlutterProject>(
                       initialValue: _project,
                       isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Project', isDense: true, border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Project',
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                      ),
                       items: [
                         for (final p in _projects)
                           DropdownMenuItem(
@@ -163,11 +167,7 @@ class _FlutterTabState extends State<FlutterTab> {
                       label: Text(_attach ? 'Attach (F5)' : 'Run (F5)'),
                     )
                   else
-                    FilledButton.tonalIcon(
-                      onPressed: s.stop,
-                      icon: const Icon(Icons.stop),
-                      label: const Text('Stop'),
-                    ),
+                    FilledButton.tonalIcon(onPressed: s.stop, icon: const Icon(Icons.stop), label: const Text('Stop')),
                   const SizedBox(width: 6),
                   IconButton.filledTonal(
                     tooltip: 'Hot reload (Ctrl+F5)',
@@ -256,7 +256,11 @@ class _FlutterTabState extends State<FlutterTab> {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
                         child: Text(
                           lines[i].text,
-                          style: TextStyle(fontFamily: 'Consolas', fontSize: 12.5, color: _color(lines[i].kind, scheme)),
+                          style: TextStyle(
+                            fontFamily: 'Consolas',
+                            fontSize: 12.5,
+                            color: _color(lines[i].kind, scheme),
+                          ),
                         ),
                       ),
                     ),

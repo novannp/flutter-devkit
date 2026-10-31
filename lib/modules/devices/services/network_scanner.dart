@@ -15,9 +15,7 @@ class NetworkScanner {
   }
 
   bool _isPrivate(String ip) =>
-      ip.startsWith('192.168.') ||
-      ip.startsWith('10.') ||
-      RegExp(r'^172\.(1[6-9]|2\d|3[01])\.').hasMatch(ip);
+      ip.startsWith('192.168.') || ip.startsWith('10.') || RegExp(r'^172\.(1[6-9]|2\d|3[01])\.').hasMatch(ip);
 
   /// Assumes a /24 subnet, which covers most office networks.
   Stream<String> scan(
@@ -36,15 +34,17 @@ class NetworkScanner {
     var done = 0;
     for (var i = 0; i < list.length; i += concurrency) {
       final batch = list.skip(i).take(concurrency);
-      final results = await Future.wait(batch.map((ip) async {
-        try {
-          final s = await Socket.connect(ip, port, timeout: timeout);
-          s.destroy();
-          return ip;
-        } catch (_) {
-          return null;
-        }
-      }));
+      final results = await Future.wait(
+        batch.map((ip) async {
+          try {
+            final s = await Socket.connect(ip, port, timeout: timeout);
+            s.destroy();
+            return ip;
+          } catch (_) {
+            return null;
+          }
+        }),
+      );
       done += batch.length;
       onProgress?.call(done, list.length);
       for (final ip in results.nonNulls) {

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../models/store_code.dart';
 
-const storeEnvs = ['prod', 'staging', 'qa', 'dev'];
+const storeEnvs = ['prod', 'qa'];
 
 Future<StoreCode?> showStoreCodeDialog(BuildContext context, {StoreCode? initial}) =>
     showDialog<StoreCode>(context: context, builder: (_) => _StoreCodeDialog(initial: initial));
@@ -94,7 +94,8 @@ class _StoreCodeDialogState extends State<_StoreCodeDialog> {
               DropdownButtonFormField(
                 initialValue: _env,
                 decoration: const InputDecoration(labelText: 'Environment'),
-                items: [for (final e in storeEnvs) DropdownMenuItem(value: e, child: Text(e))],
+                // Older saved codes may still use a removed env; keep it selectable.
+                items: [for (final e in {...storeEnvs, _env}) DropdownMenuItem(value: e, child: Text(e))],
                 onChanged: (v) => setState(() => _env = v!),
               ),
               const SizedBox(height: 12),

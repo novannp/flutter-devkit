@@ -26,6 +26,7 @@ class Device extends Equatable {
   final String? ip;
   final int adbPort;
   final String? model;
+
   /// package → versionName, from our apps that are installed/broadcasting.
   final Map<String, String> apps;
   final String? env;
@@ -42,19 +43,19 @@ class Device extends Equatable {
 
   /// Non-null fields from [other] override this device's.
   Device merge(Device other) => Device(
-        id: keyOf(serial: other.serial ?? serial, ip: other.ip ?? ip),
-        serial: other.serial ?? serial,
-        name: other.name ?? name,
-        ip: other.ip ?? ip,
-        adbPort: other.ip != null ? other.adbPort : adbPort,
-        model: other.model ?? model,
-        apps: {...apps, ...other.apps},
-        env: other.env ?? env,
-        adb: other.adb != AdbState.unknown ? other.adb : adb,
-        online: other.online || online,
-        lastSeen: other.lastSeen ?? lastSeen,
-        sources: {...sources, ...other.sources},
-      );
+    id: keyOf(serial: other.serial ?? serial, ip: other.ip ?? ip),
+    serial: other.serial ?? serial,
+    name: other.name ?? name,
+    ip: other.ip ?? ip,
+    adbPort: other.ip != null ? other.adbPort : adbPort,
+    model: other.model ?? model,
+    apps: {...apps, ...other.apps},
+    env: other.env ?? env,
+    adb: other.adb != AdbState.unknown ? other.adb : adb,
+    online: other.online || online,
+    lastSeen: other.lastSeen ?? lastSeen,
+    sources: {...sources, ...other.sources},
+  );
 
   Device copyWith({
     String? name,
@@ -63,47 +64,45 @@ class Device extends Equatable {
     bool? online,
     Set<DeviceSource>? sources,
     bool clearName = false,
-  }) =>
-      Device(
-        id: id,
-        serial: serial,
-        name: clearName ? null : (name ?? this.name),
-        ip: ip,
-        adbPort: adbPort,
-        model: model,
-        apps: apps ?? this.apps,
-        env: env,
-        adb: adb ?? this.adb,
-        online: online ?? this.online,
-        lastSeen: lastSeen,
-        sources: sources ?? this.sources,
-      );
+  }) => Device(
+    id: id,
+    serial: serial,
+    name: clearName ? null : (name ?? this.name),
+    ip: ip,
+    adbPort: adbPort,
+    model: model,
+    apps: apps ?? this.apps,
+    env: env,
+    adb: adb ?? this.adb,
+    online: online ?? this.online,
+    lastSeen: lastSeen,
+    sources: sources ?? this.sources,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'serial': serial,
-        'name': name,
-        'ip': ip,
-        'adbPort': adbPort,
-        'model': model,
-        'apps': apps,
-        'env': env,
-        'lastSeen': lastSeen?.toIso8601String(),
-      };
+    'id': id,
+    'serial': serial,
+    'name': name,
+    'ip': ip,
+    'adbPort': adbPort,
+    'model': model,
+    'apps': apps,
+    'env': env,
+    'lastSeen': lastSeen?.toIso8601String(),
+  };
 
   factory Device.fromJson(Map<String, dynamic> json) => Device(
-        id: json['id'] as String,
-        serial: json['serial'] as String?,
-        name: json['name'] as String?,
-        ip: json['ip'] as String?,
-        adbPort: json['adbPort'] as int? ?? 5555,
-        model: json['model'] as String?,
-        apps: Map<String, String>.from(json['apps'] as Map? ?? {}),
-        env: json['env'] as String?,
-        lastSeen: DateTime.tryParse(json['lastSeen'] as String? ?? ''),
-      );
+    id: json['id'] as String,
+    serial: json['serial'] as String?,
+    name: json['name'] as String?,
+    ip: json['ip'] as String?,
+    adbPort: json['adbPort'] as int? ?? 5555,
+    model: json['model'] as String?,
+    apps: Map<String, String>.from(json['apps'] as Map? ?? {}),
+    env: json['env'] as String?,
+    lastSeen: DateTime.tryParse(json['lastSeen'] as String? ?? ''),
+  );
 
   @override
-  List<Object?> get props =>
-      [id, serial, name, ip, adbPort, model, apps, env, adb, online, lastSeen, sources];
+  List<Object?> get props => [id, serial, name, ip, adbPort, model, apps, env, adb, online, lastSeen, sources];
 }

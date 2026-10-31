@@ -12,9 +12,7 @@ class DeviceStore {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key);
     if (raw == null) return [];
-    return (jsonDecode(raw) as List)
-        .map((e) => Device.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return (jsonDecode(raw) as List).map((e) => Device.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<void> save(Iterable<Device> devices) async {
