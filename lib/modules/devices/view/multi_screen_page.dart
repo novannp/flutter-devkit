@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
@@ -36,9 +38,38 @@ class _MultiScreenPageState extends State<MultiScreenPage> {
   var _showPanel = true;
   var _panelWidth = 460.0;
 
+  Timer? _probe;
+
+  /// Screen size per device (from a screencap header), so tiles can match each device's shape.
+  final _screenSizes = <String, Size>{};
+
+  Future<void> _probeSizes() async {
+    if (!mounted) return;
+    final shown = context.read<DevicesCubit>().state.devices.where((d) => d.adb == AdbState.connected).toList();
+    for (final d in shown) {
+      if (d.adbTarget == null) continue;
+      final bytes = await _dev(d).screenshot();
+      if (!mounted || bytes == null || bytes.length < 24) continue;
+      final v = ByteData.sublistView(bytes);
+      final size = Size(v.getUint32(16).toDouble(), v.getUint32(20).toDouble());
+      if (_screenSizes[d.id] != size) setState(() => _screenSizes[d.id] = size);
+    }
+  }
+
+  @override
+  void dispose() {
+    _probe?.cancel();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _probeSizes());
+    // Catches rotation; cheap enough at this rate.
+    _probe = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (TickerMode.valuesOf(context).enabled) _probeSizes();
+    });
     SharedPreferences.getInstance().then((p) {
       if (!mounted) return;
       setState(() {
@@ -77,25 +108,53 @@ class _MultiScreenPageState extends State<MultiScreenPage> {
     revealInExplorer(dir.path);
   }
 
-  /// Picks the column count that shows screens largest without scrolling, based on each device's aspect ratio.
-  int _bestColumns(List<Device> shown, Size area) {
-    const header = 40.0, gap = 10.0;
-    final ratios = [for (final d in shown) _controllers[d.id]?.size ?? const Size(16, 10)];
-    var best = 1;
-    var bestScale = 0.0;
-    for (var cols = 1; cols <= shown.length; cols++) {
-      final rows = (shown.length / cols).ceil();
-      final cellW = (area.width - gap * (cols - 1)) / cols;
-      final cellH = (area.height - gap * (rows - 1)) / rows - header;
-      if (cellW <= 0 || cellH <= 0) continue;
-      // The smallest rendered device is what determines usability.
-      final scale = ratios.map((r) => min(cellW / r.width, cellH / r.height) * sqrt(r.width * r.height)).reduce(min);
-      if (scale > bestScale) {
-        bestScale = scale;
-        best = cols;
+  static const _header = 40.0, _gap = 10.0;
+
+  Size _shape(Device d) => _controllers[d.id]?.size ?? _screenSizes[d.id] ?? const Size(9, 16);
+
+  /// Justified rows (like a photo gallery): each tile is as wide as its device's aspect ratio needs,
+  /// and the row count that makes the smallest screen biggest wins.
+  List<List<(Device, Size)>> _layout(List<Device> shown, Size area) {
+    final aspects = [for (final d in shown) _shape(d).width / _shape(d).height];
+    List<List<(Device, Size)>>? best;
+    var bestScore = -1.0;
+    for (var rows = 1; rows <= shown.length; rows++) {
+      // Split in order into `rows` groups with roughly equal total aspect.
+      final total = aspects.reduce((a, b) => a + b);
+      final groups = <List<int>>[[]];
+      var acc = 0.0;
+      for (var k = 0; k < shown.length; k++) {
+        final remainingRows = rows - groups.length;
+        final remainingItems = shown.length - k;
+        if (groups.last.isNotEmpty &&
+            remainingRows > 0 &&
+            (acc >= total * groups.length / rows || remainingItems <= remainingRows)) {
+          groups.add([]);
+        }
+        groups.last.add(k);
+        acc += aspects[k];
+      }
+      final rowH = (area.height - _gap * (groups.length - 1)) / groups.length - _header;
+      if (rowH <= 0) continue;
+      final layout = <List<(Device, Size)>>[];
+      var minArea = double.infinity;
+      for (final g in groups) {
+        final sumA = g.fold(0.0, (a, k) => a + aspects[k]);
+        final h = min(rowH, (area.width - _gap * (g.length - 1)) / sumA);
+        layout.add([for (final k in g) (shown[k], Size(aspects[k] * h, h + _header))]);
+        for (final k in g) {
+          minArea = min(minArea, aspects[k] * h * h);
+        }
+      }
+      if (minArea > bestScore) {
+        bestScore = minArea;
+        best = layout;
       }
     }
-    return best;
+    return best ??
+        [
+          for (final d in shown) [(d, Size(area.width, area.height / shown.length))],
+        ];
   }
 
   @override
@@ -155,31 +214,38 @@ class _MultiScreenPageState extends State<MultiScreenPage> {
                             padding: const EdgeInsets.fromLTRB(16, 4, 12, 16),
                             child: LayoutBuilder(
                               builder: (context, box) {
-                                final cols = _bestColumns(shown, box.biggest);
-                                final rows = (shown.length / cols).ceil();
-                                final w = (box.maxWidth - 10 * (cols - 1)) / cols;
-                                final h = (box.maxHeight - 10 * (rows - 1)) / rows;
-                                return Wrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
+                                final rows = _layout(shown, box.biggest);
+                                return Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    for (final d in shown)
-                                      SizedBox(
-                                        width: w,
-                                        height: h,
-                                        child: _Tile(
-                                          key: ValueKey('${d.id}-$useFast'),
-                                          device: d,
-                                          dev: _dev(d),
-                                          controller: _ctl(d),
-                                          fast: useFast,
-                                          selected: selected?.id == d.id,
-                                          broadcast: _broadcast,
-                                          onSelect: () => setState(() => _selected = d.id),
-                                          onInput: (input) => _broadcastFrom(d, shown, input),
-                                          onHide: () => setState(() => _hidden.add(d.id)),
-                                        ),
+                                    for (final (ri, row) in rows.indexed) ...[
+                                      if (ri > 0) const SizedBox(height: _gap),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          for (final (ti, (d, size)) in row.indexed) ...[
+                                            if (ti > 0) const SizedBox(width: _gap),
+                                            SizedBox(
+                                              // Keep the header's buttons usable on very narrow portrait tiles.
+                                              width: max(size.width, 240),
+                                              height: size.height,
+                                              child: _Tile(
+                                                key: ValueKey('${d.id}-$useFast'),
+                                                device: d,
+                                                dev: _dev(d),
+                                                controller: _ctl(d),
+                                                fast: useFast,
+                                                selected: selected?.id == d.id,
+                                                broadcast: _broadcast,
+                                                onSelect: () => setState(() => _selected = d.id),
+                                                onInput: (input) => _broadcastFrom(d, shown, input),
+                                                onHide: () => setState(() => _hidden.add(d.id)),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
+                                    ],
                                   ],
                                 );
                               },
