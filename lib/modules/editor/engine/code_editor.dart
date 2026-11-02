@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/gestures.dart';
@@ -11,6 +12,7 @@ import '../../../core/theme.dart' show SyntaxColors;
 import '../brackets.dart';
 import 'code_model.dart';
 import 'syntax.dart';
+import '../../../core/platform_keys.dart';
 
 export 'code_model.dart';
 
@@ -1227,7 +1229,7 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
     // Keys typed in the find panel below this node belong to its fields.
     if (!_focus.hasPrimaryFocus) return KeyEventResult.ignored;
     final hw = HardwareKeyboard.instance;
-    final ctrl = hw.isControlPressed, shift = hw.isShiftPressed, alt = hw.isAltPressed;
+    final ctrl = hw.isPrimaryPressed, shift = hw.isShiftPressed, alt = hw.isAltPressed;
     final edit = !widget.readOnly;
     final c = _ctrl;
 
@@ -1235,6 +1237,16 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
       if (c.hasExtraCursors) return _handled(c.clearExtraCursors);
       if (!c.selection.isCollapsed) return _handled(c.cancelSelection);
       return KeyEventResult.ignored;
+    }
+    if (Platform.isMacOS && ctrl) {
+      if (key == LogicalKeyboardKey.arrowLeft) return _handled(() => c.moveToLineStart(extend: shift));
+      if (key == LogicalKeyboardKey.arrowRight) return _handled(() => c.moveToLineEnd(extend: shift));
+      if (key == LogicalKeyboardKey.arrowUp) return _handled(() => c.moveToDocumentEdge(start: true, extend: shift));
+      if (key == LogicalKeyboardKey.arrowDown) return _handled(() => c.moveToDocumentEdge(start: false, extend: shift));
+    }
+    if (Platform.isMacOS && alt && edit) {
+      if (key == LogicalKeyboardKey.backspace) return _handled(c.deleteWordBackward);
+      if (key == LogicalKeyboardKey.delete) return _handled(c.deleteWordForward);
     }
     if (key == LogicalKeyboardKey.arrowLeft && !alt) return _handled(() => c.moveHorizontal(-1, extend: shift));
     if (key == LogicalKeyboardKey.arrowRight && !alt) return _handled(() => c.moveHorizontal(1, extend: shift));

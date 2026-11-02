@@ -6,6 +6,8 @@ import '../../../../core/files.dart';
 import '../../../../core/source_links.dart';
 import '../../services/device_adb.dart';
 import '../../services/logcat_controller.dart';
+import '../../../../core/mono_font.dart';
+import '../../../../core/platform_keys.dart';
 
 const _levels = ['V', 'D', 'I', 'W', 'E'];
 
@@ -168,7 +170,7 @@ class _LogcatTabState extends State<LogcatTab> {
                 icon: Icon(log.paused ? Icons.play_arrow : Icons.pause),
               ),
               IconButton(
-                tooltip: 'Clear (Ctrl+L)',
+                tooltip: platformKeys('Clear (Ctrl+L)'),
                 onPressed: log.clear,
                 icon: const Icon(Icons.delete_sweep_outlined),
               ),
@@ -221,7 +223,7 @@ class _LogcatTabState extends State<LogcatTab> {
                             appId: app,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontFamily: 'Consolas', fontSize: 12.5, color: _color(l, scheme)),
+                            style: TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5, color: _color(l, scheme)),
                           ),
                         );
                       },

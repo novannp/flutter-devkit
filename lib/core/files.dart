@@ -11,6 +11,11 @@ String timestamp() => DateTime.now().toIso8601String().replaceAll(RegExp(r'[:.]'
 
 String safeFileName(String s) => s.replaceAll(RegExp(r'[^\w\-]+'), '_');
 
+/// A file, folder or URL, in whatever the system opens it with.
+Future<void> openExternal(String target) async {
+  await Process.run(Platform.isMacOS ? 'open' : 'explorer', [target]);
+}
+
 Future<void> revealInExplorer(String path) async {
   if (Platform.isWindows) {
     await Process.run('explorer', ['/select,', path]);

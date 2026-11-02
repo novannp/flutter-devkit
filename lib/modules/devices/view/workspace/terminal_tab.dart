@@ -54,7 +54,7 @@ class _TerminalTabState extends State<TerminalTab> {
       final proj = (await scanFlutterProjects()).where((p) => p.package == pkg).firstOrNull;
       if (proj != null) return proj.path;
     }
-    return Platform.environment['USERPROFILE'] ?? Directory.current.path;
+    return Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? Directory.current.path;
   }
 
   Future<void> _start() async {

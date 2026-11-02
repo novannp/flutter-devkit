@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/device_adb.dart';
+import '../../../../core/mono_font.dart';
 
 class AppsTab extends StatefulWidget {
   const AppsTab({super.key, required this.dev, required this.onInstall});
@@ -77,7 +78,7 @@ class _AppsTabState extends State<AppsTab> {
               child: SingleChildScrollView(
                 child: SelectableText(
                   r.ok ? r.stdout : 'Failed (run-as only works on debug builds):\n${r.stderr}${r.stdout}',
-                  style: const TextStyle(fontFamily: 'Consolas', fontSize: 12.5),
+                  style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5),
                 ),
               ),
             ),

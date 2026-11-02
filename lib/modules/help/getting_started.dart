@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/platform_keys.dart';
 
 const _seenKey = 'getting_started_seen';
 
@@ -111,8 +112,8 @@ class _GettingStartedDialogState extends State<GettingStartedDialog> {
                             child: Text.rich(
                               TextSpan(
                                 children: [
-                                  TextSpan(text: name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                  TextSpan(text: name == 'Nothing to set up' ? ': $text' : ' $text'),
+                                  TextSpan(text: platformKeys(name), style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  TextSpan(text: name == 'Nothing to set up' ? ': $text' : ' ${platformKeys(text)}'),
                                 ],
                               ),
                             ),

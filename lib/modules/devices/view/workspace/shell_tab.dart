@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../services/device_adb.dart';
+import '../../../../core/mono_font.dart';
 
 Map<String, String> get _quickCommands => {
   'Battery': 'dumpsys battery',
@@ -104,7 +105,7 @@ class _ShellTabState extends State<ShellTab> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    const mono = TextStyle(fontFamily: 'Consolas', fontSize: 13);
+    const mono = TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 13);
 
     return Column(
       children: [

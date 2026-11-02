@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import 'source_control.dart';
+import '../../core/mono_font.dart';
 
 Color _statusColor(String status) => switch (status) {
   'A' || '?' => const Color(0xFF22C55E),
@@ -226,7 +227,7 @@ class _SourceControlViewState extends State<SourceControlView> {
               width: 16,
               child: Text(
                 status == '?' ? 'U' : status,
-                style: TextStyle(fontFamily: 'Consolas', fontSize: 12.5, fontWeight: FontWeight.w700, color: _statusColor(status)),
+                style: TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5, fontWeight: FontWeight.w700, color: _statusColor(status)),
               ),
             ),
             Expanded(
@@ -310,12 +311,12 @@ class _SideBySideDiffState extends State<SideBySideDiff> {
             child: Text(
               number == null ? '' : '${number + 1}',
               textAlign: TextAlign.right,
-              style: TextStyle(fontFamily: 'Consolas', fontSize: 12, color: scheme.outline),
+              style: TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12, color: scheme.outline),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(text, style: TextStyle(fontFamily: 'Consolas', fontSize: 12.5, color: scheme.onSurface)),
+            child: Text(text, style: TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5, color: scheme.onSurface)),
           ),
         ],
       ),

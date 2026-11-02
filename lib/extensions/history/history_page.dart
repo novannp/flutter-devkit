@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/files.dart';
 import '../../core/history.dart';
+import '../../core/mono_font.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -264,7 +265,7 @@ class _EntryList extends StatelessWidget {
                   child: SingleChildScrollView(
                     child: SelectableText(
                       log,
-                      style: const TextStyle(fontFamily: 'Consolas', fontSize: 11.5, color: Colors.white70),
+                      style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 11.5, color: Colors.white70),
                     ),
                   ),
                 ),
@@ -341,7 +342,7 @@ class _LogList extends StatelessWidget {
             color: scheme.primary,
             size: 20,
           ),
-          title: Text(f.uri.pathSegments.last, style: const TextStyle(fontFamily: 'Consolas', fontSize: 13)),
+          title: Text(f.uri.pathSegments.last, style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 13)),
           subtitle: Text(
             '$kind · ${_when(f.lastModifiedSync())} · ${_size(f.lengthSync())}',
             style: TextStyle(fontSize: 12, color: scheme.outline),
@@ -349,7 +350,7 @@ class _LogList extends StatelessWidget {
           trailing: Wrap(
             spacing: 4,
             children: [
-              TextButton(onPressed: () => Process.start('explorer', [f.path]), child: const Text('Open')),
+              TextButton(onPressed: () => openExternal(f.path), child: const Text('Open')),
               TextButton(onPressed: () => revealInExplorer(f.path), child: const Text('Show')),
             ],
           ),

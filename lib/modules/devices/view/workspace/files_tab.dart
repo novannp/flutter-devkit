@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/files.dart';
 import '../../services/device_adb.dart';
+import '../../../../core/mono_font.dart';
 
 class _RemoteFile {
   const _RemoteFile(this.name, {required this.isDir, required this.size, required this.modified});
@@ -145,7 +146,7 @@ class _FilesTabState extends State<FilesTab> {
             children: [
               IconButton(tooltip: 'Up', onPressed: _up, icon: const Icon(Icons.arrow_upward)),
               Expanded(
-                child: SelectableText(_dir, style: const TextStyle(fontFamily: 'Consolas')),
+                child: SelectableText(_dir, style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback)),
               ),
               for (final s in shortcuts.entries)
                 Padding(

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -20,6 +21,8 @@ import 'file_tree.dart' show fileIconOf;
 import 'find_panel.dart';
 import 'markdown_view.dart';
 import 'source_control.dart';
+import '../../core/mono_font.dart';
+import '../../core/platform_keys.dart';
 
 Color diagnosticColor(int severity) => switch (severity) {
   1 => const Color(0xFFEF4444),
@@ -625,12 +628,12 @@ class CodePaneState extends State<CodePane> {
     }
     if (key == LogicalKeyboardKey.f2) return _handled(() => _rename(line, col));
     if (key == LogicalKeyboardKey.f1) return _handled(() => _showHoverAtCaret(line, col));
-    if (hw.isControlPressed && key == LogicalKeyboardKey.period) return _handled(() => _codeActions(line, col));
+    if (hw.isPrimaryPressed && key == LogicalKeyboardKey.period) return _handled(() => _codeActions(line, col));
     return widget.onKey(event);
   }
 
   VoidCallback? _vsCodeKey(LogicalKeyboardKey key, HardwareKeyboard hw, {required bool readOnly}) {
-    final ctrl = hw.isControlPressed, shift = hw.isShiftPressed, alt = hw.isAltPressed;
+    final ctrl = hw.isPrimaryPressed, shift = hw.isShiftPressed, alt = hw.isAltPressed;
     if (ctrl && !shift && key == LogicalKeyboardKey.keyD) return _ctrl.selectNextOccurrence;
     if (!readOnly) {
       if (ctrl && key == LogicalKeyboardKey.enter) return shift ? _insertLineAbove : _insertLineBelow;
@@ -641,10 +644,11 @@ class CodePaneState extends State<CodePane> {
     }
     if (ctrl && shift && (key == LogicalKeyboardKey.bracketLeft || key == LogicalKeyboardKey.braceLeft)) return _fold;
     if (ctrl && shift && (key == LogicalKeyboardKey.bracketRight || key == LogicalKeyboardKey.braceRight)) return _unfold;
-    if (ctrl && key == LogicalKeyboardKey.arrowRight) {
+    final byWord = Platform.isMacOS ? alt : ctrl;
+    if (byWord && key == LogicalKeyboardKey.arrowRight) {
       return shift ? _ctrl.extendSelectionToWordBoundaryForward : _ctrl.moveCursorToWordBoundaryForward;
     }
-    if (ctrl && key == LogicalKeyboardKey.arrowLeft) {
+    if (byWord && key == LogicalKeyboardKey.arrowLeft) {
       return shift ? _ctrl.extendSelectionToWordBoundaryBackward : _ctrl.moveCursorToWordBoundaryBackward;
     }
     if (key == LogicalKeyboardKey.f3) return shift ? _find.previousMatch : _find.nextMatch;
@@ -874,11 +878,11 @@ class CodePaneState extends State<CodePane> {
               children: [
                 SizedBox(
                   width: 42,
-                  child: Text('${h.line + 1}', textAlign: TextAlign.right, style: TextStyle(fontFamily: 'Consolas', fontSize: 12, color: scheme.outline)),
+                  child: Text('${h.line + 1}', textAlign: TextAlign.right, style: TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12, color: scheme.outline)),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(h.text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Consolas', fontSize: 12.5)),
+                  child: Text(h.text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5)),
                 ),
               ],
             ),
@@ -977,7 +981,7 @@ class CodePaneState extends State<CodePane> {
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          style: const TextStyle(fontFamily: 'Consolas'),
+          style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback),
           onSubmitted: (v) => Navigator.pop(ctx, v),
         ),
         actions: [
@@ -1088,14 +1092,14 @@ class CodePaneState extends State<CodePane> {
 
   // Pressing or releasing Ctrl with the mouse at rest has to update the link too.
   bool _onHardwareKey(KeyEvent e) {
-    if (mounted && (e.logicalKey == LogicalKeyboardKey.controlLeft || e.logicalKey == LogicalKeyboardKey.controlRight)) _updateLink();
+    if (mounted && isPrimaryModifierKey(e.logicalKey)) _updateLink();
     return false;
   }
 
   void _updateLink() {
     (int, SemanticToken)? link;
     final at = _pointer;
-    if (at != null && HardwareKeyboard.instance.isControlPressed && _doc.languageId == 'dart') {
+    if (at != null && HardwareKeyboard.instance.isPrimaryPressed && _doc.languageId == 'dart') {
       final pos = _positionAt(at);
       if (pos != null) {
         final token = clickableTokenAt(_doc.semantics[pos.$1], pos.$2);
@@ -1144,7 +1148,7 @@ class CodePaneState extends State<CodePane> {
       return;
     }
     _clearHover();
-    if (HardwareKeyboard.instance.isControlPressed || _usages != null) return;
+    if (HardwareKeyboard.instance.isPrimaryPressed || _usages != null) return;
     if (_doc.languageId != 'dart' || _popup) return;
     final local = e.localPosition;
     _hoverTimer = Timer(const Duration(milliseconds: 500), () => _showHover(local));
@@ -1233,7 +1237,7 @@ class CodePaneState extends State<CodePane> {
     final at = _caretOffset(_signatureLine, _signatureColumn);
     if (at == null) return const SizedBox.shrink();
     final line = _paragraphAt(_signatureLine)?.paragraph.preferredLineHeight ?? 18;
-    const mono = TextStyle(fontFamily: 'Consolas', fontSize: 13);
+    const mono = TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 13);
     return _Floating(
       // Above the line, so it doesn't cover the arguments below it.
       at: at,
@@ -1308,7 +1312,7 @@ class CodePaneState extends State<CodePane> {
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontFamily: 'Consolas', fontSize: 13),
+                      style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 13),
                     ),
                   ),
                   if (c.detail != null) ...[
@@ -1345,7 +1349,7 @@ class CodePaneState extends State<CodePane> {
         if (pos != null) unawaited(_contextMenu(e.position, pos.$1, pos.$2));
       },
       onPointerUp: (e) {
-        if (!HardwareKeyboard.instance.isControlPressed) return;
+        if (!HardwareKeyboard.instance.isPrimaryPressed) return;
         // From the pointer, not the caret: the editor may not have moved the caret yet.
         final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
         final pos = box == null ? null : _positionAt(box.globalToLocal(e.position));
@@ -1374,7 +1378,7 @@ class CodePaneState extends State<CodePane> {
               padding: const EdgeInsets.only(left: 6, top: 4, bottom: 120, right: 16),
               style: CodeEditorStyle(
                 fontFamily: 'Cascadia Mono',
-                fontFamilyFallback: const ['Consolas'],
+                fontFamilyFallback: const ['Consolas', ...monoFallback],
                 fontSize: EditorView.fontSize.value,
                 fontHeight: 1.4,
                 backgroundColor: scheme.surface,
@@ -1401,8 +1405,8 @@ class CodePaneState extends State<CodePane> {
                     DefaultCodeLineNumber(
                       controller: editing,
                       notifier: notifier,
-                      textStyle: TextStyle(color: scheme.outline, fontFamily: 'Consolas', fontSize: EditorView.fontSize.value - 1),
-                      focusedTextStyle: TextStyle(color: scheme.onSurface, fontFamily: 'Consolas', fontSize: EditorView.fontSize.value - 1),
+                      textStyle: TextStyle(color: scheme.outline, fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: EditorView.fontSize.value - 1),
+                      focusedTextStyle: TextStyle(color: scheme.onSurface, fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: EditorView.fontSize.value - 1),
                     ),
                     DefaultCodeChunkIndicator(width: 18, controller: chunks, editing: editing, notifier: notifier, color: scheme.outline),
                   ],
@@ -1501,7 +1505,7 @@ class _MenuRow extends StatelessWidget {
     children: [
       Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
       const SizedBox(width: 28),
-      Text(keys, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline)),
+      Text(platformKeys(keys), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline)),
     ],
   );
 }

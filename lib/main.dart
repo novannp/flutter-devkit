@@ -25,11 +25,13 @@ import 'extensions/printer/printer_page.dart';
 import 'extensions/registry.dart';
 import 'shell.dart';
 import 'core/history.dart';
+import 'core/login_path.dart';
 
 /// Workspace window argument: `--workspace=<device json>`; see [openWorkspaceWindow].
 const workspaceArg = '--workspace=';
 
 Future<void> main(List<String> args) async {
+  await adoptLoginShellPath();
   WidgetsFlutterBinding.ensureInitialized();
   await installErrorLog();
   // Before anything opens the preferences file.

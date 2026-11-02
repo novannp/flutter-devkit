@@ -22,6 +22,7 @@ import 'modules/editor/tool_tabs.dart';
 import 'modules/help/connection_guide.dart';
 import 'modules/help/getting_started.dart';
 import 'modules/settings/settings_page.dart';
+import 'core/platform_keys.dart';
 
 const _editor = AppModule('Editor', Icons.code, EditorPage());
 const _settings = AppModule('Settings', Icons.settings_outlined, SettingsPage());
@@ -254,7 +255,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
     style: _itemStyle,
     leadingIcon: Icon(icon, size: 17),
     onPressed: onPressed,
-    trailingIcon: keys == null ? null : Text(keys, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline)),
+    trailingIcon: keys == null ? null : Text(platformKeys(keys), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline)),
     child: trailing ?? Text(label),
   );
 
@@ -422,7 +423,8 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
         children: [
           Row(
             children: [
-              const SizedBox(width: 10),
+              // macOS draws its window buttons here.
+              SizedBox(width: Platform.isMacOS ? 78 : 10),
               Tooltip(
                 message: _tagline,
                 child: _Logo(
@@ -473,6 +475,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
                   ),
                 ),
               ),
+              if (!Platform.isMacOS) ...[
               _CaptionButton(icon: Icons.remove, tooltip: 'Minimize', onPressed: windowManager.minimize),
               _CaptionButton(
                 icon: _maximized ? Icons.filter_none : Icons.crop_square,
@@ -481,9 +484,10 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
                 onPressed: _maximized ? windowManager.unmaximize : windowManager.maximize,
               ),
               _CaptionButton(icon: Icons.close, tooltip: 'Close', danger: true, onPressed: windowManager.close),
+              ],
             ],
           ),
-          if (!_maximized) ...[
+          if (!_maximized && !Platform.isMacOS) ...[
             Positioned(top: 0, left: 8, right: 8, height: 4, child: _resizeEdge(ResizeEdge.top, SystemMouseCursors.resizeUp)),
             Positioned(top: 0, left: 0, width: 8, height: 4, child: _resizeEdge(ResizeEdge.topLeft, SystemMouseCursors.resizeUpLeft)),
             Positioned(top: 0, right: 0, width: 8, height: 4, child: _resizeEdge(ResizeEdge.topRight, SystemMouseCursors.resizeUpRight)),
@@ -536,9 +540,10 @@ class _CaptionButtonState extends State<_CaptionButton> {
 // Easter egg: opens Steam for a well-earned break.
 Future<void> _takeABreak(BuildContext context) async {
   final messenger = ScaffoldMessenger.of(context);
-  final reg = await Process.run('reg', ['query', r'HKCU\Software\Valve\Steam', '/v', 'SteamExe']);
-  final installed = reg.exitCode == 0;
-  if (installed) await Process.run('explorer', ['steam://open/main']);
+  final installed = Platform.isMacOS
+      ? Directory('/Applications/Steam.app').existsSync()
+      : (await Process.run('reg', ['query', r'HKCU\Software\Valve\Steam', '/v', 'SteamExe'])).exitCode == 0;
+  if (installed) await openExternal('steam://open/main');
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(width: 420, content: Text(installed ? pick(breakLines) : pick(noBreakLines))));

@@ -53,6 +53,7 @@ class AvdService {
 
   final Tools tools;
   static final _sep = Platform.pathSeparator;
+  static final _emulatorName = Platform.isWindows ? 'emulator.exe' : 'emulator';
 
   String? get sdkRoot {
     final env = Platform.environment;
@@ -60,13 +61,14 @@ class AvdService {
       env['ANDROID_HOME'],
       env['ANDROID_SDK_ROOT'],
       if (env['LOCALAPPDATA'] != null) '${env['LOCALAPPDATA']}${_sep}Android${_sep}Sdk',
+      if (Platform.isMacOS) '${env['HOME']}/Library/Android/sdk',
       // Fall back to the SDK that owns the adb we use.
       if (tools.adb != null) File(tools.adb!).parent.parent.path,
     ];
-    return candidates.nonNulls.where((p) => File('$p${_sep}emulator${_sep}emulator.exe').existsSync()).firstOrNull;
+    return candidates.nonNulls.where((p) => File('$p${_sep}emulator$_sep$_emulatorName').existsSync()).firstOrNull;
   }
 
-  String? get emulatorExe => sdkRoot == null ? null : '$sdkRoot${_sep}emulator${_sep}emulator.exe';
+  String? get emulatorExe => sdkRoot == null ? null : '$sdkRoot${_sep}emulator$_sep$_emulatorName';
 
   Directory get avdHome {
     final env = Platform.environment;

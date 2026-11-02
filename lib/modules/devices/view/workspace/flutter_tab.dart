@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/local_builds.dart';
 import '../../services/flutter_session.dart';
 import '../../../../core/compact_dropdown.dart';
+import '../../../../core/mono_font.dart';
+import '../../../../core/platform_keys.dart';
 
 class FlutterTab extends StatefulWidget {
   const FlutterTab({super.key, required this.session, required this.focus});
@@ -152,7 +154,7 @@ class _FlutterTabState extends State<FlutterTab> {
               TextField(
                 controller: _args,
                 enabled: !s.active,
-                style: const TextStyle(fontFamily: 'Consolas', fontSize: 13),
+                style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 13),
                 decoration: const InputDecoration(
                   labelText: 'Extra args (saved per project)',
                   hintText: '--flavor dev -t lib/main_dev.dart',
@@ -173,12 +175,12 @@ class _FlutterTabState extends State<FlutterTab> {
                     FilledButton.tonalIcon(onPressed: s.stop, icon: const Icon(Icons.stop), label: const Text('Stop')),
                   const SizedBox(width: 6),
                   IconButton.filledTonal(
-                    tooltip: 'Hot reload (Ctrl+F5)',
+                    tooltip: platformKeys('Hot reload (Ctrl+F5)'),
                     onPressed: s.canReload ? () => s.reload() : null,
                     icon: const Icon(Icons.bolt),
                   ),
                   IconButton.filledTonal(
-                    tooltip: 'Hot restart (Ctrl+Shift+F5)',
+                    tooltip: platformKeys('Hot restart (Ctrl+Shift+F5)'),
                     onPressed: s.canReload ? () => s.reload(full: true) : null,
                     icon: const Icon(Icons.restart_alt),
                   ),
@@ -261,7 +263,7 @@ class _FlutterTabState extends State<FlutterTab> {
                           lines[i].text,
                           root: _project?.path,
                           style: TextStyle(
-                            fontFamily: 'Consolas',
+                            fontFamily: 'Consolas', fontFamilyFallback: monoFallback,
                             fontSize: 12.5,
                             color: _color(lines[i].kind, scheme),
                           ),

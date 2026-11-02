@@ -17,11 +17,15 @@ Future<void> openWorkspaceWindow(Device d) async {
   if (existing != null) {
     final alive = await existing.exitCode.timeout(Duration.zero, onTimeout: () => -999) == -999;
     if (alive) {
-      await Process.run('powershell', [
-        '-NoProfile',
-        '-Command',
-        '(New-Object -ComObject WScript.Shell).AppActivate(${existing.pid})',
-      ]);
+      if (Platform.isMacOS) {
+        await Process.run('osascript', ['-e', 'tell application "System Events" to set frontmost of (first process whose unix id is ${existing.pid}) to true']);
+      } else {
+        await Process.run('powershell', [
+          '-NoProfile',
+          '-Command',
+          '(New-Object -ComObject WScript.Shell).AppActivate(${existing.pid})',
+        ]);
+      }
       return;
     }
   }

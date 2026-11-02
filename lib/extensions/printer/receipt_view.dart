@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import 'escpos.dart';
+import '../../core/mono_font.dart';
 
 /// Renders an ESC/POS receipt like thermal paper.
 class ReceiptPaper extends StatelessWidget {
@@ -33,7 +34,7 @@ class ReceiptPaper extends StatelessWidget {
             boxShadow: [BoxShadow(color: Color(0x22000000), blurRadius: 16, offset: Offset(0, 6))],
           ),
           child: DefaultTextStyle(
-            style: TextStyle(fontFamily: 'Consolas', fontSize: fontSize, color: const Color(0xFF111111), height: 1.25),
+            style: TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: fontSize, color: const Color(0xFF111111), height: 1.25),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [for (final e in elements) _element(e, scale, fontSize)],

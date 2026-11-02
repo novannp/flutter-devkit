@@ -12,11 +12,12 @@ import '../emulators/avd_service.dart';
 import '../emulators/system_images_dialog.dart';
 import 'core_deps.dart';
 import '../../core/history.dart';
+import '../../core/mono_font.dart';
 
 final _sep = Platform.pathSeparator;
 String get _home => Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? '';
 String get _pubCache =>
-    Platform.environment['PUB_CACHE'] ?? '${Platform.environment['LOCALAPPDATA'] ?? _home}${_sep}Pub${_sep}Cache';
+    Platform.environment['PUB_CACHE'] ?? (Platform.isWindows ? '${Platform.environment['LOCALAPPDATA'] ?? _home}${_sep}Pub${_sep}Cache' : '$_home$_sep.pub-cache');
 String get _gradleCaches => '${Platform.environment['GRADLE_USER_HOME'] ?? '$_home$_sep.gradle'}${_sep}caches';
 
 List<Directory> _gitCacheDirs(Set<String> repos) {
@@ -324,7 +325,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
                               : Colors.white70;
                           return Text(
                             l,
-                            style: TextStyle(fontFamily: 'Consolas', fontSize: 12, color: color),
+                            style: TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12, color: color),
                           );
                         },
                       ),

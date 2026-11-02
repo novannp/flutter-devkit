@@ -67,6 +67,9 @@ class EmbeddedScrcpy extends StatefulWidget {
   State<EmbeddedScrcpy> createState() => _EmbeddedScrcpyState();
 }
 
+const _permissionNeeded =
+    'To keep the device screen inside this window, allow Flutter DevKit under System Settings → Privacy & Security → Accessibility, then press Retry.';
+
 class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
   String _title = '';
   Process? _process;
@@ -88,6 +91,10 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
   void initState() {
     super.initState();
     _owner = EmbedWindow.ownWindow();
+    if (!EmbedWindow.allowed) {
+      _error = _permissionNeeded;
+      unawaited(EmbedWindow.askPermission());
+    }
     _watch(this);
     // Window moves don't produce Flutter frames; poll the (cheap) client origin to follow them.
     _poll = Timer.periodic(const Duration(milliseconds: 30), (_) => _sync());
@@ -95,11 +102,11 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
 
   /// Where the widget is on screen, in physical pixels; null while hidden or not laid out.
   Rect? _screenRect() {
-    final owner = _owner;
+    final owner = _owner ??= EmbedWindow.ownWindow();
     if (owner == null || !mounted || !_visibleInTree || EmbedWindow.isMinimized(owner)) return null;
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || !box.attached || !box.hasSize || box.size.isEmpty) return null;
-    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final dpr = EmbedWindow.scale(MediaQuery.devicePixelRatioOf(context));
     final (ox, oy) = EmbedWindow.clientOrigin(owner);
     final tl = box.localToGlobal(Offset.zero) * dpr + Offset(ox.toDouble(), oy.toDouble());
     return Rect.fromLTWH(
@@ -160,7 +167,7 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
 
   /// Tooltips/snackbars over the screen: cut them out of the scrcpy window so they stay readable.
   void _applyHoles(int h, Rect rect) {
-    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final dpr = EmbedWindow.scale(MediaQuery.devicePixelRatioOf(context));
     final (ox, oy) = EmbedWindow.clientOrigin(_owner!);
     final holes = <(int, int, int, int)>[];
     for (final o in _overlays) {
@@ -226,6 +233,8 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
           '--window-height=${rect.height.toInt()}',
           '--no-audio',
           '--stay-awake',
+          // There's no owning another app's window here, so it floats above ours instead.
+          if (Platform.isMacOS) '--always-on-top',
           if (widget.maxSize != null) '--max-size=${widget.maxSize}',
         ],
         environment: {if (widget.adb.tools.adb != null) 'ADB': widget.adb.tools.adb!},
@@ -252,7 +261,7 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
 
     final owner = _owner;
     for (var i = 0; i < 100 && mounted && _process == p; i++) {
-      final h = EmbedWindow.findByTitle(_title);
+      final h = EmbedWindow.findByTitle(_title, processId: p.pid);
       if (h != 0 && owner != null) {
         EmbedWindow.adopt(h, owner);
         _hwnd = h;
@@ -279,7 +288,7 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
     _hiddenForOverlay = false;
     final p = _process;
     _process = null;
-    if (p != null) Process.run('taskkill', ['/T', '/F', '/PID', '${p.pid}']);
+    if (p != null) unawaited(ChildProcesses.killTree(p));
   }
 
   void _fail(String reason) {
@@ -290,6 +299,7 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
   }
 
   void _retry() {
+    if (!EmbedWindow.allowed) return unawaited(EmbedWindow.askPermission());
     setState(() => _error = null);
     _sync();
   }

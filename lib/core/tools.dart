@@ -20,7 +20,9 @@ class Tools {
   final String? scrcpy;
 
   /// Folder containing the bundled scrcpy (see windows/CMakeLists.txt).
-  static String get bundledDir => '${File(Platform.resolvedExecutable).parent.path}${Platform.pathSeparator}scrcpy';
+  static String get bundledDir => Platform.isMacOS
+      ? '${File(Platform.resolvedExecutable).parent.parent.path}/Resources/scrcpy'
+      : '${File(Platform.resolvedExecutable).parent.path}${Platform.pathSeparator}scrcpy';
 
   static String? _bundled(String exe) {
     final f = File('$bundledDir${Platform.pathSeparator}$exe');
@@ -29,7 +31,7 @@ class Tools {
 
   // Prefer a system adb so we don't fight an already-running adb server of another version.
   static Future<Tools> resolve() async =>
-      Tools._(await _which('adb') ?? _bundled('adb.exe'), _bundled('scrcpy.exe') ?? await _which('scrcpy'));
+      Tools._(await _which('adb') ?? _bundled(Platform.isWindows ? 'adb.exe' : 'adb'), _bundled(Platform.isWindows ? 'scrcpy.exe' : 'scrcpy') ?? await _which('scrcpy'));
 
   static Future<String?> _which(String name) async {
     try {

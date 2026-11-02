@@ -78,11 +78,37 @@ List<int>? dpapi(List<int> input, {required bool encrypt}) {
   });
 }
 
+/// macOS: the login Keychain. Fed through stdin so the token never shows in a process listing.
+class _Keychain {
+  static const _service = 'Flutter DevKit';
+
+  static Future<String?> read(String name) async {
+    final r = await Process.run('security', ['find-generic-password', '-a', name, '-s', _service, '-w']);
+    return r.exitCode == 0 ? (r.stdout as String).trimRight() : null;
+  }
+
+  static Future<void> write(String name, String? value) async {
+    if (value == null || value.isEmpty) {
+      await Process.run('security', ['delete-generic-password', '-a', name, '-s', _service]);
+      return;
+    }
+    final quoted = value.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+    final p = await Process.start('security', ['-i']);
+    p.stdout.drain<void>();
+    p.stderr.drain<void>();
+    p.stdin.writeln('add-generic-password -U -a "$name" -s "$_service" -w "$quoted"');
+    await p.stdin.close();
+    await p.exitCode;
+    if (await read(name) != value) throw StateError('The Keychain could not save the token');
+  }
+}
+
 class Secrets {
   static Future<File> _file(String name) async =>
       File('${(await getApplicationSupportDirectory()).path}${Platform.pathSeparator}$name.secret');
 
   static Future<String?> read(String name) async {
+    if (Platform.isMacOS) return _Keychain.read(name);
     try {
       final f = await _file(name);
       if (!f.existsSync()) return null;
@@ -94,6 +120,7 @@ class Secrets {
   }
 
   static Future<void> write(String name, String? value) async {
+    if (Platform.isMacOS) return _Keychain.write(name, value);
     final f = await _file(name);
     if (value == null || value.isEmpty) {
       if (f.existsSync()) await f.delete();
