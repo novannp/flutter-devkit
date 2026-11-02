@@ -228,6 +228,13 @@ void main() {
     expect(applyTextEdits('ab\ncd', [edit(9, 0, 0)]), 'ab\ncdX');
   });
 
+  test('an answer arriving after the document closed is ignored', () {
+    final c = CodeLineEditingController(codeLines: CodeLines.fromText('a'));
+    c.dispose();
+    c.forceRepaint();
+    c.selection = const CodeLineSelection.collapsed(index: 0, offset: 1);
+  });
+
   test('a bad snippet session stays quiet when its text goes away', () {
     final c = CodeLineEditingController(codeLines: CodeLines.fromText(r'a b'));
     final s = SnippetSession(c, 0, parseSnippet(r'${1:a} ${2:b}'));
