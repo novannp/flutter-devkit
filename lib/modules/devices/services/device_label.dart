@@ -1,8 +1,8 @@
+import '../../../core/qr.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../models/device.dart';
 import 'device_adb.dart';
@@ -57,12 +57,7 @@ Future<List<int>> renderDeviceLabel(Device d, {required int width, required int 
   y += details.height + gap;
   canvas.save();
   canvas.translate((size.width - qrSize) / 2, y);
-  QrPainter(
-    data: [d.displayName, d.adbTarget, d.serial].nonNulls.join('\n'),
-    version: QrVersions.auto,
-    eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.white),
-    dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.white),
-  ).paint(canvas, Size.square(qrSize));
+  paintQr(canvas, Size.square(qrSize), QrMatrix.encode([d.displayName, d.adbTarget, d.serial].nonNulls.join('\n')), color: Colors.white);
   canvas.restore();
 
   final image = await recorder.endRecording().toImage(width, height);

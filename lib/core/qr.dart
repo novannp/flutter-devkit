@@ -89,7 +89,7 @@ class QrMatrix {
     while (true) {
       final countBits = version < 10 ? 8 : 16;
       if (4 + countBits + data.length * 8 <= _dataCodewords(version, l) * 8) break;
-      if (++version > 40) throw ArgumentError('Too much data for a QR code: ${data.length} bytes');
+      if (++version > 40) throw FormatException('Too much data for a QR code: ${data.length} bytes');
     }
     final codewords = _withErrorCorrection(_dataBits(data, version, l), version, l);
     final base = _Builder(version, l)..drawFunctionPatterns()..drawCodewords(codewords);
@@ -386,7 +386,13 @@ class QrView extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => CustomPaint(size: Size.square(size), painter: _QrPainter(QrMatrix.encode(data), color));
+  Widget build(BuildContext context) {
+    try {
+      return CustomPaint(size: Size.square(size), painter: _QrPainter(QrMatrix.encode(data), color));
+    } on FormatException {
+      return SizedBox.square(dimension: size);
+    }
+  }
 }
 
 class _QrPainter extends CustomPainter {

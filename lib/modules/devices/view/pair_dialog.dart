@@ -1,10 +1,10 @@
+import '../../../core/qr.dart';
 import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../cubit/devices_cubit.dart';
 import '../models/device.dart';
@@ -120,9 +120,10 @@ class _PairDialogState extends State<_PairDialog> {
             if (_mode == 0) ...[
               Center(
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  // Scanners want a light margin around the code.
+                  padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                  child: QrImageView(data: 'WIFI:T:ADB;S:$_name;P:$_password;;', size: 220),
+                  child: QrView(data: 'WIFI:T:ADB;S:$_name;P:$_password;;', size: 200),
                 ),
               ),
               const SizedBox(height: 12),
