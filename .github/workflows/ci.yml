@@ -28,5 +28,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - run: flutter analyze
-      - run: flutter test --reporter github
+      - run: flutter test --reporter github --file-reporter json:test-results.json
+      - if: failure()
+        run: python .github/report_failures.py test-results.json
       - run: flutter build ${{ matrix.build }} --release --no-tree-shake-icons
