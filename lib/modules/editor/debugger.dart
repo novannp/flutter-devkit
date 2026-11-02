@@ -78,6 +78,9 @@ class Debugger extends ChangeNotifier {
   final breakpoints = <String, Set<int>>{};
   ValueChanged<String>? onMessage;
 
+  /// Events the running app posts, such as a widget picked on the device.
+  ValueChanged<vm.Event>? onExtensionEvent;
+
   DebugState state = DebugState.disconnected;
   String pauseReason = '';
   String exceptionMode = vm.ExceptionPauseMode.kUnhandled;
@@ -132,7 +135,8 @@ class Debugger extends ChangeNotifier {
     state = DebugState.running;
     _subs
       ..add(service.onDebugEvent.listen(_onDebug))
-      ..add(service.onIsolateEvent.listen(_onIsolate));
+      ..add(service.onIsolateEvent.listen(_onIsolate))
+      ..add(service.onExtensionEvent.listen((e) => onExtensionEvent?.call(e)));
     unawaited(
       service.onDone.then((_) {
         if (identical(_service, service)) unawaited(disconnect());
@@ -140,6 +144,7 @@ class Debugger extends ChangeNotifier {
     );
     await service.streamListen(vm.EventStreams.kDebug);
     await service.streamListen(vm.EventStreams.kIsolate);
+    await service.streamListen(vm.EventStreams.kExtension);
     final info = await service.getVM();
     for (final ref in info.isolates ?? const <vm.IsolateRef>[]) {
       await _safely(() async {
@@ -148,6 +153,27 @@ class Debugger extends ChangeNotifier {
       });
     }
     _changed();
+  }
+
+  /// A service extension of the running app, on whichever isolate registered it; null if none could answer.
+  Future<Map<String, dynamic>?> callExtension(String method, Map<String, String> args) async {
+    final service = _service;
+    if (service == null) return null;
+    try {
+      final info = await service.getVM();
+      for (final ref in info.isolates ?? const <vm.IsolateRef>[]) {
+        final isolate = await service.getIsolate(ref.id!);
+        if (isolate.extensionRPCs?.contains(method) != true) continue;
+        return (await service.callServiceExtension(method, isolateId: ref.id, args: args)).json;
+      }
+    } on vm.SentinelException {
+      // Isolate exited.
+    } on vm.RPCError {
+      // The app can't answer this one right now, or its Flutter doesn't have it.
+    } on StateError {
+      // Service closed mid-call.
+    }
+    return null;
   }
 
   Future<void> disconnect() async {

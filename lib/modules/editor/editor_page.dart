@@ -32,6 +32,7 @@ import 'fuzzy_files.dart';
 import 'log_style.dart';
 import 'notices.dart';
 import 'palette.dart';
+import 'widget_inspector.dart';
 import 'source_control.dart';
 import 'source_control_view.dart';
 import 'tool_tabs.dart';
@@ -73,7 +74,7 @@ class EditorPage extends StatefulWidget {
   State<EditorPage> createState() => _EditorPageState();
 }
 
-enum _Panel { problems, output, terminal }
+enum _Panel { problems, output, terminal, widgets }
 
 /// What the left panel shows. There's one panel, so opening one view replaces the other.
 enum _Side { files, git, search, debug }
@@ -95,6 +96,7 @@ class _EditorPageState extends State<EditorPage> {
   ConsoleSession? _terminal;
   FlutterSession? _flutter;
   final _debugger = Debugger();
+  late final _inspector = WidgetTreeInspector(_debugger);
   final _pageFocus = FocusNode(debugLabel: 'editor page');
   List<EditorNotice> _notices = const [];
   var _noticesHidden = false;
@@ -168,6 +170,7 @@ class _EditorPageState extends State<EditorPage> {
   @override
   void dispose() {
     editorSaveAllOnQuit = null;
+    _inspector.dispose();
     EditorCommands.openFolder = EditorCommands.openFile = EditorCommands.openTerminal = EditorCommands.quickOpen = EditorCommands.saveAll = null;
     EditorCommands.openRecent = EditorCommands.openDartSettings = EditorCommands.commandPalette = EditorCommands.goToSymbol = null;
     _revealSub?.cancel();
@@ -532,6 +535,7 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Show Problems', () => _showPanel(_Panel.problems), keys: 'Ctrl+Shift+M', icon: Icons.error_outline),
         PaletteItem('Show Output', () => _showPanel(_Panel.output), keys: 'Ctrl+Shift+U', icon: Icons.notes),
         PaletteItem('Show Terminal', () => _showPanel(_Panel.terminal), keys: 'Ctrl+`', icon: Icons.terminal),
+        PaletteItem('Show Widget Inspector', () => _showPanel(_Panel.widgets), icon: Icons.account_tree_outlined),
         PaletteItem('Toggle Bottom Panel', () => setState(() => _panelOpen = !_panelOpen), keys: 'Ctrl+J', icon: Icons.web_asset),
         PaletteItem('Next Problem', () => _nextProblem(1), keys: 'F8', icon: Icons.arrow_downward),
         PaletteItem('Previous Problem', () => _nextProblem(-1), keys: 'Shift+F8', icon: Icons.arrow_upward),
@@ -1739,6 +1743,7 @@ class _EditorPageState extends State<EditorPage> {
                       tab(_Panel.problems, 'Problems (${ws.allDiagnostics.length})'),
                       tab(_Panel.output, 'Output'),
                       tab(_Panel.terminal, 'Terminal'),
+                      tab(_Panel.widgets, 'Widgets'),
                     ],
                   ),
                 ),
@@ -1758,6 +1763,7 @@ class _EditorPageState extends State<EditorPage> {
               _Panel.problems => _problems(ws, scheme),
               _Panel.output => _output(scheme),
               _Panel.terminal => _terminalView(ws),
+              _Panel.widgets => WidgetTreeView(inspector: _inspector, onOpen: (target) => unawaited(_jump(target))),
             },
           ),
         ],
