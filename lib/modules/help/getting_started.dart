@@ -47,7 +47,7 @@ const _steps = [
     'Make it yours',
     [
       ('Device menu', 'has mirroring, logs, and file and APK tools for your phones.'),
-      ('Ctrl+Shift+X', 'turns the built-in extensions on or off, such as Printer, Notes and Chat.'),
+      ('Ctrl+Shift+X', 'turns the built-in extensions on or off, such as Printer, Notes and Work.'),
       ('File menu', 'has the themes and the Dart settings, such as line length.'),
       ('Help menu', 'brings this guide back, and explains how to connect a phone.'),
     ],

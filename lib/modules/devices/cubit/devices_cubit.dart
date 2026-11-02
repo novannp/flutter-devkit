@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/jokes.dart';
 import '../../../core/windows.dart';
-import '../../../extensions/chat/chat_service.dart';
 import '../models/device.dart';
 import '../services/adb_service.dart';
 import '../services/demo_devices.dart';
@@ -104,7 +103,6 @@ class DevicesCubit extends Cubit<DevicesState> {
       _devices[d.id] = d;
     }
     _emit();
-    openWorkspaces.addListener(_publishUsage);
     try {
       await mdns.start(onFound: _onMdnsFound, onLost: _onMdnsLost);
     } catch (_) {
@@ -464,7 +462,6 @@ class DevicesCubit extends Cubit<DevicesState> {
     final claimed = {...state.claimed};
     if (!claimed.remove(d.id)) claimed.add(d.id);
     emit(state.copyWith(claimed: claimed));
-    _publishUsage();
   }
 
   String? usageReason(Device d) {
@@ -472,14 +469,6 @@ class DevicesCubit extends Cubit<DevicesState> {
     if (openWorkspaces.value.contains(d.id)) return 'workspace';
     if (d.ip == null && d.adb == AdbState.connected) return 'usb';
     return null;
-  }
-
-  void _publishUsage() {
-    if (state.demo) return;
-    ChatService.instance.setUsing([
-      for (final d in _devices.values)
-        if (usageReason(d) case final why?) {'serial': ?d.serial, 'ip': ?d.ip, 'name': d.displayName, 'why': why},
-    ]);
   }
 
   Future<String> find(Device d) async {
@@ -507,7 +496,6 @@ class DevicesCubit extends Cubit<DevicesState> {
   void _emit() {
     final list = state.demo ? demoDevices : (_devices.values.toList()..sort(_compare));
     emit(state.copyWith(devices: list));
-    _publishUsage();
   }
 
   static int _compare(Device a, Device b) {
@@ -518,7 +506,6 @@ class DevicesCubit extends Cubit<DevicesState> {
   @override
   Future<void> close() async {
     _adbPoll?.cancel();
-    openWorkspaces.removeListener(_publishUsage);
     await mdns.stop();
     return super.close();
   }

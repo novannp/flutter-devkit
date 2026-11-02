@@ -6,7 +6,6 @@ import '../cubit/devices_cubit.dart';
 import '../../../core/apps.dart';
 import '../models/device.dart';
 import '../../../core/windows.dart';
-import '../../../extensions/chat/chat_service.dart';
 import 'network_access_banner.dart';
 import 'pair_dialog.dart';
 import '../../../core/mono_font.dart';
@@ -63,15 +62,7 @@ void _openWorkspace(BuildContext context, Device d) {
   if (!state.adbAvailable) return _toast(context, Future.value('adb not found in PATH'));
   if (d.adbTarget == null) return _toast(context, Future.value('Device IP unknown'));
   openWorkspaceWindow(d);
-  final users = ChatService.instance.usersOf(serial: d.serial, ip: d.ip).map((u) => u.$1.name).toSet();
-  _toast(
-    context,
-    Future.value(
-      users.isEmpty
-          ? 'Opening ${d.displayName} in a new window…'
-          : 'Heads up: ${users.join(', ')} ${users.length == 1 ? 'is' : 'are'} using ${d.displayName}',
-    ),
-  );
+  _toast(context, Future.value('Opening ${d.displayName} in a new window…'));
 }
 
 void _toast(BuildContext context, Future<String> message) async {
@@ -504,7 +495,7 @@ class _DeviceRow extends StatelessWidget {
   }
 }
 
-/// "In use by …" from teammates' DevKits on the LAN, or "You" when this PC is using it.
+/// "In use by You" when this PC has the device open, on USB, or marked as in use.
 class _InUse extends StatelessWidget {
   const _InUse({required this.device});
 
@@ -513,38 +504,29 @@ class _InUse extends StatelessWidget {
   static const _why = {'workspace': 'workspace open', 'usb': 'on USB', 'claimed': 'marked in use'};
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: ChatService.instance,
-    builder: (context, _) {
-      final mine = context.read<DevicesCubit>().usageReason(device);
-      final others = ChatService.instance.usersOf(serial: device.serial, ip: device.ip);
-      if (mine == null && others.isEmpty) return const SizedBox.shrink();
-      final names = [if (mine != null) 'You', ...others.map((u) => u.$1.name).toSet()];
-      final details = [
-        if (mine != null) 'You · ${_why[mine]}',
-        for (final (peer, why) in others) '${peer.name} (${peer.host}) · ${_why[why] ?? why}',
-      ];
-      final color = others.isEmpty ? Theme.of(context).colorScheme.primary : const Color(0xFFF59E0B);
-      return Tooltip(
-        message: details.join('\n'),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.person, size: 13, color: color),
-            const SizedBox(width: 3),
-            Flexible(
-              child: Text(
-                'In use by ${names.join(', ')}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
-              ),
+  Widget build(BuildContext context) {
+    final mine = context.read<DevicesCubit>().usageReason(device);
+    if (mine == null) return const SizedBox.shrink();
+    final color = Theme.of(context).colorScheme.primary;
+    return Tooltip(
+      message: 'You · ${_why[mine]}',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.person, size: 13, color: color),
+          const SizedBox(width: 3),
+          Flexible(
+            child: Text(
+              'In use by You',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
             ),
-          ],
-        ),
-      );
-    },
-  );
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AppsCell extends StatelessWidget {

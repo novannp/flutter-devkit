@@ -12,10 +12,7 @@ import 'core/error_log.dart';
 import 'core/files.dart';
 import 'core/jokes.dart';
 import 'core/theme.dart';
-import 'extensions/chat/chat_notifier.dart';
 import 'extensions/registry.dart';
-import 'extensions/chat/chat_page.dart';
-import 'extensions/chat/chat_service.dart';
 import 'modules/editor/editor_page.dart';
 import 'modules/editor/editor_view.dart';
 import 'modules/editor/tool_tabs.dart';
@@ -44,9 +41,7 @@ class Shell extends StatefulWidget {
 }
 
 class _ShellState extends State<Shell> {
-  StreamSubscription<ChatMessage>? _chatSub;
 
-  static final _chatIndex = _modules.indexWhere((m) => m.page is ChatPage);
 
   ToolTabs get _tools => ToolTabs.instance;
 
@@ -84,12 +79,9 @@ class _ShellState extends State<Shell> {
     EditorCommands.openExtensions = () => _go(_modules.indexOf(_extensions));
     ExtensionManager.instance.addListener(_onExtensions);
     _tools.addListener(_rebuild);
-    _chatSub = ChatService.instance.incoming.stream.listen(_onChat);
     BackgroundRunner.instance.onQuit = () async {
       await editorSaveAllOnQuit?.call();
-      await ChatService.instance.stop();
     };
-    WidgetsBinding.instance.addPostFrameCallback((_) => _askNameIfNeeded());
   }
 
   @override
@@ -98,7 +90,6 @@ class _ShellState extends State<Shell> {
     EditorCommands.openExtensions = null;
     ExtensionManager.instance.removeListener(_onExtensions);
     _tools.removeListener(_rebuild);
-    _chatSub?.cancel();
     super.dispose();
   }
 
@@ -113,39 +104,6 @@ class _ShellState extends State<Shell> {
       if (ExtensionManager.instance.isEnabled(e.id)) continue;
       e.modules.forEach(_tools.close);
     }
-  }
-
-  Future<void> _openChat() async {
-    await BackgroundRunner.instance.show();
-    _go(_chatIndex);
-  }
-
-  Future<void> _onChat(ChatMessage m) async {
-    final focused = await windowManager.isFocused() && !await windowManager.isMinimized();
-    if (!focused) return ChatNotifier.show(m, onOpen: _openChat);
-    if (_tools.active?.page is ChatPage || !mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          width: 460,
-          content: Text('${m.fromName}: ${m.text}', maxLines: 2, overflow: TextOverflow.ellipsis),
-          action: SnackBarAction(label: 'Open', onPressed: () => _go(_chatIndex)),
-        ),
-      );
-  }
-
-  Future<void> _askNameIfNeeded() async {
-    if (!ExtensionManager.instance.isEnabled('chat')) return;
-    final chat = ChatService.instance;
-    await chat.ready.future;
-    if (chat.hasName || !mounted) return;
-    final name = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _NameDialog(initial: chat.myName),
-    );
-    if (name != null) await chat.rename(name);
   }
 
   @override
@@ -241,14 +199,6 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
   @override
   void onWindowUnmaximize() => setState(() => _maximized = false);
 
-  Widget _unread(Widget child) => ListenableBuilder(
-    listenable: ChatService.instance,
-    builder: (_, _) {
-      final n = ChatService.instance.totalUnread;
-      return n == 0 ? child : Badge(label: Text('$n'), child: child);
-    },
-  );
-
   void _openModule(AppModule m) => widget.onSelect(_modules.indexOf(m));
 
   Widget _item(String label, IconData icon, VoidCallback? onPressed, {String? keys, Widget? trailing}) => MenuItemButton(
@@ -259,12 +209,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
     child: trailing ?? Text(label),
   );
 
-  Widget _moduleItem(AppModule m) => _item(
-    m.label,
-    m.icon,
-    () => _openModule(m),
-    trailing: m.page is ChatPage ? _unread(Text(m.label)) : null,
-  );
+  Widget _moduleItem(AppModule m) => _item(m.label, m.icon, () => _openModule(m));
 
   List<AppModule> _enabledIn(String menu) => [
     for (final e in builtinExtensions)
@@ -364,11 +309,10 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
 
   Widget? _menu(String title, List<AppModule> modules, {List<Widget> first = const []}) {
     if (modules.isEmpty && first.isEmpty) return null;
-    final label = Text(title);
     return SubmenuButton(
       style: _itemStyle,
       menuChildren: [...first, for (final m in modules) _moduleItem(m)],
-      child: modules.any((m) => m.page is ChatPage) ? _unread(label) : label,
+      child: Text(title),
     );
   }
 
@@ -547,48 +491,4 @@ Future<void> _takeABreak(BuildContext context) async {
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(width: 420, content: Text(installed ? pick(breakLines) : pick(noBreakLines))));
-}
-
-class _NameDialog extends StatefulWidget {
-  const _NameDialog({required this.initial});
-
-  final String initial;
-
-  @override
-  State<_NameDialog> createState() => _NameDialogState();
-}
-
-class _NameDialogState extends State<_NameDialog> {
-  late final _ctrl = TextEditingController(text: widget.initial);
-
-  void _submit() {
-    if (_ctrl.text.trim().length >= 2) Navigator.pop(context, _ctrl.text.trim());
-  }
-
-  @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: false,
-    child: AlertDialog(
-      title: const Text('Welcome to Flutter DevKit 👋'),
-      content: SizedBox(
-        width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('What should teammates call you? This name shows up in Chat.'),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _ctrl,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Your name'),
-              onChanged: (_) => setState(() {}),
-              onSubmitted: (_) => _submit(),
-            ),
-          ],
-        ),
-      ),
-      actions: [FilledButton(onPressed: _ctrl.text.trim().length >= 2 ? _submit : null, child: const Text('Continue'))],
-    ),
-  );
 }
