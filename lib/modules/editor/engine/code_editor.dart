@@ -52,7 +52,7 @@ class CodeLineParagraph {
 
   double get height => max(_painter.height, preferredLineHeight);
 
-  Offset? getOffset(TextPosition position) => _painter.getOffsetForCaret(position, Rect.zero);
+  Offset? getOffset(TextPosition position) => _painter.getOffsetForCaret(TextPosition(offset: position.offset.clamp(0, _painter.plainText.length), affinity: position.affinity), Rect.zero);
 
   TextPosition getPosition(Offset offset) => _painter.getPositionForOffset(offset);
 }
@@ -354,6 +354,9 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
 
   _RenderCode? _render;
   final _cache = <int, _CachedLine>{};
+
+  // Replaced painters, kept until the next layout: the paragraphs last handed out still point at them.
+  final _retired = <TextPainter>[];
   final _measured = <String, double>{};
   var _measuredWidth = -1.0;
   var _styleVersion = 0;
@@ -472,6 +475,7 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
     _chunks.dispose();
     _indicator.dispose();
     _clearCache();
+    _disposeRetired();
     if (_ownsFind) _find.dispose();
     if (_ownsCtrl) _ctrl.dispose();
     if (_ownsFocus) _focus.dispose();
@@ -480,10 +484,15 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
   }
 
   void _clearCache() {
-    for (final c in _cache.values) {
-      c.painter.dispose();
-    }
+    _retired.addAll(_cache.values.map((c) => c.painter));
     _cache.clear();
+  }
+
+  void _disposeRetired() {
+    for (final painter in _retired) {
+      painter.dispose();
+    }
+    _retired.clear();
   }
 
   void _markPaint() => _render?.markNeedsLayout();
@@ -679,7 +688,7 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
     if (cached != null && cached.text == codeLine.text && cached.start.same(start) && cached.version == version && cached.width == width) {
       return cached.painter;
     }
-    cached?.painter.dispose();
+    if (cached != null) _retired.add(cached.painter);
     final style = _textStyle;
     final spec = widget.language;
     var span = spec == null
@@ -835,10 +844,11 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
     _scroll.horizontal = _scroll.horizontal.clamp(0.0, _maxHorizontal);
     _cache.removeWhere((line, c) {
       if (keep.contains(line) || (line - _ctrl.selection.extentIndex).abs() < 2) return false;
-      c.painter.dispose();
+      _retired.add(c.painter);
       return true;
     });
     _indicator.value = CodeIndicatorValue(paragraphs, _ctrl.selection.extentIndex);
+    _disposeRetired();
   }
 
   /// A caret's box in the field's coordinates; null for a line out of sight in a fold.
