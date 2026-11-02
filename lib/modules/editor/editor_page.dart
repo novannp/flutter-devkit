@@ -41,7 +41,7 @@ const _desktopDevice = 'windows';
 
 /// What the title bar's menus ask of the Editor, and how the Editor reaches the shell.
 class EditorCommands {
-  static VoidCallback? openFolder, openFile, quickOpen, saveAll, openExtensions, openTerminal;
+  static VoidCallback? openFolder, openFile, quickOpen, saveAll, openExtensions, openTerminal, openDartSettings;
   static ValueChanged<String>? openRecent;
 }
 
@@ -134,6 +134,12 @@ class _EditorPageState extends State<EditorPage> {
       // It runs in the project, so with none open there's nowhere for it to start.
       _ws == null ? _toast('Open a folder first') : _showPanel(_Panel.terminal);
     };
+    EditorCommands.openDartSettings = () {
+      final ws = _ws;
+      if (ws != null) return unawaited(_dartSettings(ws));
+      ToolTabs.instance.showEditor();
+      _toast('Open a folder first');
+    };
     EditorCommands.openRecent = _openRecent;
     EditorCommands.quickOpen = _quickOpen;
     EditorCommands.saveAll = () => _ws?.saveAll();
@@ -154,7 +160,7 @@ class _EditorPageState extends State<EditorPage> {
   void dispose() {
     editorSaveAllOnQuit = null;
     EditorCommands.openFolder = EditorCommands.openFile = EditorCommands.openTerminal = EditorCommands.quickOpen = EditorCommands.saveAll = null;
-    EditorCommands.openRecent = null;
+    EditorCommands.openRecent = EditorCommands.openDartSettings = null;
     _revealSub?.cancel();
     _ws?.removeListener(_rebuild);
     _ws?.dispose();
@@ -1945,7 +1951,7 @@ class _Welcome extends StatelessWidget {
               onTap: () => onOpen(pr.path),
             ),
           ),
-        if (projects.isEmpty) Text('Projects from Settings → Project folders show up here.', style: TextStyle(color: scheme.outline)),
+        if (projects.isEmpty) Text('Projects from Settings → Projects show up here.', style: TextStyle(color: scheme.outline)),
       ],
     );
   }

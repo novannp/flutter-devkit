@@ -77,6 +77,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 - **One left panel** switches between files, Source Control, search and debug. The terminal and Problems are in the bottom panel, running in the open project
 - **Notifications** in the corner, such as when packages are missing or out of sync, with a button to run `pub get`
 - **Extensions** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>): Device Manager, Emulators, Printer, Notes, Maintenance, History, Work and Chat are built in and can be turned off. They open as tabs beside the code, so the Editor stays where it is
+- **Settings**: grouped into General, Editor, Projects, Devices and Tools, with a search box across all of them
 - **Your window**: 13 themes under File, a title bar of Flutter DevKit's own, and a layout that folds its menus into one button on small screens
 
 | Keys | Action |
@@ -110,7 +111,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 - **Pair** by QR, pairing code, or IP; **skip pairing** by plugging in USB once and tapping *Always allow*
 - **Auto-switch to port 5555** so devices reconnect over Wi-Fi without pairing until reboot
 - Shows which of **your apps and versions** are installed (detected from your project folders)
-- **Scan across subnets**: add other subnets in **Settings → Network scan**; subnets of devices seen before are included automatically
+- **Scan across subnets**: add other subnets in **Settings → Devices**; subnets of devices seen before are included automatically
 - **In use by**: see who on the LAN has a device open, on their USB, or marked *I'm using this*
 - **Find**: makes a device blink and vibrate so you can spot it among identical tablets
 - **Name label wallpaper**: name, IP, model, serial and a QR as the wallpaper (tap *Wallpaper* once on the device)
@@ -196,7 +197,7 @@ A short **Getting started** guide opens the first time you launch the app. It co
 
 To set up devices and the printer:
 
-1. **Settings → Project folders**: add the folder where you clone repos. Repos are matched by their Android `applicationId`, up to 3 levels deep, and become **My apps**. For apps you don't have cloned, add a package prefix in **Settings → My apps**.
+1. **Settings → Projects**: add the folder where you clone repos. Repos are matched by their Android `applicationId`, up to 3 levels deep, and become **My apps**. For apps you don't have cloned, add a package prefix in **Settings → Projects**.
 2. **Devices**: if the orange **Network scan may miss devices** banner appears, click **Fix network access** once.
 3. **Devices → Scan network**: phones with Wireless debugging show up. If one says **Needs pairing**, click its QR icon once.
 4. **Printer**: in your app, set a network printer (**SNBC over Wi-Fi** works best) with this PC's IP, then print. On emulators like MEmu, use the PC IP (not `10.0.2.2`).
@@ -207,7 +208,7 @@ Uncaught errors are kept with their stack traces in `errors.log`. **Help → Sho
 
 | Problem | Try this |
 | --- | --- |
-| Device on another subnet isn't found | Add the subnet in **Settings → Network scan** (`192.168.5`, `10.1.0.0/22`). The PC needs a route to it, and the device must be on port 5555: Wireless debugging discovery doesn't cross subnets. |
+| Device on another subnet isn't found | Add the subnet in **Settings → Devices** (`192.168.5`, `10.1.0.0/22`). The PC needs a route to it, and the device must be on port 5555: Wireless debugging discovery doesn't cross subnets. |
 | Phone doesn't show up | Same Wi-Fi as the PC? Wireless debugging on? Click **Fix network access** on Devices (one admin prompt). |
 | Tired of re-pairing | Device menu → **Enable port 5555**. Scans then find it on `ip:5555` until it reboots. |
 | "Needs pairing" won't go away | Phone: **Wireless debugging → Pair device with pairing code**, then Flutter DevKit: **Pair device → Pairing code**. |
@@ -216,8 +217,8 @@ Uncaught errors are kept with their stack traces in `errors.log`. **Help → Sho
 | Need an unmerged fix in a git package | **Maintenance →** click the package chip → **Git branch** or **Local folder**. |
 | Teammates missing in Chat / "In use by" | Same network? **Fix network access** (UDP 47232 + TCP 47231). Try **🤖 Test bot** in Chat to test alone. |
 | Work: Jira or Bitbucket won't connect | **Work → ⚙ → Test connection** shows the exact error. Bitbucket app passwords use your *username*, API tokens your *email*. |
-| No ticket chip in the workspace | The branch name must contain the key (`feature/POS-123-…`) and the repo must be in **Settings → Project folders**. |
-| Source links don't open | Add the repo folder in **Settings → Project folders** and run `pub get` once; VS Code's `code` must be on `PATH`. |
+| No ticket chip in the workspace | The branch name must contain the key (`feature/POS-123-…`) and the repo must be in **Settings → Projects**. |
+| Source links don't open | Add the repo folder in **Settings → Projects** and run `pub get` once; VS Code's `code` must be on `PATH`. |
 
 ## 🛠️ Development
 

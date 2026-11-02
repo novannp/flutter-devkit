@@ -145,7 +145,7 @@ class _InfoTabState extends State<InfoTab> {
         Text('My apps', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         if (_apps.isEmpty)
-          const Text('None of your apps are installed. Add them in Settings → My apps.')
+          const Text('None of your apps are installed. Add them in Settings → Projects.')
         else
           Wrap(
             spacing: 12,
