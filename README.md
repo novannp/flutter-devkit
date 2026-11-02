@@ -76,6 +76,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 
 - **Flutter**: run on a device or Windows, hot reload on save, hot restart, `pub get` and friends. Output is colored by level, honours ANSI colors, and lines with a `lib/…:line` open that spot
 - **Run menu**: pick a device, or start an emulator from it, normally or with a cold boot. The phone button docks the device's screen beside the code
+- **Widget inspector**: the Widgets tab of the bottom panel shows the running app's widget tree. Click a widget for its properties and source, pick one on the device, or show layout bounds
 - **Debugger**: breakpoints in the gutter (a faint dot on hover shows where a click puts one), step over/into/out, call stack, variables you can expand, evaluate in a frame, pause on exceptions. It connects by itself when you press Run
 
 **Project and team**
