@@ -50,12 +50,20 @@ Testing Flutter apps on real devices used to mean: check the IP in Settings, `ad
 A native code editor with no WebView. The Dart analysis server starts only when you open a Dart file, and analyzes only the projects you have open.
 
 - **Follows fvm**: analysis, `flutter` commands and the built-in terminal all use the SDK in `.fvm` / `.fvmrc`; projects without fvm use the one on `PATH`
-- **Language features**: completion with auto-import, errors and warnings as you type, hover docs, go to definition, find references, rename, quick fixes
+- **Language features**: completion with auto-import and docs beside each suggestion, parameter hints, errors and warnings as you type, formatted hover docs, go to definition, find references, rename, quick fixes
 - **Flutter**: run on a connected device or Windows, hot reload on save, hot restart, `pub get` and friends; output lines with a `lib/…:line` open that spot
-- **Editing**: tabs, syntax highlighting (Dart, YAML, JSON, XML, Kotlin, Gradle, Swift and more), code folding, find and replace, format on save, undo
-- **Project**: file tree with create/rename/delete, quick open, search in files, problems panel, terminal
+- **Dart settings** per project, under the options button: line length, format on save, TODOs in Problems, folders the analyzer skips. A `page_width` in `analysis_options.yaml` wins
+- **Editing**: tabs, syntax highlighting (Dart, YAML, JSON, XML, Kotlin, Gradle, Swift and more) with analyzer-based colors for Dart, code folding, find and replace, format on save, undo
+- **Project**: file tree with create/rename/delete, fuzzy quick open (`online payment` finds `online_payment.dart`, `main.dart:42` jumps to the line), search in files, problems panel, terminal
 - **Debugger**: breakpoints in the gutter, step over/into/out, call stack, variables you can expand, evaluate in a frame, pause on exceptions. It connects by itself when you press Run, on a device or on Windows
 - **Source Control**: changed files, stage and unstage, commit, push and pull, switch or create branches, discard, a diff panel, and gutter marks for lines that differ from `HEAD`
+- **Layout**: the Editor is the main window. One left panel switches between files, Source Control, search and debug. Tools from the title bar's menus open as tabs next to the code, so the Editor stays where it is. A breadcrumb runs from the folder down to the method, and clicking a folder in it lists what's inside, and the status bar shows the Flutter and Dart versions
+- **Run target menu**: pick a device, or start an emulator from it, normally or with a cold boot. The phone button docks the device's screen beside the code
+- Fits small windows: the title bar's menus fold into one button, and side panels give way to the code. About is under Help
+- **File menu**: Open File (<kbd>Ctrl</kbd>+<kbd>O</kbd>), Open Folder, Open Recent. Output lines are colored by level and honour ANSI colors
+- **Themes** under File: DevKit Light and Dark, Dark+, Light+, One Dark, Dracula, Monokai, Nord, Solarized, GitHub and High Contrast. Matching brackets light up at the caret
+- **Tabs**: drag to reorder, split the editor into views with <kbd>Ctrl</kbd>+<kbd>\\</kbd>, and right click to move a tab between views. A file shows in one view at a time. SDK and package files open read-only
+- **Extensions** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>): Device Manager, Emulators, Printer, Notes, Maintenance, History, Work and Chat are built-in extensions you can turn off
 - Tabs follow changes on disk, such as a branch switch; unsaved edits are never overwritten
 
 | Keys | Action |
@@ -63,14 +71,24 @@ A native code editor with no WebView. The Dart analysis server starts only when 
 | <kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> | Save / save all |
 | <kbd>Ctrl</kbd>+<kbd>P</kbd> / <kbd>Ctrl</kbd>+<kbd>G</kbd> | Quick open / go to line |
 | <kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> | Find / search in files |
-| <kbd>Ctrl</kbd>+<kbd>Space</kbd> / <kbd>F1</kbd> | Completion / show docs |
-| <kbd>F12</kbd> or <kbd>Ctrl</kbd>+click / <kbd>Shift</kbd>+<kbd>F12</kbd> | Go to definition / find references |
+| <kbd>Ctrl</kbd>+<kbd>Space</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> / <kbd>F1</kbd> | Completion / parameter hints / show docs |
+| <kbd>F12</kbd> / <kbd>Shift</kbd>+<kbd>F12</kbd> | Go to definition / find references (also on right click) |
+| <kbd>Ctrl</kbd>+click | On a usage: go to its definition. On a declaration: list its usages |
 | <kbd>F2</kbd> / <kbd>Ctrl</kbd>+<kbd>.</kbd> / <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> | Rename / quick fix / format |
 | <kbd>F5</kbd> / <kbd>Shift</kbd>+<kbd>F5</kbd> | Run / stop |
 | <kbd>Ctrl</kbd>+<kbd>F5</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F5</kbd> | Hot reload / hot restart |
 | <kbd>F9</kbd> / <kbd>F6</kbd> | Toggle breakpoint / pause (<kbd>F5</kbd> continues) |
 | <kbd>F10</kbd> / <kbd>F11</kbd> / <kbd>Shift</kbd>+<kbd>F11</kbd> | Step over / into / out |
-| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | Source Control |
+| <kbd>Ctrl</kbd>+<kbd>B</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> / <kbd>G</kbd> / <kbd>D</kbd> / <kbd>M</kbd> / <kbd>U</kbd> | Toggle side panel / files / Source Control / debug / problems / output |
+| <kbd>Ctrl</kbd>+<kbd>D</kbd> | Select the word, then the next match (one selection at a time) |
+| <kbd>Ctrl</kbd>+<kbd>/</kbd> / <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>A</kbd> | Line / block comment |
+| <kbd>Ctrl</kbd>+<kbd>L</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> | Select / delete line |
+| <kbd>Alt</kbd>+<kbd>↑↓</kbd> / <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>↑↓</kbd> | Move / copy lines |
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> | Insert line below / above |
+| <kbd>Ctrl</kbd>+<kbd>]</kbd> / <kbd>Ctrl</kbd>+<kbd>[</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>[</kbd> / <kbd>]</kbd> | Indent / outdent / fold / unfold |
+| <kbd>Ctrl</kbd>+<kbd>H</kbd> / <kbd>F3</kbd> | Replace / next match |
+| <kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd> / <kbd>0</kbd> / <kbd>Alt</kbd>+<kbd>Z</kbd> | Zoom in / out / reset / word wrap |
+| <kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Alt</kbd>+<kbd>←→</kbd> / <kbd>F8</kbd> | Next tab / back and forward / next problem |
 | <kbd>Ctrl</kbd>+<kbd>J</kbd> / <kbd>Ctrl</kbd>+<kbd>`</kbd> | Toggle panel / terminal |
 
 ### 📡 Devices

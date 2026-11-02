@@ -13,9 +13,10 @@ import '../../../../core/files.dart';
 import '../../../../core/local_builds.dart';
 import '../../../../core/tools.dart';
 import '../../../../core/windows.dart';
-import '../../../work/atlassian.dart';
-import '../../../work/ticket_chip.dart';
-import '../../../work/work_service.dart';
+import '../../../../extensions/work/atlassian.dart';
+import '../../../../extensions/work/ticket_chip.dart';
+import '../../../../extensions/work/work_service.dart';
+import '../../../../extensions/registry.dart';
 import '../../models/device.dart';
 import '../../services/adb_service.dart';
 import '../../services/device_adb.dart';
@@ -32,6 +33,7 @@ import 'screen_panel.dart';
 import 'shell_tab.dart';
 import 'terminal_tab.dart';
 import '../../../../core/history.dart';
+import '../../../../core/compact_dropdown.dart';
 
 class DeviceWorkspacePage extends StatefulWidget {
   const DeviceWorkspacePage({super.key, required this.device, this.standalone = false, this.panelOnly = false});
@@ -619,6 +621,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
             onPressed: _restartFocusApp,
             icon: const Icon(Icons.replay, size: 20),
           ),
+          if (ExtensionManager.instance.isEnabled('work'))
           ValueListenableBuilder(
             valueListenable: _focus,
             builder: (_, _, _) => TicketChip(
@@ -708,9 +711,9 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
             icon: const Icon(Icons.tune, size: 20),
             itemBuilder: (_) => [
               for (final o in _scrcpyOptions)
-                CheckedPopupMenuItem(value: o.flag, checked: _scrcpyFlags.contains(o.flag), child: Text(o.label)),
+                CheckedPopupMenuItem(height: 30, value: o.flag, checked: _scrcpyFlags.contains(o.flag), child: Text(o.label)),
               const PopupMenuDivider(),
-              CheckedPopupMenuItem(value: 'record', checked: _record, child: const Text('Record to file (.mp4)')),
+              CheckedPopupMenuItem(height: 30, value: 'record', checked: _record, child: const Text('Record to file (.mp4)')),
             ],
             onSelected: (v) => setState(() {
               if (v == 'record') {
@@ -938,7 +941,7 @@ class _ScreenshotButton extends StatelessWidget {
     icon: const Icon(Icons.photo_camera_outlined),
     onSelected: (saveAs) => onShot(saveAs: saveAs),
     itemBuilder: (_) => const [
-      PopupMenuItem(
+      PopupMenuItem(height: 30, 
         value: false,
         child: ListTile(
           leading: Icon(Icons.content_paste),
@@ -946,7 +949,7 @@ class _ScreenshotButton extends StatelessWidget {
           subtitle: Text('Ctrl+S · then Ctrl+V in Slack/Jira'),
         ),
       ),
-      PopupMenuItem(
+      PopupMenuItem(height: 30, 
         value: true,
         child: ListTile(leading: Icon(Icons.save_as_outlined), title: Text('Save as…'), subtitle: Text('Ctrl+Shift+S')),
       ),
@@ -981,9 +984,9 @@ class _InstallButton extends StatelessWidget {
       onSelected: (action) => action(),
       itemBuilder: (_) => [
         const PopupMenuItem(enabled: false, height: 32, child: Text('Latest project builds (Ctrl+I)')),
-        if (builds.isEmpty) const PopupMenuItem(enabled: false, child: Text('No APKs in build/app/outputs yet')),
+        if (builds.isEmpty) const PopupMenuItem(height: 30, enabled: false, child: Text('No APKs in build/app/outputs yet')),
         for (final b in builds)
-          PopupMenuItem(
+          PopupMenuItem(height: 30, 
             value: () => onInstall(b.apk.path),
             child: ListTile(
               leading: Icon(
@@ -999,11 +1002,11 @@ class _InstallButton extends StatelessWidget {
             ),
           ),
         const PopupMenuDivider(),
-        PopupMenuItem(
+        PopupMenuItem(height: 30, 
           value: onPick,
           child: const ListTile(leading: Icon(Icons.file_open_outlined), title: Text('Choose APK…')),
         ),
-        PopupMenuItem(
+        PopupMenuItem(height: 30, 
           value: onSetRoot,
           child: const ListTile(leading: Icon(Icons.folder_open), title: Text('Set project folders…')),
         ),
@@ -1035,7 +1038,7 @@ class _FocusAppPicker extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('App: ', style: TextStyle(color: scheme.outline, fontSize: 12)),
-            DropdownButton<String?>(
+            CompactDropdown<String?>(
               value: value,
               underline: const SizedBox.shrink(),
               isDense: true,

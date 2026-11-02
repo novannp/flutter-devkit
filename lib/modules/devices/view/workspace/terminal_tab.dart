@@ -6,6 +6,7 @@ import '../../../../core/local_builds.dart';
 import '../../../console/console_session.dart';
 import '../../../console/console_view.dart';
 import '../../services/device_adb.dart';
+import '../../../../core/compact_dropdown.dart';
 
 /// Interactive terminal for one device: `adb shell`, or a PC shell pre-targeted at it (ANDROID_SERIAL).
 class TerminalTab extends StatefulWidget {
@@ -82,7 +83,7 @@ class _TerminalTabState extends State<TerminalTab> {
           padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
           child: Row(
             children: [
-              DropdownButton<ShellKind>(
+              CompactDropdown<ShellKind>(
                 value: _shell,
                 underline: const SizedBox.shrink(),
                 isDense: true,

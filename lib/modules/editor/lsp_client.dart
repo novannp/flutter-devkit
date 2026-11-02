@@ -73,6 +73,13 @@ class LspClient {
   void Function(Map<String, dynamic> edit)? onApplyEdit;
   void Function()? onExit;
 
+  /// What `workspace/configuration` answers for the `dart` section.
+  Map<String, dynamic> Function()? dartConfig;
+
+  /// How to read semantic tokens, from the server's `initialize` answer.
+  List<String> tokenTypes = const [];
+  List<String> tokenModifiers = const [];
+
   bool get running => _process != null;
 
   Future<void> start() async {
@@ -97,11 +104,12 @@ class LspClient {
         onExit?.call();
       }),
     );
-    await request('initialize', {
+    final init = await request('initialize', {
       'processId': pid,
       'rootUri': Uri.directory(root).toString(),
       'capabilities': {
         'workspace': {
+          'configuration': true,
           'applyEdit': true,
           'workspaceEdit': {'documentChanges': true},
         },
@@ -110,7 +118,15 @@ class LspClient {
           'publishDiagnostics': {},
           // Plain text only: the editor has no snippet placeholders.
           'completion': {
-            'completionItem': {'snippetSupport': false, 'deprecatedSupport': true},
+            'completionItem': {
+              'snippetSupport': false,
+              'deprecatedSupport': true,
+              'labelDetailsSupport': true,
+              'documentationFormat': ['markdown', 'plaintext'],
+              'resolveSupport': {
+                'properties': ['documentation', 'detail', 'additionalTextEdits'],
+              },
+            },
           },
           'hover': {
             'contentFormat': ['plaintext', 'markdown'],
@@ -123,6 +139,20 @@ class LspClient {
             },
           },
           'rename': {'prepareSupport': false},
+          'documentSymbol': {'hierarchicalDocumentSymbolSupport': true},
+          'signatureHelp': {
+            'signatureInformation': {
+              'documentationFormat': ['markdown', 'plaintext'],
+              'parameterInformation': {'labelOffsetSupport': false},
+              'activeParameterSupport': true,
+            },
+          },
+          'semanticTokens': {
+            'requests': {'full': true},
+            'tokenTypes': const <String>[],
+            'tokenModifiers': const <String>[],
+            'formats': const ['relative'],
+          },
         },
       },
       'initializationOptions': {
@@ -133,6 +163,9 @@ class LspClient {
         'flutterOutline': false,
       },
     }, timeout: const Duration(minutes: 2));
+    final legend = ((init as Map?)?['capabilities'] as Map?)?['semanticTokensProvider']?['legend'] as Map?;
+    tokenTypes = (legend?['tokenTypes'] as List?)?.cast<String>() ?? const [];
+    tokenModifiers = (legend?['tokenModifiers'] as List?)?.cast<String>() ?? const [];
     notify('initialized', {});
   }
 
@@ -168,7 +201,10 @@ class LspClient {
         onApplyEdit?.call(edit);
         result = {'applied': true};
       case 'workspace/configuration':
-        result = [for (final _ in (params as Map)['items'] as List) const <String, dynamic>{}];
+        result = [
+          for (final item in (params as Map)['items'] as List)
+            (item as Map)['section'] == 'dart' ? (dartConfig?.call() ?? const <String, dynamic>{}) : const <String, dynamic>{},
+        ];
     }
     _send({'jsonrpc': '2.0', 'id': id, 'result': result});
   }

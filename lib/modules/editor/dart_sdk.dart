@@ -60,3 +60,43 @@ Map<String, String> projectEnvironment(String project) {
   env[key] = '${p.join(sdk, 'bin')}${Platform.isWindows ? ';' : ':'}${env[key] ?? ''}';
   return env;
 }
+
+class SdkVersions {
+  const SdkVersions(this.flutter, this.dart, this.path);
+
+  final String flutter, dart, path;
+}
+
+Future<String?> _flutterOnPath() async {
+  try {
+    final r = await Process.run(Platform.isWindows ? 'where' : 'which', ['flutter']);
+    final first = '${r.stdout}'.split('\n').first.trim();
+    return r.exitCode == 0 && first.isNotEmpty ? p.dirname(p.dirname(first)) : null;
+  } on ProcessException {
+    return null;
+  }
+}
+
+/// The SDK a project builds with. Read from the SDK's own files, because `flutter --version` takes seconds.
+Future<SdkVersions?> sdkVersionsOf(String project) async {
+  final sdk = flutterSdkOf(project) ?? await _flutterOnPath();
+  if (sdk == null) return null;
+  String? flutter, dart;
+  try {
+    final json = jsonDecode(File(p.join(sdk, 'bin', 'cache', 'flutter.version.json')).readAsStringSync()) as Map;
+    flutter = (json['frameworkVersion'] ?? json['flutterVersion']) as String?;
+    dart = json['dartSdkVersion'] as String?;
+  } on Exception {
+    // Older SDKs don't have this file; the two below cover them.
+  }
+  String? read(List<String> parts) {
+    final f = File(p.joinAll([sdk, ...parts]));
+    return f.existsSync() ? f.readAsStringSync().trim() : null;
+  }
+
+  flutter ??= read(['version']);
+  dart ??= read(['bin', 'cache', 'dart-sdk', 'version']);
+  if (flutter == null || dart == null) return null;
+  // Can read like "3.13.4 (build 3.13.4-0.0.dev)".
+  return SdkVersions(flutter, dart.split(' ').first, sdk);
+}

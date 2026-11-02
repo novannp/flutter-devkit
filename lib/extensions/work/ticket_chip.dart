@@ -86,23 +86,23 @@ class _TicketChipState extends State<TicketChip> {
         tooltip: '${issue.key} ${issue.summary}\n${issue.status} · branch $_branch',
         onSelected: (f) => f(),
         itemBuilder: (_) => [
-          PopupMenuItem(
+          PopupMenuItem(height: 30, 
             value: () => openUrl(issue.url),
             child: const ListTile(leading: Icon(Icons.open_in_new), title: Text('Open in Jira')),
           ),
-          PopupMenuItem(
+          PopupMenuItem(height: 30, 
             value: () => Clipboard.setData(ClipboardData(text: issue.key)),
             child: const ListTile(leading: Icon(Icons.copy), title: Text('Copy key')),
           ),
           const PopupMenuDivider(),
-          PopupMenuItem(
+          PopupMenuItem(height: 30, 
             value: widget.onSendScreenshot,
             child: ListTile(
               leading: const Icon(Icons.add_photo_alternate_outlined),
               title: Text('Send screenshot to ${issue.key}'),
             ),
           ),
-          PopupMenuItem(
+          PopupMenuItem(height: 30, 
             value: widget.onSendBugReport,
             child: ListTile(
               leading: const Icon(Icons.bug_report_outlined),

@@ -6,7 +6,7 @@ import '../cubit/devices_cubit.dart';
 import '../../../core/apps.dart';
 import '../models/device.dart';
 import '../../../core/windows.dart';
-import '../../chat/chat_service.dart';
+import '../../../extensions/chat/chat_service.dart';
 import 'network_access_banner.dart';
 import 'pair_dialog.dart';
 
@@ -443,18 +443,18 @@ class _DeviceRow extends StatelessWidget {
                       _ => null,
                     },
                     itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'connect', child: Text('Connect ADB')),
-                      const PopupMenuItem(value: 'disconnect', child: Text('Disconnect')),
-                      const PopupMenuItem(value: 'tcpip', child: Text('Enable port 5555 (no pairing)')),
-                      CheckedPopupMenuItem(
+                      const PopupMenuItem(height: 30, value: 'connect', child: Text('Connect ADB')),
+                      const PopupMenuItem(height: 30, value: 'disconnect', child: Text('Disconnect')),
+                      const PopupMenuItem(height: 30, value: 'tcpip', child: Text('Enable port 5555 (no pairing)')),
+                      CheckedPopupMenuItem(height: 30, 
                         value: 'claim',
                         checked: cubit.state.claimed.contains(d.id),
                         child: const Text("I'm using this"),
                       ),
-                      const PopupMenuItem(value: 'find', child: Text('Find (blink & vibrate)')),
-                      const PopupMenuItem(value: 'label', child: Text('Set name label as wallpaper')),
-                      const PopupMenuItem(value: 'rename', child: Text('Rename')),
-                      const PopupMenuItem(value: 'forget', child: Text('Remove from list')),
+                      const PopupMenuItem(height: 30, value: 'find', child: Text('Find (blink & vibrate)')),
+                      const PopupMenuItem(height: 30, value: 'label', child: Text('Set name label as wallpaper')),
+                      const PopupMenuItem(height: 30, value: 'rename', child: Text('Rename')),
+                      const PopupMenuItem(height: 30, value: 'forget', child: Text('Remove from list')),
                     ],
                   ),
                 ],

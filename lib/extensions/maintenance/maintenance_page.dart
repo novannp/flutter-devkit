@@ -9,7 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/local_builds.dart';
-import '../devices/services/adb_service.dart';
+import '../../modules/devices/services/adb_service.dart';
 import '../emulators/avd_service.dart';
 import '../emulators/system_images_dialog.dart';
 import 'core_dep_dialog.dart';
@@ -510,14 +510,14 @@ class _MaintenancePageState extends State<MaintenancePage> {
                                           ? _overrideLocal(p)
                                           : _exec('$v · ${p.name}', _flutter(p, v), cwd: p.path),
                                       itemBuilder: (_) => const [
-                                        PopupMenuItem(
+                                        PopupMenuItem(height: 30, 
                                           value: 'override',
                                           child: Text('Override package with local path…'),
                                         ),
                                         PopupMenuDivider(),
-                                        PopupMenuItem(value: 'pub upgrade', child: Text('pub upgrade (all)')),
-                                        PopupMenuItem(value: 'pub outdated', child: Text('pub outdated')),
-                                        PopupMenuItem(value: 'clean', child: Text('flutter clean')),
+                                        PopupMenuItem(height: 30, value: 'pub upgrade', child: Text('pub upgrade (all)')),
+                                        PopupMenuItem(height: 30, value: 'pub outdated', child: Text('pub outdated')),
+                                        PopupMenuItem(height: 30, value: 'clean', child: Text('flutter clean')),
                                       ],
                                     ),
                                   ],

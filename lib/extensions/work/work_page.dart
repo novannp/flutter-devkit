@@ -8,6 +8,7 @@ import 'atlassian.dart';
 import 'git_repo.dart';
 import 'work_service.dart';
 import 'work_settings_dialog.dart';
+import '../../core/compact_dropdown.dart';
 
 class WorkPage extends StatefulWidget {
   const WorkPage({super.key});
@@ -574,7 +575,7 @@ class _IssueDetailState extends State<_IssueDetail> {
               onSelected: _transition,
               itemBuilder: (_) => [
                 for (final t in _transitions)
-                  PopupMenuItem(value: t, child: Text(t.name == t.to ? t.to : '${t.name} → ${t.to}')),
+                  PopupMenuItem(height: 30, value: t, child: Text(t.name == t.to ? t.to : '${t.name} → ${t.to}')),
               ],
               child: Container(
                 padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
@@ -723,7 +724,7 @@ class _StartWorkDialogState extends State<_StartWorkDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButtonFormField<WorkRepo>(
+          CompactDropdown<WorkRepo>(
             initialValue: _repo,
             decoration: const InputDecoration(labelText: 'Repo', border: OutlineInputBorder(), isDense: true),
             items: [

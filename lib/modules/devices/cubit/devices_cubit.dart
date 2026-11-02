@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/jokes.dart';
 import '../../../core/windows.dart';
-import '../../chat/chat_service.dart';
+import '../../../extensions/chat/chat_service.dart';
 import '../models/device.dart';
 import '../services/adb_service.dart';
 import '../services/demo_devices.dart';

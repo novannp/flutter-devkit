@@ -17,6 +17,8 @@ class BackgroundRunner with WindowListener, TrayListener {
 
   Future<void> init() async {
     await windowManager.ensureInitialized();
+    await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: false);
+    await windowManager.setMinimumSize(const Size(560, 400));
     keepRunningOnClose.value = (await SharedPreferences.getInstance()).getBool(_prefKeepRunning) ?? true;
     await windowManager.setPreventClose(true);
     windowManager.addListener(this);

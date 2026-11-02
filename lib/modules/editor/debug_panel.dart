@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 import 'package:vm_service/vm_service.dart' show ExceptionPauseMode;
 
 import 'debugger.dart';
+import '../../core/compact_dropdown.dart';
 
 class DebugPanel extends StatefulWidget {
   const DebugPanel({super.key, required this.debugger, required this.root, required this.onOpen});
@@ -41,21 +42,15 @@ class _DebugPanelState extends State<DebugPanel> {
       builder: (_, _) {
         final d = widget.debugger;
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _controls(d, scheme),
             const Divider(height: 1),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(flex: 3, child: _section('Call stack', scheme, d.frames.isEmpty ? _empty(d, scheme) : _stack(d, scheme))),
-                  const VerticalDivider(width: 1),
-                  Expanded(flex: 4, child: _section('Variables', scheme, _variables(d, scheme))),
-                  const VerticalDivider(width: 1),
-                  Expanded(flex: 3, child: _section('Breakpoints', scheme, _breakpoints(d, scheme))),
-                ],
-              ),
-            ),
+            Expanded(flex: 4, child: _section('Variables', scheme, _variables(d, scheme))),
+            const Divider(height: 1),
+            Expanded(flex: 3, child: _section('Call stack', scheme, d.frames.isEmpty ? _empty(d, scheme) : _stack(d, scheme))),
+            const Divider(height: 1),
+            Expanded(flex: 2, child: _section('Breakpoints', scheme, _breakpoints(d, scheme))),
           ],
         );
       },
@@ -65,78 +60,74 @@ class _DebugPanelState extends State<DebugPanel> {
   Widget _controls(Debugger d, ColorScheme scheme) {
     Widget button(String tip, IconData icon, VoidCallback? onPressed) => IconButton(
       tooltip: tip,
-      iconSize: 18,
-      visualDensity: VisualDensity.compact,
+      iconSize: 17,
       onPressed: onPressed,
       icon: Icon(icon),
     );
     final running = d.connected && !d.paused;
-    return SizedBox(
-      height: 36,
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(width: 4),
-          if (d.paused)
-            button('Continue (F5)', Icons.play_arrow, d.resume)
-          else
-            button('Pause (F6)', Icons.pause, running ? d.pause : null),
-          button('Step over (F10)', Icons.redo, d.paused ? d.stepOver : null),
-          button('Step into (F11)', Icons.south_east, d.paused ? d.stepInto : null),
-          button('Step out (Shift+F11)', Icons.north_east, d.paused ? d.stepOut : null),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              switch (d.state) {
-                DebugState.paused => d.pauseReason,
-                DebugState.running => 'Running',
-                DebugState.disconnected => 'Not running',
-              },
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12.5, color: d.paused ? const Color(0xFFF59E0B) : scheme.outline),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: _expression,
-              enabled: d.paused,
-              onSubmitted: _evaluate,
-              style: const TextStyle(fontFamily: 'Consolas', fontSize: 12.5),
-              decoration: const InputDecoration(
-                isDense: true,
-                hintText: 'Evaluate in this frame',
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 8),
+          Row(
+            children: [
+              if (d.paused)
+                button('Continue (F5)', Icons.play_arrow, d.resume)
+              else
+                button('Pause (F6)', Icons.pause, running ? d.pause : null),
+              button('Step over (F10)', Icons.redo, d.paused ? d.stepOver : null),
+              button('Step into (F11)', Icons.south_east, d.paused ? d.stepInto : null),
+              button('Step out (Shift+F11)', Icons.north_east, d.paused ? d.stepOut : null),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  switch (d.state) {
+                    DebugState.paused => d.pauseReason,
+                    DebugState.running => 'Running',
+                    DebugState.disconnected => 'Not running',
+                  },
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: d.paused ? const Color(0xFFF59E0B) : scheme.outline),
+                ),
               ),
-            ),
+            ],
+          ),
+          CompactDropdown<String>(
+            value: d.exceptionMode,
+            isDense: true,
+            isExpanded: true,
+            underline: const SizedBox.shrink(),
+            style: TextStyle(fontSize: 12, color: scheme.onSurface),
+            onChanged: (v) => d.setExceptionMode(v!),
+            items: const [
+              DropdownMenuItem(value: ExceptionPauseMode.kUnhandled, child: Text('Pause on uncaught exceptions')),
+              DropdownMenuItem(value: ExceptionPauseMode.kAll, child: Text('Pause on all exceptions')),
+              DropdownMenuItem(value: ExceptionPauseMode.kNone, child: Text('Ignore exceptions')),
+            ],
+          ),
+          const SizedBox(height: 4),
+          TextField(
+            controller: _expression,
+            enabled: d.paused,
+            onSubmitted: _evaluate,
+            style: const TextStyle(fontFamily: 'Consolas', fontSize: 12.5),
+            decoration: const InputDecoration(hintText: 'Evaluate in this frame', contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
           ),
           if (_result != null)
-            Flexible(
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
               child: Tooltip(
                 message: _result!,
                 child: Text(
                   '= $_result',
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontFamily: 'Consolas', fontSize: 12.5, color: scheme.primary),
                 ),
               ),
             ),
-          const SizedBox(width: 8),
-          DropdownButton<String>(
-            value: d.exceptionMode,
-            isDense: true,
-            underline: const SizedBox.shrink(),
-            style: TextStyle(fontSize: 12.5, color: scheme.onSurface),
-            onChanged: (v) => d.setExceptionMode(v!),
-            items: const [
-              DropdownMenuItem(value: ExceptionPauseMode.kUnhandled, child: Text('Uncaught exceptions')),
-              DropdownMenuItem(value: ExceptionPauseMode.kAll, child: Text('All exceptions')),
-              DropdownMenuItem(value: ExceptionPauseMode.kNone, child: Text('Ignore exceptions')),
-            ],
-          ),
-          const SizedBox(width: 8),
         ],
       ),
     );
@@ -163,7 +154,7 @@ class _DebugPanelState extends State<DebugPanel> {
 
   Widget _stack(Debugger d, ColorScheme scheme) => ListView.builder(
     itemCount: d.frames.length,
-    itemExtent: 26,
+    itemExtent: 22,
     itemBuilder: (_, i) {
       final f = d.frames[i];
       final path = f.path;
@@ -213,7 +204,7 @@ class _DebugPanelState extends State<DebugPanel> {
     ];
     return ListView.builder(
       itemCount: all.length,
-      itemExtent: 26,
+      itemExtent: 22,
       itemBuilder: (_, i) {
         final (path, line) = all[i];
         return InkWell(
