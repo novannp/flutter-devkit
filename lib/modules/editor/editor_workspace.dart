@@ -67,7 +67,8 @@ class SignatureInfo {
     final label = sig['label'] as String? ?? '';
     final params = (sig['parameters'] as List?) ?? const [];
     final index = sig['activeParameter'] as int? ?? result['activeParameter'] as int? ?? 0;
-    final active = index < params.length ? (params[index] as Map)['label'] as String? : null;
+    final raw = index >= 0 && index < params.length ? (params[index] as Map)['label'] : null;
+    final active = raw is String ? raw : null;
     final start = active == null ? -1 : label.indexOf(active);
     return SignatureInfo(label, start < 0 ? 0 : start, start < 0 ? 0 : start + active!.length, lspMarkup(sig['documentation']));
   }
@@ -133,7 +134,9 @@ String applyTextEdits(String text, List<Map<String, dynamic>> edits) {
   int offset(Map pos) {
     final line = pos['line'] as int;
     if (line >= lineStarts.length) return text.length;
-    return (lineStarts[line] + (pos['character'] as int)).clamp(0, text.length);
+    final lineEnd = line + 1 < lineStarts.length ? lineStarts[line + 1] - 1 : text.length;
+    // An edit from before the last keystrokes can point past its line's end, as the spec allows.
+    return (lineStarts[line] + (pos['character'] as int)).clamp(lineStarts[line], lineEnd);
   }
 
   // Back to front, so earlier offsets stay valid. The stable sort keeps same-position inserts in order.
@@ -143,7 +146,7 @@ String applyTextEdits(String text, List<Map<String, dynamic>> edits) {
   ]..sort((a, b) => a.$2 != b.$2 ? b.$2.compareTo(a.$2) : b.$1.compareTo(a.$1));
   var out = text;
   for (final (_, start, end, newText) in resolved) {
-    out = out.replaceRange(start, end, newText);
+    out = out.replaceRange(start, max(start, end), newText);
   }
   return out;
 }
@@ -392,7 +395,9 @@ class EditorWorkspace extends ChangeNotifier {
   }
 
   void moveTab(EditorGroup group, int from, int to) {
-    group.docs.insert(to, group.docs.removeAt(from));
+    if (from < 0 || from >= group.docs.length) return;
+    final doc = group.docs.removeAt(from);
+    group.docs.insert(to.clamp(0, group.docs.length), doc);
     notifyListeners();
   }
 
@@ -414,6 +419,7 @@ class EditorWorkspace extends ChangeNotifier {
 
   void _takeOut(EditorGroup group, EditorDocument doc) {
     final i = group.docs.indexOf(doc);
+    if (i < 0) return;
     group.docs.removeAt(i);
     if (group.active == doc) group.active = group.docs.isEmpty ? null : group.docs[i.clamp(0, group.docs.length - 1)];
     if (group.docs.isEmpty && groups.length > 1) {

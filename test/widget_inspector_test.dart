@@ -73,10 +73,19 @@ void main() {
       workingDirectory: dir.path,
       runInShell: Platform.isWindows,
     );
-    addTearDown(() => ChildProcesses.killTree(process));
+    String? appId;
+    addTearDown(() async {
+      // Killing the wrapper alone leaves flutter_tester running.
+      process.stdin.writeln(jsonEncode([
+        {'id': 1, 'method': 'app.stop', 'params': {'appId': appId}},
+      ]));
+      await process.exitCode.timeout(const Duration(seconds: 10), onTimeout: () => -1);
+      await ChildProcesses.killTree(process);
+    });
     process.stderr.drain<void>();
     final ws = Completer<String>();
     process.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((l) {
+      appId ??= RegExp(r'"appId":"([^"]+)"').firstMatch(l)?[1];
       final m = RegExp(r'"wsUri":"(ws://[^"]+)"').firstMatch(l);
       if (m != null && !ws.isCompleted) ws.complete(m[1]!);
     });

@@ -105,7 +105,10 @@ class _ShellState extends State<Shell> {
     if (mounted) setState(() {});
   }
 
-  void _go(int i) => _modules[i] == _editor ? _tools.showEditor() : _tools.show(_modules[i]);
+  void _go(int i) {
+    if (i < 0 || i >= _modules.length) return;
+    _modules[i] == _editor ? _tools.showEditor() : _tools.show(_modules[i]);
+  }
 
   void _onExtensions() {
     for (final e in builtinExtensions) {

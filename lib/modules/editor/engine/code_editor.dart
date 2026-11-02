@@ -750,7 +750,7 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
   }
 
   int get _visibleCount => _visible?.length ?? _ctrl.codeLines.length;
-  int _lineAtVisual(int visual) => _visible == null ? visual : _visible![visual];
+  int _lineAtVisual(int visual) => _visible == null ? visual : _visible![visual.clamp(0, _visible!.length - 1)];
 
   int _visualOf(int line) {
     final visible = _visible;
@@ -909,7 +909,8 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
   (int, int) _positionAt(Offset local) {
     final y = local.dy + _scroll.vertical - _pad.top;
     final visual = _visualAtY(y);
-    final line = _lineAtVisual(visual);
+    // The fold map is rebuilt at layout, so it can run past a file that just got shorter.
+    final line = _lineAtVisual(visual).clamp(0, _ctrl.lineCount - 1);
     if (y < 0) return (line, 0);
     final painter = _paragraphFor(line);
     final inLine = Offset(local.dx + _scroll.horizontal - _pad.left, y - _topOfVisual(visual));

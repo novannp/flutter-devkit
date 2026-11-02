@@ -49,7 +49,7 @@ class NetworkScanner {
   static Future<void> setExtraSubnets(List<String> subnets) async =>
       (await SharedPreferences.getInstance()).setStringList(_extraKey, subnets);
 
-  String _slash24(String ip) => '${ip.substring(0, ip.lastIndexOf('.'))}.0/24';
+  String _slash24(String ip) => ip.contains('.') ? '${ip.substring(0, ip.lastIndexOf('.'))}.0/24' : ip;
 
   /// The subnets a scan covers: this PC's, those added in Settings, and those of the [near] IPs.
   Future<List<String>> subnetLabels({Iterable<String> near = const []}) async => {
