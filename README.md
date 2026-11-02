@@ -1,150 +1,183 @@
 <div align="center">
 
-<img src="docs/logo.png" width="112" alt="Ravo DevKit logo" />
+<img src="docs/logo.png" width="112" alt="DevKit logo" />
 
-# Ravo DevKit
+# DevKit
 
-**One window for every Android device you test on.**
+**The Flutter workbench: one window for your code, devices, logs and builds.**
 
-Find devices, mirror them, read logs, hot reload, and fake printers and payment terminals, all without leaving one window.
+Edit code, find devices, mirror them, read logs, hot reload, and fake printers, all without leaving one window.
 
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
 ![Flutter](https://img.shields.io/badge/Flutter-desktop-02569B?logo=flutter&logoColor=white)
 ![scrcpy](https://img.shields.io/badge/scrcpy-3.3.4%20bundled-10B981)
 ![No setup](https://img.shields.io/badge/adb%20%26%20scrcpy-included-34D399)
 
-<img src="docs/screenshot.png" width="860" alt="Ravo DevKit devices screen" />
+[Install](#-install) · [Features](#-features) · [Shortcuts](#%EF%B8%8F-workspace-shortcuts) · [First run](#-first-run) · [Troubleshooting](#-troubleshooting) · [Development](#%EF%B8%8F-development)
+
+<img src="docs/screenshot.png" width="860" alt="DevKit devices screen" />
 
 </div>
 
 ---
 
-## Why you'll love it
+## 🚀 Install
 
-Testing POS, Signature, Checkout & friends used to look like this: check the device's IP in Settings, type `adb connect`, open scrcpy, open another terminal for logcat, another for `flutter run`, then find a real printer to test a receipt.
+1. Download **[`dist/DevKit-Setup.exe`](dist/DevKit-Setup.exe)** and run it.
+2. That's it. No admin rights needed, and `adb` + `scrcpy` are already inside.
 
-**DevKit does all of that in one window, with nothing else to install:**
+To upgrade, run the newer setup over the old one. DevKit is closed for you, and settings from builds with the previous name carry over.
 
-- 🔍 **Finds every device on the office network.** USB, Wi-Fi port 5555, and Android 11+ Wireless debugging. No more walking to a desk to check an IP.
-- 🖥️ **Mirrors and controls** any device at 60 fps (scrcpy built in), or many devices side by side.
-- 🔥 **Flutter run, hot reload, and hot restart** right next to the live screen and logcat.
-- 🧾 **Prints receipts without a printer.** The ESC/POS emulator shows the receipt on screen.
-- 💳 **Finds PAX terminals** on the network and reads their model and serial.
-- 📱 **Manages emulators** like Android Studio's AVD manager, without opening Android Studio.
+> [!NOTE]
+> The installer isn't code-signed yet, so Windows may show **"Windows protected your PC"**. Click **More info → Run anyway**. Copying it from a shared folder instead of downloading usually avoids the prompt.
+
+## 💡 Why you'll love it
+
+Testing Flutter apps on real devices used to mean: check the IP in Settings, `adb connect`, open scrcpy, another terminal for logcat, another for `flutter run`, then hunt for a real printer. DevKit does all of it in one window:
+
+- ✍️ **Edits your code** with full Dart analysis, using the SDK your project pins with fvm
+- 🔍 **Finds every device** on your network, across subnets: USB, Wi-Fi 5555, and Wireless debugging
+- 🖥️ **Mirrors and controls** devices at 60 fps, one by one or side by side
+- 🔥 **Flutter run, hot reload, hot restart** next to the live screen and logcat
+- 🧾 **Prints receipts without a printer**, straight on screen
+- 👥 **Shows who's using which tablet** across the team
+- 🗂️ **Jira ticket → branch → PR** without leaving DevKit
 
 ## ✨ Features
 
-<table>
-<tr>
-<td width="50%" valign="top">
+### ✍️ Editor
+
+A native code editor with no WebView. The Dart analysis server starts only when you open a Dart file, and analyzes only the projects you have open.
+
+- **Follows fvm**: analysis, `flutter` commands and the built-in terminal all use the SDK in `.fvm` / `.fvmrc`; projects without fvm use the one on `PATH`
+- **Language features**: completion with auto-import, errors and warnings as you type, hover docs, go to definition, find references, rename, quick fixes
+- **Flutter**: run on a connected device or Windows, hot reload on save, hot restart, `pub get` and friends; output lines with a `lib/…:line` open that spot
+- **Editing**: tabs, syntax highlighting (Dart, YAML, JSON, XML, Kotlin, Gradle, Swift and more), code folding, find and replace, format on save, undo
+- **Project**: file tree with create/rename/delete, quick open, search in files, problems panel, terminal
+- Tabs follow changes on disk, such as a branch switch; unsaved edits are never overwritten
+
+| Keys | Action |
+| --- | --- |
+| <kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> | Save / save all |
+| <kbd>Ctrl</kbd>+<kbd>P</kbd> / <kbd>Ctrl</kbd>+<kbd>G</kbd> | Quick open / go to line |
+| <kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> | Find / search in files |
+| <kbd>Ctrl</kbd>+<kbd>Space</kbd> / <kbd>F1</kbd> | Completion / show docs |
+| <kbd>F12</kbd> or <kbd>Ctrl</kbd>+click / <kbd>Shift</kbd>+<kbd>F12</kbd> | Go to definition / find references |
+| <kbd>F2</kbd> / <kbd>Ctrl</kbd>+<kbd>.</kbd> / <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> | Rename / quick fix / format |
+| <kbd>F5</kbd> / <kbd>Shift</kbd>+<kbd>F5</kbd> | Run / stop |
+| <kbd>Ctrl</kbd>+<kbd>F5</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F5</kbd> | Hot reload / hot restart |
+| <kbd>Ctrl</kbd>+<kbd>J</kbd> / <kbd>Ctrl</kbd>+<kbd>`</kbd> | Toggle panel / terminal |
 
 ### 📡 Devices
-- Auto-discovery: USB, `adb` Wi-Fi (5555), Wireless debugging via mDNS
-- Pair by **QR**, **pairing code** (IP + port), or **connect by IP**, which can switch the phone from its random Wireless-debugging port to 5555 in the same step
-- One-click connect / disconnect / copy IP
-- **Auto-switch to port 5555** (like `scrcpy --tcpip`): devices on USB or a random Wireless-debugging port move to `ip:5555` by themselves, so they reconnect over Wi-Fi without pairing until reboot. Toggle it in Settings, or use **Enable port 5555** per device
-- **Skip pairing**: plug a phone into USB once and tap *Always allow*. Wireless debugging trusts the same key afterwards.
-- Shows which of our apps and versions are installed
-- **In use by**: see who on the LAN is using a device (workspace open, plugged into their USB, or marked *I'm using this*), with a heads-up when you open one someone else is using
-- **Find**: makes a device blink and vibrate so you can spot it among identical tablets
-- **Name label wallpaper**: renders name, IP, model, serial and a QR as the device's wallpaper (pick *Wallpaper* once on the device)
 
-</td>
-<td width="50%" valign="top">
+- **Auto-discovery** over USB, `adb` Wi-Fi (5555), and Wireless debugging (mDNS)
+- **Pair** by QR, pairing code, or IP; **skip pairing** by plugging in USB once and tapping *Always allow*
+- **Auto-switch to port 5555** so devices reconnect over Wi-Fi without pairing until reboot
+- Shows which of **your apps and versions** are installed (detected from your project folders)
+- **Scan across subnets**: add other subnets in **Settings → Network scan**; subnets of devices seen before are included automatically
+- **In use by**: see who on the LAN has a device open, on their USB, or marked *I'm using this*
+- **Find**: makes a device blink and vibrate so you can spot it among identical tablets
+- **Name label wallpaper**: name, IP, model, serial and a QR as the wallpaper (tap *Wallpaper* once on the device)
 
 ### 🪟 Device workspace
-- Opens each device in **its own window**, made for multi-device testing
-- Screen mirror: **Fast** (embedded scrcpy) or **Lite** (screenshots), auto-sized to the device's shape with no black bars (drag the divider to override, double-click it to go back to auto)
-- Logcat with **crash detection**, files, apps, info
-- **Interactive terminal**: `adb shell` on the device, or Git Bash / PowerShell already pointed at it (`ANDROID_SERIAL`)
-- **Flutter** run/attach with hot reload/restart, install latest build
-- **Network conditioning** (Dev tab): download speed limit 2G/3G/4G (Android 12+), emulator speed/latency profiles, and **connection drop / flaky network**. The drop runs on the device, so it turns the network back on by itself even after ADB over Wi-Fi drops
 
-</td>
-</tr>
-<tr>
-<td valign="top">
+Each device opens in **its own window**, made for multi-device testing.
+
+- **Screen mirror**: Fast (embedded scrcpy) or Lite (screenshots), auto-sized to the device with no black bars
+- **Logcat** with crash detection, plus Files, Apps, Info and an interactive **terminal** (`adb shell`, Git Bash or PowerShell)
+- **Flutter** run / attach, hot reload / restart, install the latest build
+- **Click to open source**: `package:…/file.dart:142:7` in logs opens in VS Code at that line, using the exact branch or local clone of each package the app uses
+- **Network conditioning**: 2G/3G/4G speed limit (Android 12+), emulator profiles, **connection drop / flaky network** that recovers by itself
+- **Dev toggles**: show touches, layout bounds, animations, dark mode, font size, fake battery level
 
 ### 📐 Display lab
-- Change **resolution, DPI, and screen size** on a real device
-- Presets from a 5.5" phone to a **21.5" POS** and **43" 4K signage**
-- Shows the resulting **dp size and breakpoint** your layout will hit
 
-</td>
-<td valign="top">
+- Change **resolution, DPI and screen size** on a real device
+- Presets from a 5.5" phone to a **21.5" POS** and **43" 4K signage**
+- Shows the resulting **dp size and breakpoint**
 
 ### 📱 Emulators
+
 - Start, cold boot, headless, stop, **wipe data**, edit hardware, delete
 - Create AVDs from **size presets** (phone, tablet, POS, kiosk, signage)
-- **Download system images** directly, with no sdkmanager or Java needed, and search them by API, Android version, or variant
-
-</td>
-</tr>
-<tr>
-<td valign="top">
+- **Download system images** without sdkmanager or Java
 
 ### 🧾 Printer emulator
-- Acts as a network thermal printer on **TCP 9100**, the port our POS apps always use (Backoffice only stores the IP)
-- Answers Epson (ePOS2 ASB) and Star (StarIO, status on 9101) status checks, so the POS sees the printer as online
-- Shows up in the POS **SNBC printer search** (UDP 3000) as "DevKit Printer"
-- Understands SNBC's line-raster images (logos, signatures), so receipts render exactly as printed
-- Keeps the raw bytes of the last 30 receipts (**Raw file** button) for debugging printer drivers
-- Renders ESC/POS receipts on 58 / 80 mm paper
-- Copy a receipt as an image (paste straight into Jira) or text, or view raw hex
 
-</td>
-<td valign="top">
-
-### 💳 Payment terminals
-- Scans the subnet for **PAX** terminals (POSLink, port 10009)
-- **Identify** reads model, serial, and firmware. It never starts a transaction.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
+- A network thermal printer on **TCP 9100**, the standard raw printing port
+- Answers **Epson** and **Star** status checks and shows up in the **SNBC printer search**, so your app sees it online
+- Renders ESC/POS on 58 / 80 mm paper, including SNBC raster logos and signatures
+- Copy a receipt as an **image** (paste into Jira) or text; view raw hex or the raw file of the last 30 receipts
 
 ### 🧹 Maintenance
-- **Switch `pos_core` / `pf_processor_plugin` branch** (branch list from Bitbucket) or **use a local clone** via `pubspec_overrides.yaml`, then `pub upgrade` runs automatically
-- One-click **update core packages** per project
-- Clear the core-package git cache, **pub cache**, **Gradle cache**
-- `pub get`, `pub upgrade`, `flutter clean` with live output
 
-</td>
-<td valign="top">
+- **Switch the branch of any git package** in a project's `pubspec.yaml` or use a local clone, then `pub upgrade` runs
+- **Override any package with a local path** (⋮ menu); active overrides show as orange chips, ✕ removes one
+- Overrides go to `pubspec_overrides.yaml`, so `pubspec.yaml` stays untouched
+- One-click **update git packages**; `pub get`, `pub upgrade`, `flutter clean` with live output
+- Clear the git package cache, **pub cache** and **Gradle cache**
 
-### 💬 Team chat (LAN only)
-- Finds every DevKit on the office network automatically, with **no internet or server**
-- **Everyone** channel plus direct messages, history kept locally
-- **Windows notifications**, taskbar flash, and unread badges
-- Asks for your name on first launch
-- Built-in **🤖 Test bot** to try it on a single PC
-- Shares which devices you're using, so the Devices list shows **In use by** for everyone
+### 🗂️ Work (Jira + Bitbucket)
 
-### 🗂️ History
-- Everything worth reviewing later is kept on this PC for **30 days**
-- **Activity**: connects, port 5555, installs, screenshots, bug reports, `flutter run`, emulator and maintenance actions
-- **Crashes**: each one with the log lines that led to it
-- **Session logs**: full logcat per device, `flutter run`, maintenance output
-- Printer receipts survive restarts too
+- **My tickets**: what's assigned to you, grouped by status, with description, comments and status changes
+- **Start work**: one click creates `feature/POS-123-…` (or `bugfix/…`) from `origin/develop`, moves the ticket to *In Progress* and opens VS Code
+- **Push & create PR**: title and description from the ticket, default reviewers added, ticket moves to *Code Review*
+- **Pull requests**: *To review* / *Mine* / *All* across your repos; **check out** a PR to test it on a device, **approve** from DevKit
+- **Ticket in the workspace**: the device window shows the ticket of the branch you run; send a **screenshot** or **bug report** to it with one click
+- Works with Jira Cloud (API token) and Server/Data Center (personal access token); tokens are encrypted for your Windows account
+
+### 💬 Team & notes
+
+- **LAN chat** with no internet or server: Everyone channel, direct messages, Windows notifications
+- **Notes**: sticky notes for IPs, test steps, anything (<kbd>Ctrl</kbd>+<kbd>N</kbd>), with colors, pinning and search
+- **History** for 30 days: activity, crashes with their log lines, full session logs
 
 ### 🧰 And more
-- **Terminal**: tabs of Git Bash / PowerShell / cmd opened in any project folder, plus open in VS Code / Explorer / Windows Terminal
-- **Store codes**: activation & support codes per store
+
+- **Terminal** tabs (Git Bash / PowerShell / cmd) in any project folder
 - **Multi Screen**: many devices in one window, with broadcast input
-- **Built-in guide** for USB, Wireless debugging, and the printer
-- **Keeps running when closed**: reopen it from the taskbar or tray
-- Light & dark theme
+- Built-in **connection guide** for USB, Wireless debugging and the printer
+- **Keeps running in the tray** when closed · light & dark theme
 
-</td>
-</tr>
-</table>
+## ⌨️ Workspace shortcuts
 
-## 🚀 Quick start
+| Keys | Action |
+| --- | --- |
+| <kbd>F5</kbd> / <kbd>Shift</kbd>+<kbd>F5</kbd> | Flutter run again / stop |
+| <kbd>Ctrl</kbd>+<kbd>F5</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F5</kbd> | Hot reload / hot restart |
+| <kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> | Screenshot (copied) / save as… |
+| <kbd>Ctrl</kbd>+<kbd>B</kbd> | Bug report (screenshot + log + info) |
+| <kbd>Ctrl</kbd>+<kbd>I</kbd> | Install the latest build |
+| <kbd>Ctrl</kbd>+<kbd>R</kbd> | Restart the focused app |
+| <kbd>Ctrl</kbd>+<kbd>M</kbd> | Open remote (scrcpy) |
+| <kbd>Ctrl</kbd>+<kbd>L</kbd> | Clear logcat |
+| <kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>7</kbd> | Switch tab |
+| Click the screen | Type on the device with your keyboard (<kbd>Ctrl</kbd>+<kbd>V</kbd> pastes) |
 
-**Just want to use it?** Download [`dist/RavoDevKit-Setup.exe`](dist/RavoDevKit-Setup.exe) and run it. No admin rights needed, and `adb` and `scrcpy` are already inside. Running it again over an existing install upgrades it (DevKit is closed for you).
+## 🧭 First run
 
-**Building from source:**
+1. **Settings → Project folders**: add the folder where you clone repos. Repos are matched by their Android `applicationId`, up to 3 levels deep, and become **My apps**. For apps you don't have cloned, add a package prefix in **Settings → My apps**.
+2. **Devices**: if the orange **Network scan may miss devices** banner appears, click **Fix network access** once.
+3. **Devices → Scan network**: phones with Wireless debugging show up. If one says **Needs pairing**, click its QR icon once.
+4. **Printer**: in your app, set a network printer (**SNBC over Wi-Fi** works best) with this PC's IP, then print. On emulators like MEmu, use the PC IP (not `10.0.2.2`).
+
+## 🛟 Troubleshooting
+
+| Problem | Try this |
+| --- | --- |
+| Device on another subnet isn't found | Add the subnet in **Settings → Network scan** (`192.168.5`, `10.1.0.0/22`). The PC needs a route to it, and the device must be on port 5555: Wireless debugging discovery doesn't cross subnets. |
+| Phone doesn't show up | Same Wi-Fi as the PC? Wireless debugging on? Click **Fix network access** on Devices (one admin prompt). |
+| Tired of re-pairing | Device menu → **Enable port 5555**. Scans then find it on `ip:5555` until it reboots. |
+| "Needs pairing" won't go away | Phone: **Wireless debugging → Pair device with pairing code**, then DevKit: **Pair device → Pairing code**. |
+| `adb` keeps restarting | Another `adb` version is running (Android Studio, an old SDK). Keep just one on `PATH`. |
+| Git packages stuck on an old commit | **Maintenance → Git packages cache → Clear**, then **Update core**. |
+| Need an unmerged fix in a git package | **Maintenance →** click the package chip → **Git branch** or **Local folder**. |
+| Teammates missing in Chat / "In use by" | Same network? **Fix network access** (UDP 47232 + TCP 47231). Try **🤖 Test bot** in Chat to test alone. |
+| Work: Jira or Bitbucket won't connect | **Work → ⚙ → Test connection** shows the exact error. Bitbucket app passwords use your *username*, API tokens your *email*. |
+| No ticket chip in the workspace | The branch name must contain the key (`feature/POS-123-…`) and the repo must be in **Settings → Project folders**. |
+| Source links don't open | Add the repo folder in **Settings → Project folders** and run `pub get` once; VS Code's `code` must be on `PATH`. |
+
+## 🛠️ Development
 
 ```sh
 fvm install
@@ -152,68 +185,60 @@ fvm flutter pub get
 fvm flutter run -d windows
 ```
 
-Release build (zip the output folder to share):
-
-```sh
-fvm flutter build windows --release --no-tree-shake-icons
-# → build/windows/x64/runner/Release/
-```
-
-> [!IMPORTANT]
-> Keep `--no-tree-shake-icons`. Without it, some icons go missing in release builds.
-
-Installer (needs [Inno Setup 6](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`):
+**Release build and installer** (needs [Inno Setup 6](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`):
 
 ```powershell
-.\tool\build_installer.ps1          # release build + dist/RavoDevKit-Setup.exe
-.\tool\build_installer.ps1 -SkipBuild
+.\tool\build_installer.ps1             # release build + dist/DevKit-Setup.exe
+.\tool\build_installer.ps1 -SkipBuild  # reuse the last release build
 ```
 
-The version comes from `pubspec.yaml`. Wizard images are generated by `python tool/make_installer_art.py`.
+The version comes from `pubspec.yaml`.
 
-## 🧭 First run
+> [!IMPORTANT]
+> Building by hand? Keep `--no-tree-shake-icons` on `flutter build windows --release`, or some icons go missing.
 
-1. **Settings → Project folders**: add the folder where you clone repos. Repos are matched by their Android `applicationId`, so folder names can be anything, up to 3 levels deep.
-2. **Devices**: if the orange **Network scan may miss devices** banner appears, click **Fix network access** once.
-3. **Devices → Scan network**: phones with Wireless debugging on show up. If one says **Needs pairing**, click the QR icon once. After that it connects automatically.
-4. **Printer**: in Backoffice, set the station's printer to **SNBC + WIFI** (not USB) with this PC's IP, then print. The receipt appears in DevKit. The port is fixed at 9100. On emulators like MEmu, use the PC IP (not `10.0.2.2`).
-
-## 🛟 Troubleshooting
-
-| Problem | Try this |
-| --- | --- |
-| Phone doesn't show up after a scan | Same Wi-Fi as the PC? Wireless debugging on? If Devices shows **Network scan may miss devices**, click **Fix network access** (one admin prompt): it allows DevKit through Windows Firewall and can switch a Public network to Private. |
-| Tired of re-pairing Wireless debugging | Once a phone is connected, use its menu → **Enable port 5555** (or the ⟷ button for all). Scans then find it on `ip:5555` until it reboots. |
-| "Needs pairing" won't go away | Phone: **Wireless debugging → Pair device with pairing code**, then in DevKit: **Pair device → Pairing code**. |
-| `adb` keeps restarting | Another `adb` version is running (Android Studio, an older SDK). DevKit prefers the `adb` on your `PATH`, so keep just one. |
-| Core packages stuck on an old commit | **Maintenance → Core packages cache → Clear**, then **Update core**. |
-| Teammates don't show up in Chat | Same network? Click **Fix network access** on Devices (Chat uses UDP 47232 + TCP 47231). To test alone, turn on **🤖 Test bot** in Chat: a fake teammate joins and echoes your messages. |
-| Need a `pos_core` / plugin fix that isn't merged yet | **Maintenance → click the package chip → Git branch** (or **Local folder** for your own clone). |
-
-## 🗂️ Project layout
+<details>
+<summary><b>Project layout</b></summary>
 
 ```text
 lib/
-  core/            theme, tools (adb/scrcpy lookup), background/tray, project scanning
+  core/            theme, tools (adb/scrcpy lookup), tray, project scanning, source links
   modules/
     devices/       discovery, pairing, workspace window, multi screen
+    editor/        code editor, file tree, Dart analysis server over LSP, fvm SDK lookup
     emulators/     AVD manager, system image downloads
     printer/       ESC/POS parser, TCP server, receipt view
-    terminal/      PAX POSLink scanner
     console/       embedded terminals (ConPTY + xterm)
     chat/          LAN chat (UDP discovery, TCP messages, notifications)
-    maintenance/   pub/Gradle cache cleanup, core package updates
-    stores/        store activation/support codes
+    maintenance/   pub/Gradle cache cleanup, core packages, local overrides
+    notes/         sticky notes
+    work/          Jira + Bitbucket: tickets, branches, pull requests
+    history/       activity, crashes, session logs
     help/          connection guide
     settings/
-tool/make_icon.py  regenerates the app icon
+tool/
+  build_installer.ps1     release build + installer
+  make_icon.py            regenerates the app icon
+  make_installer_art.py   regenerates the installer wizard images
+windows/installer/        Inno Setup script and wizard images
 windows/third_party/scrcpy/   bundled scrcpy + adb (Apache-2.0)
 ```
 
-New app? Add it to `knownApps` in `lib/core/apps.dart`, and DevKit will recognise it everywhere.
+New app? Put its repo in a project folder, and DevKit recognises it everywhere.
+
+</details>
+
+## 🧭 Roadmap: toward a Flutter IDE
+
+DevKit already covers editing, running on devices, and package management. Next up:
+
+- [ ] **Projects** as a top-level page: open a project, then see its devices, builds and git state
+- [ ] **Debugger**: breakpoints, stepping and the widget inspector over the VM service
+- [ ] **Git in the editor**: changed files, inline diff, blame
+- [ ] **Beyond Android and Windows**: iOS, macOS and Linux targets
 
 ---
 
 <div align="center">
-Made with 💚 for the Ravo team, for testing that's less tedious.
+Made with 💚 for testing that's less tedious.
 </div>
