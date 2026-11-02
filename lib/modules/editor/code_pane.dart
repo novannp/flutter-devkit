@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -24,8 +25,11 @@ import 'package:re_highlight/re_highlight.dart' show Mode;
 import 'package:re_highlight/styles/atom-one-dark.dart';
 import 'package:re_highlight/styles/atom-one-light.dart';
 
+import 'debug_panel.dart' show breakpointColor;
+import 'debugger.dart';
 import 'editor_workspace.dart';
 import 'find_panel.dart';
+import 'source_control.dart';
 
 final _modes = <String, Mode>{
   '.dart': langDart,
@@ -122,9 +126,11 @@ CodeLineSpanBuilder diagnosticsSpanBuilder(List<Diagnostic> Function() diagnosti
     };
 
 class CodePane extends StatefulWidget {
-  const CodePane({super.key, required this.workspace, required this.doc, required this.onKey, required this.onTarget, required this.onReferences});
+  const CodePane({super.key, required this.workspace, required this.doc, required this.debugger, required this.git, required this.onKey, required this.onTarget, required this.onReferences});
 
   final EditorWorkspace workspace;
+  final Debugger debugger;
+  final SourceControl git;
   final EditorDocument doc;
 
   /// Global shortcuts: consulted before the editor's own key bindings.
@@ -157,6 +163,9 @@ class CodePaneState extends State<CodePane> {
   CodeLines? _lastLines;
   bool _applying = false;
 
+  Map<int, GitMark> _marks = const {};
+  var _wasDirty = false;
+
   // Hover card.
   String? _hover;
   Offset? _hoverAt;
@@ -164,6 +173,13 @@ class CodePaneState extends State<CodePane> {
   var _hoverToken = 0;
 
   EditorDocument get _doc => widget.doc;
+
+  /// The line the selected stack frame stopped on, when that's in this file.
+  int? get _currentLine {
+    final frame = widget.debugger.currentFrame;
+    return frame != null && frame.path != null && p.equals(frame.path!, _doc.path) ? frame.line : null;
+  }
+
   CodeLineEditingController get _ctrl => _doc.controller;
 
   @override
@@ -171,6 +187,11 @@ class CodePaneState extends State<CodePane> {
     super.initState();
     _lastLines = _ctrl.codeLines;
     _ctrl.addListener(_onEdit);
+    widget.debugger.addListener(_onDebugger);
+    widget.git.addListener(_loadMarks);
+    _doc.addListener(_onDoc);
+    _wasDirty = _doc.dirty;
+    _loadMarks();
     _focus.addListener(() {
       if (!_focus.hasFocus) _closePopup();
     });
@@ -184,10 +205,51 @@ class CodePaneState extends State<CodePane> {
     _completionTimer?.cancel();
     _hoverTimer?.cancel();
     _ctrl.removeListener(_onEdit);
+    widget.debugger.removeListener(_onDebugger);
+    widget.git.removeListener(_loadMarks);
+    _doc.removeListener(_onDoc);
     _find.dispose();
     _focus.dispose();
     _popupScroll.dispose();
     super.dispose();
+  }
+
+  // The marks compare the saved file with HEAD, so they only change on a save or a git operation.
+  void _onDoc() {
+    if (_wasDirty && !_doc.dirty) unawaited(widget.git.refresh());
+    _wasDirty = _doc.dirty;
+  }
+
+  Future<void> _loadMarks() async {
+    final doc = _doc;
+    final marks = await widget.git.marksOf(doc.path);
+    if (mounted && identical(doc, _doc) && !mapEquals(marks, _marks)) setState(() => _marks = marks);
+  }
+
+  // Counts folded lines too: folding changes the list's length but not the file.
+  static int _lineCount(CodeLines lines) {
+    var n = 0;
+    for (var i = 0; i < lines.length; i++) {
+      n += lines[i].lineCount;
+    }
+    return n;
+  }
+
+  void _shiftBreakpoints(CodeLines before, CodeLines after, int cursor) {
+    final delta = _lineCount(after) - _lineCount(before);
+    if (delta == 0) return;
+    // A line whose text went blank was pushed down whole, so its breakpoint goes with it.
+    final at = cursor - delta;
+    final pushed = delta > 0 && at >= 0 && at < before.length && after[at].text.trim().isEmpty && before[at].text.trim().isNotEmpty;
+    widget.debugger.shiftBreakpoints(_doc.path, cursor: cursor, delta: delta, atLineStart: pushed);
+  }
+
+  void _onDebugger() {
+    if (mounted) setState(() {});
+  }
+
+  void toggleBreakpointAtCursor() {
+    if (p.extension(_doc.path) == '.dart') widget.debugger.toggleBreakpoint(_doc.path, _ctrl.selection.extentIndex);
   }
 
   void reveal(int line, int column) {
@@ -209,6 +271,7 @@ class CodePaneState extends State<CodePane> {
     final previous = _lastLines;
     _lastLines = lines;
     final sel = _ctrl.selection;
+    if (changed && previous != null) _shiftBreakpoints(previous, lines, sel.extentIndex);
     if (!changed) {
       if (_popup && (!sel.isCollapsed || sel.extentIndex != _popupLine || sel.extentOffset < _wordStart)) _closePopup();
       return;
@@ -601,7 +664,15 @@ class CodePaneState extends State<CodePane> {
                 _indicator = notifier;
                 return Row(
                   key: _gutterKey,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    _BreakpointGutter(
+                      notifier: notifier,
+                      lines: widget.debugger.breakpoints[_doc.path] ?? const {},
+                      current: _currentLine,
+                      marks: _marks,
+                      onToggle: p.extension(_doc.path) == '.dart' ? (l) => widget.debugger.toggleBreakpoint(_doc.path, l) : null,
+                    ),
                     DefaultCodeLineNumber(
                       controller: editing,
                       notifier: notifier,
@@ -614,6 +685,19 @@ class CodePaneState extends State<CodePane> {
               },
               findBuilder: (_, controller, readOnly) => CodeFindPanel(controller: controller, readOnly: readOnly),
             ),
+            if (_currentLine != null && _indicator != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _LinePainter(_indicator!, (size) {
+                      final para = _paragraphAt(_currentLine!);
+                      final origin = _fieldOrigin();
+                      if (para == null || origin == null) return null;
+                      return Rect.fromLTWH(origin.dx, origin.dy + para.offset.dy, size.width - origin.dx, para.preferredLineHeight);
+                    }),
+                  ),
+                ),
+              ),
             if (_popup) _buildPopup(scheme),
             if (_hover != null && _hoverAt != null)
               _Floating(
@@ -644,6 +728,99 @@ IconData _kindIcon(int kind) => switch (kind) {
   14 => Icons.key_outlined,
   _ => Icons.short_text,
 };
+
+class _BreakpointGutter extends StatelessWidget {
+  const _BreakpointGutter({required this.notifier, required this.lines, required this.current, required this.marks, required this.onToggle});
+
+  final CodeIndicatorValueNotifier notifier;
+  final Set<int> lines;
+  final int? current;
+  final Map<int, GitMark> marks;
+  final ValueChanged<int>? onToggle;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 18,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapUp: (d) {
+        for (final para in notifier.value?.paragraphs ?? const <CodeLineRenderParagraph>[]) {
+          if (d.localPosition.dy >= para.offset.dy && d.localPosition.dy < para.offset.dy + para.preferredLineHeight) {
+            onToggle?.call(para.index);
+            return;
+          }
+        }
+      },
+      child: CustomPaint(painter: _GutterPainter(notifier, lines, current, marks)),
+    ),
+  );
+}
+
+class _GutterPainter extends CustomPainter {
+  _GutterPainter(this.notifier, this.lines, this.current, this.marks) : super(repaint: notifier);
+
+  final CodeIndicatorValueNotifier notifier;
+  final Set<int> lines;
+  final int? current;
+  final Map<int, GitMark> marks;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.clipRect(Offset.zero & size);
+    final paint = Paint();
+    for (final para in notifier.value?.paragraphs ?? const <CodeLineRenderParagraph>[]) {
+      final top = para.offset.dy, height = para.preferredLineHeight;
+      final middle = top + height / 2;
+      final mark = marks[para.index];
+      if (mark != null) {
+        paint.color = switch (mark) {
+          GitMark.added => const Color(0xFF22C55E),
+          GitMark.modified => const Color(0xFF3B82F6),
+          GitMark.deleted => const Color(0xFFEF4444),
+        };
+        canvas.drawRect(
+          mark == GitMark.deleted ? Rect.fromLTWH(0, top + height - 2, 6, 2) : Rect.fromLTWH(0, top, 3, height),
+          paint,
+        );
+      }
+      if (lines.contains(para.index)) {
+        paint.color = breakpointColor;
+        canvas.drawCircle(Offset(10, middle), 5, paint);
+      }
+      if (para.index == current) {
+        paint.color = const Color(0xFFF59E0B);
+        canvas.drawPath(
+          Path()
+            ..moveTo(5, middle - 6)
+            ..lineTo(16, middle)
+            ..lineTo(5, middle + 6)
+            ..close(),
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GutterPainter old) =>
+      !setEquals(old.lines, lines) || old.current != current || !mapEquals(old.marks, marks);
+}
+
+class _LinePainter extends CustomPainter {
+  _LinePainter(this.notifier, this.rect) : super(repaint: notifier);
+
+  final CodeIndicatorValueNotifier notifier;
+  final Rect? Function(Size size) rect;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = rect(size);
+    if (r != null) canvas.drawRect(r, Paint()..color = const Color(0x33F59E0B));
+  }
+
+  @override
+  bool shouldRepaint(_LinePainter old) => true;
+}
 
 /// A card under a text position, flipped above it when there's no room below.
 class _Floating extends StatelessWidget {

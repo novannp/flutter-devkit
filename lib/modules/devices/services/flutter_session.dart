@@ -31,6 +31,7 @@ class FlutterSession extends ChangeNotifier {
   FlutterStatus status = FlutterStatus.idle;
   String? progress;
   String? devToolsUri;
+  String? vmServiceUri;
   bool attachMode = false;
   bool reloadOnSave = true;
 
@@ -79,6 +80,7 @@ class FlutterSession extends ChangeNotifier {
     attachMode = attach;
     _appId = null;
     devToolsUri = null;
+    vmServiceUri = null;
     _flush ??= Timer.periodic(const Duration(milliseconds: 200), (_) {
       if (!_dirty) return;
       _dirty = false;
@@ -115,6 +117,7 @@ class FlutterSession extends ChangeNotifier {
       _add('flutter process exited (exit $code)', code == 0 ? FlutterLineKind.info : FlutterLineKind.error);
       _process = null;
       _appId = null;
+      vmServiceUri = null;
       _stopWatching();
       _set(FlutterStatus.stopped);
     });
@@ -176,6 +179,8 @@ class FlutterSession extends ChangeNotifier {
         notifyListeners();
       case 'app.debugPort':
         _add('VM service: ${p['wsUri']}', FlutterLineKind.info);
+        vmServiceUri = p['wsUri'] as String?;
+        notifyListeners();
       case 'daemon.logMessage':
         final level = p['level'];
         _add('${p['message']}', level == 'error' ? FlutterLineKind.error : FlutterLineKind.build);
@@ -237,6 +242,11 @@ class FlutterSession extends ChangeNotifier {
     } else {
       p.kill();
     }
+  }
+
+  void note(String text, {bool error = false}) {
+    _add(text, error ? FlutterLineKind.error : FlutterLineKind.info);
+    notifyListeners();
   }
 
   void clear() {
