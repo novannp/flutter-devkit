@@ -9,13 +9,14 @@
 Edit code, find devices, mirror them, read logs, hot reload, and fake printers, all without leaving one window.
 
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-12%2B-000000?logo=apple&logoColor=white)
 ![Flutter](https://img.shields.io/badge/Flutter-desktop-02569B?logo=flutter&logoColor=white)
 ![scrcpy](https://img.shields.io/badge/scrcpy-3.3.4%20bundled-10B981)
 ![No setup](https://img.shields.io/badge/adb%20%26%20scrcpy-included-34D399)
 
 [Install](#-install) · [Features](#-features) · [Shortcuts](#%EF%B8%8F-workspace-shortcuts) · [First run](#-first-run) · [Troubleshooting](#-troubleshooting) · [Development](#%EF%B8%8F-development)
 
-<img src="docs/screenshot.png" width="860" alt="Flutter DevKit devices screen" />
+<img src="docs/screenshot.png" width="860" alt="Flutter DevKit editor with a Flutter project open" />
 
 </div>
 
@@ -168,7 +169,7 @@ Each device opens in **its own window**, made for multi-device testing.
 - **Push & create PR**: title and description from the ticket, default reviewers added, ticket moves to *Code Review*
 - **Pull requests**: *To review* / *Mine* / *All* across your repos; **check out** a PR to test it on a device, **approve** from Flutter DevKit
 - **Ticket in the workspace**: the device window shows the ticket of the branch you run; send a **screenshot** or **bug report** to it with one click
-- Works with Jira Cloud (API token) and Server/Data Center (personal access token); tokens are encrypted for your Windows account
+- Works with Jira Cloud (API token) and Server/Data Center (personal access token); tokens are encrypted for your Windows account, or kept in the Keychain on macOS
 
 ### 📝 Notes & history
 
