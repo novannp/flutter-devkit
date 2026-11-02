@@ -26,6 +26,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+final _primary = Platform.isMacOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft;
+
 void main() {
   test('underlineRanges splits across highlighted spans and keeps the text', () {
     const red = Color(0xFFFF0000);
@@ -128,9 +130,9 @@ void main() {
 
       ctrl.selection = CodeLineSelection.collapsed(index: 1, offset: ctrl.codeLines[1].length);
       ctrl.replaceSelection('("hi");');
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(_primary);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(_primary);
       await settle(() => File(main).readAsStringSync().contains('hi'), 'the save');
       expect(File(main).readAsStringSync(), contains('  print'));
 
@@ -205,11 +207,11 @@ void main() {
       expect(tab('one.txt'), findsNothing);
 
       // Search runs as you type, with no Enter, and clearing the field clears the results.
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(_primary);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(_primary);
       await tester.pump();
       final field = find.widgetWithText(TextField, 'Search in files');
       await tester.enterText(field, 'three');
@@ -261,9 +263,9 @@ void main() {
       await settle(() => (word = pane.globalCenterOf(0, 6)) != null, 'the laid out line');
 
       // A slow answer shows that something is happening, and Esc gives up on it.
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(_primary);
       await tester.tapAt(word!);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(_primary);
       await tester.pump();
       expect(find.text('Loading…'), findsNothing, reason: 'a fast answer never shows it');
       await tester.pump(const Duration(milliseconds: 200));
@@ -286,11 +288,11 @@ void main() {
       expect(find.text('Loading suggestions…'), findsNothing);
 
       // The palette finds commands, and the symbol list opens over the current file.
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(_primary);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(_primary);
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Go to File'), findsOneWidget);
       await tester.enterText(find.byType(TextField).last, 'format doc');
@@ -300,11 +302,11 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump(const Duration(milliseconds: 300));
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(_primary);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyO);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(_primary);
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.widgetWithText(TextField, 'Go to symbol in main.dart'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -314,9 +316,9 @@ void main() {
       for (var i = 0; i < 40 && find.text('3 usages of helper').evaluate().isEmpty; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pump();
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyDownEvent(_primary);
         await tester.tapAt(word!);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyUpEvent(_primary);
         await settle(() => find.textContaining('usages of helper').evaluate().isNotEmpty, 'the usages overlay');
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 250)));
         await tester.pump();
@@ -330,9 +332,9 @@ void main() {
       await tester.pump();
       expect(find.textContaining('usages of helper'), findsNothing);
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(_primary);
       await tester.tapAt(word!);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(_primary);
       await settle(() => find.textContaining('usages of helper').evaluate().isNotEmpty, 'the overlay again');
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
@@ -393,7 +395,7 @@ void main() {
 
       // A real mouse: it hovers first, so the Ctrl+hover underline is showing when the click lands.
       // The caret starts elsewhere, on purpose: the click alone has to decide what's followed.
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(_primary);
       for (var i = 0; i < 300; i++) {
         await mouse.moveTo(word! + Offset(0, i.isEven ? 0 : 1));
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
@@ -405,7 +407,7 @@ void main() {
       await tester.pump();
       await mouse.up();
       await tester.pump();
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(_primary);
       await settle(() => find.text('print.dart').evaluate().isNotEmpty, 'the SDK file to open');
       expect(find.text('Read-only: SDK or package source'), findsOneWidget);
 
@@ -416,9 +418,9 @@ void main() {
       expect(find.text('Read-only: SDK or package source'), findsNothing);
 
       // Two views side by side, each with its own editor.
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(_primary);
       await tester.sendKeyEvent(LogicalKeyboardKey.backslash);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(_primary);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
       expect(find.byType(CodePane), findsNWidgets(2));
@@ -439,9 +441,9 @@ void main() {
       await tester.pump();
 
       // A narrow window with the panels open: everything gives way instead of overflowing.
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(_primary);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyUpEvent(_primary);
       await tester.binding.setSurfaceSize(const Size(560, 400));
       await tester.pump();
       expect(tester.takeException()?.toString(), isNull);
@@ -525,11 +527,11 @@ void main() {
       }
 
       Future<void> key(LogicalKeyboardKey k, {bool control = false, bool shift = false}) async {
-        if (control) await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        if (control) await tester.sendKeyDownEvent(_primary);
         if (shift) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
         await tester.sendKeyEvent(k);
         if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-        if (control) await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        if (control) await tester.sendKeyUpEvent(_primary);
         await tester.pump();
       }
 

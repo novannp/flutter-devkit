@@ -59,7 +59,8 @@ void main() {
   });
 
   test('reads a real running app, and lets go when it stops', () async {
-    final dir = await Directory.systemTemp.createTemp('inspect');
+    // The VM reports real paths, and macOS keeps its temp folder behind a symlink.
+    final dir = Directory((await Directory.systemTemp.createTemp('inspect')).resolveSymbolicLinksSync());
     addTearDown(() => dir.delete(recursive: true).catchError((_) => dir));
     File(p.join(dir.path, 'pubspec.yaml')).writeAsStringSync('name: sample\nenvironment:\n  sdk: ^3.0.0\ndependencies:\n  flutter:\n    sdk: flutter\nflutter:\n  uses-material-design: true\n');
     final main = p.join(dir.path, 'lib', 'main.dart');

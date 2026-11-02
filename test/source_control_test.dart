@@ -98,6 +98,30 @@ filename a.dart
     expect(ageOf(now.subtract(const Duration(days: 800)), now), '2 years ago');
   });
 
+  test('a repo opened through a link keeps its marks', () async {
+    final base = await Directory.systemTemp.createTemp('devkit_link');
+    addTearDown(() => base.delete(recursive: true).catchError((_) => base));
+    final real = await Directory(p.join(base.path, 'real')).create();
+    final link = await Link(p.join(base.path, 'link')).create(real.path);
+    Future<void> git(List<String> args) => Process.run('git', args, workingDirectory: real.path);
+
+    await git(['init', '-b', 'main']);
+    await git(['config', 'user.email', 'test@example.com']);
+    await git(['config', 'user.name', 'Test']);
+    await git(['config', 'core.autocrlf', 'false']);
+    final file = File(p.join(real.path, 'a.txt'));
+    await file.writeAsString('one\ntwo\n');
+    await git(['add', '.']);
+    await git(['commit', '-m', 'first']);
+    await file.writeAsString('one\nTWO\n');
+
+    final sc = SourceControl();
+    addTearDown(sc.dispose);
+    await sc.open(link.path);
+    expect(sc.top, link.path);
+    expect(await sc.marksOf(p.join(link.path, 'a.txt')), {1: GitMark.modified});
+  });
+
   test('stages, diffs, commits, branches and discards in a real repo', () async {
     final dir = await Directory.systemTemp.createTemp('devkit_git');
     addTearDown(() => dir.delete(recursive: true).catchError((_) => dir));

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:devkit/core/secrets.dart';
 import 'package:devkit/extensions/work/atlassian.dart';
@@ -39,5 +41,5 @@ void main() {
     final enc = dpapi('secret-token'.codeUnits, encrypt: true)!;
     expect(String.fromCharCodes(enc).contains('secret-token'), isFalse);
     expect(String.fromCharCodes(dpapi(enc, encrypt: false)!), 'secret-token');
-  });
+  }, skip: !Platform.isWindows);
 }

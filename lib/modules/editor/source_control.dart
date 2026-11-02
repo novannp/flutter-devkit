@@ -221,6 +221,19 @@ class SourceControl extends ChangeNotifier {
     await refresh();
   }
 
+  // Git answers with the real path, but files open under the folder's: a symlink, a junction or a short Windows name.
+  Future<String> _inFolderForm(String real) async {
+    final up = await _git(['rev-parse', '--show-cdup']);
+    if (!up.ok) return real;
+    final local = p.normalize(p.join(_folder, up.text.trim()));
+    try {
+      final same = p.equals(await Directory(local).resolveSymbolicLinks(), await Directory(real).resolveSymbolicLinks());
+      return same ? local : real;
+    } on FileSystemException {
+      return real;
+    }
+  }
+
   Future<void> refresh() async {
     if (_folder.isEmpty) return;
     // The running pass may have read the repo before this change, so it gets one more look.
@@ -233,7 +246,7 @@ class SourceControl extends ChangeNotifier {
       if (top == null) {
         final t = await _git(['rev-parse', '--show-toplevel']);
         if (!t.ok) return;
-        top = p.normalize(t.text.trim());
+        top = await _inFolderForm(p.normalize(t.text.trim()));
       }
       final s = await _git(['status', '--porcelain=v1', '-z', '--untracked-files=all']);
       if (!s.ok) return;
