@@ -14,6 +14,7 @@ import 'modules/chat/chat_service.dart';
 import 'modules/console/console_page.dart';
 import 'modules/devices/view/devices_page.dart';
 import 'modules/devices/view/multi_screen_page.dart';
+import 'modules/editor/editor_page.dart';
 import 'modules/emulators/emulators_page.dart';
 import 'modules/help/connection_guide.dart';
 import 'modules/history/history_page.dart';
@@ -43,6 +44,7 @@ const _groups = [
     _Module('Multi Screen', Icons.grid_view_rounded, MultiScreenPage()),
     _Module('Emulators', Icons.phone_android_outlined, EmulatorsPage()),
   ]),
+  _Group('Code', [_Module('Editor', Icons.code, EditorPage())]),
   _Group('Tools', [
     _Module('Terminal', Icons.terminal, ConsolePage()),
     _Module('Printer', Icons.receipt_long_outlined, PrinterPage()),
@@ -65,8 +67,11 @@ class Shell extends StatefulWidget {
 }
 
 class _ShellState extends State<Shell> {
-  var _index = 0;
-  final _visited = {0};
+  static final _startIndex = Platform.environment['DEVKIT_EDITOR'] == null
+      ? 0
+      : _modules.indexWhere((m) => m.page is EditorPage);
+  late var _index = _startIndex;
+  late final _visited = {_startIndex};
   StreamSubscription<ChatMessage>? _chatSub;
 
   static final _chatIndex = _modules.indexWhere((m) => m.page is ChatPage);
@@ -101,6 +106,7 @@ class _ShellState extends State<Shell> {
     HardwareKeyboard.instance.addHandler(_onKey);
     _chatSub = ChatService.instance.incoming.stream.listen(_onChat);
     BackgroundRunner.instance.onQuit = () async {
+      await editorSaveAllOnQuit?.call();
       await ChatService.instance.stop();
     };
     WidgetsBinding.instance.addPostFrameCallback((_) => _askNameIfNeeded());
