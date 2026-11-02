@@ -12,10 +12,10 @@ for line in open(sys.argv[1], encoding='utf8'):
         elif event.get('type') == 'error':
             errors.setdefault(event['testID'], event['error'])
         elif event.get('type') == 'print':
-            prints.setdefault(event['testID'], event['message'])
+            prints[event['testID']] = prints.get(event['testID'], '') + event['message'] + ' '
 
 for test, error in list(errors.items())[:10]:
     # Flutter's "Test failed" only points at the exception it printed just before.
     detail = prints.get(test, error) if error.startswith('Test failed') else error
-    message = ' '.join(detail.split())[:1500].replace('%', '%25')
+    message = ' '.join(detail.split())[:4000].replace('%', '%25')
     print(f'::error title={names.get(test, "test").replace(",", ";").replace(":", ";")}::{message}')
