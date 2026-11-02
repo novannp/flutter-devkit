@@ -4,7 +4,7 @@ import 'package:path_provider/path_provider.dart';
 
 Future<Directory> outputDir() async {
   final base = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
-  return Directory('${base.path}${Platform.pathSeparator}RavoDevKit').create(recursive: true);
+  return Directory('${base.path}${Platform.pathSeparator}DevKit').create(recursive: true);
 }
 
 String timestamp() => DateTime.now().toIso8601String().replaceAll(RegExp(r'[:.]'), '-').substring(0, 19);

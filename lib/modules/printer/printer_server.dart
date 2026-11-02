@@ -321,7 +321,7 @@ class PrinterServer extends ChangeNotifier {
 List<int> sampleReceipt() {
   List<int> t(String s) => s.codeUnits;
   const esc = 0x1B, gs = 0x1D, lf = 0x0A;
-  final qr = 'https://ravo.app/receipt/T-1024'.codeUnits;
+  final qr = 'https://example.com/receipt/T-1024'.codeUnits;
   final qrLen = qr.length + 3;
   return [
     esc,
@@ -332,7 +332,7 @@ List<int> sampleReceipt() {
     gs,
     0x21,
     0x11,
-    ...t('RAVO SALON'),
+    ...t('SAMPLE STORE'),
     lf,
     gs,
     0x21,

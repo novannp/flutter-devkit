@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -49,7 +48,7 @@ class DeviceAdb {
         r'sleep 0.4; settings put system screen_brightness 1; sleep 0.4; i=$((i+1)); done; '
         r'settings put system screen_brightness $b; settings put system screen_brightness_mode $a';
     return shell(
-      "input keyevent KEYCODE_WAKEUP; cmd notification post -S bigtext -t 'Here I am' ravo_find '$m' > /dev/null 2>&1; "
+      "input keyevent KEYCODE_WAKEUP; cmd notification post -S bigtext -t 'Here I am' devkit_find '$m' > /dev/null 2>&1; "
       "nohup sh -c '$blink' > /dev/null 2>&1 &",
     );
   }
@@ -69,7 +68,7 @@ class DeviceAdb {
   /// pid → package for our running apps.
   Future<Map<int, String>> ourPids() async {
     final out = await sh(
-      'for p in \$(pm list packages --user 0 $ourPackagePrefix | cut -d: -f2); do echo "\$p \$(pidof \$p)"; done',
+      'for p in \$(${ourPackagesShell()}); do echo "\$p \$(pidof \$p)"; done',
     );
     return {
       for (final line in out.split('\n'))
@@ -81,7 +80,7 @@ class DeviceAdb {
   /// package → versionName for all of our installed apps.
   Future<Map<String, String>> ourApps() async {
     final out = await sh(
-      'for p in \$(pm list packages --user 0 $ourPackagePrefix | cut -d: -f2); do '
+      'for p in \$(${ourPackagesShell()}); do '
       'echo "\$p \$(dumpsys package \$p | grep -m1 versionName | cut -d= -f2)"; done',
     );
     return {
@@ -94,21 +93,6 @@ class DeviceAdb {
     final out = await sh('pm list packages --user 0 ${thirdParty ? '-3' : ''}');
     return out.split('\n').map((l) => l.trim().replaceFirst('package:', '')).where((p) => p.isNotEmpty).toList()
       ..sort();
-  }
-
-  /// Activation code stored in the app's station info. Only works on debuggable builds (run-as).
-  Future<String?> activationCodeOf(String package) async {
-    final bytes = await Tools.runBytes(_exe, [
-      '-s',
-      target,
-      'exec-out',
-      'run-as $package cat files/datastore/FlutterSharedPreferences.preferences_pb shared_prefs/FlutterSharedPreferences.xml 2>/dev/null; true',
-    ]);
-    if (bytes == null || bytes.isEmpty) return null;
-    // DataStore (protobuf) stores JSON as-is; XML escapes quotes as &quot;.
-    final text = utf8.decode(bytes, allowMalformed: true);
-    final m = RegExp(r'activationCode(?:"|&quot;)\s*:\s*(?:"|&quot;)(\d*)').firstMatch(text);
-    return m?[1];
   }
 
   Future<void> launch(String package) => shell('monkey -p $package -c android.intent.category.LAUNCHER 1');

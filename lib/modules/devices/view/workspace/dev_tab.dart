@@ -32,8 +32,8 @@ const _reads = {
   'drop': 'p=\$(cat $_dropPid) && kill -0 \$p && echo 1',
 };
 
-const _dropPid = '/data/local/tmp/ravo_net.pid';
-const _dropRestore = '/data/local/tmp/ravo_net.restore';
+const _dropPid = '/data/local/tmp/devkit_net.pid';
+const _dropRestore = '/data/local/tmp/devkit_net.restore';
 
 // Bytes/s for Android's "Network download rate limit" developer option.
 const _rateLimits = {'-1': 'Off', '6250': '2G', '125000': '3G', '1250000': '4G'};

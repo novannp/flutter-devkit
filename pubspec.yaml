@@ -1,5 +1,5 @@
-name: ravo_devkit
-description: "A new Flutter project."
+name: devkit
+description: "Desktop toolkit for Flutter developers: devices, logs, builds and project tools in one window."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -49,6 +49,8 @@ dependencies:
   xterm: ^4.0.0
   flutter_pty: ^0.4.2
   local_notifier: ^0.1.6
+  re_editor: ^0.10.0
+  re_highlight: ^0.0.3
 
 dev_dependencies:
   flutter_test:

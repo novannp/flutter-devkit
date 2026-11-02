@@ -13,8 +13,9 @@ import '../../../../core/files.dart';
 import '../../../../core/local_builds.dart';
 import '../../../../core/tools.dart';
 import '../../../../core/windows.dart';
-import '../../../stores/store_codes_cubit.dart';
-import '../../../stores/view/code_picker_dialog.dart';
+import '../../../work/atlassian.dart';
+import '../../../work/ticket_chip.dart';
+import '../../../work/work_service.dart';
 import '../../models/device.dart';
 import '../../services/adb_service.dart';
 import '../../services/device_adb.dart';
@@ -81,7 +82,6 @@ const _shortcuts = [
   ('Ctrl + S', 'Screenshot (save + copy image)'),
   ('Ctrl + Shift + S', 'Screenshot, save as…'),
   ('Ctrl + B', 'Bug report (screenshot + log + info)'),
-  ('Ctrl + K', 'Type store code on device'),
   ('Ctrl + I', 'Install latest build'),
   ('Ctrl + R', 'Restart focused app'),
   ('Ctrl + L', 'Clear logcat'),
@@ -105,6 +105,8 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
   final _keyboard = FocusNode(debugLabel: 'workspace');
   Map<String, String> _installed = const {};
   List<LocalBuild> _builds = const [];
+  List<FlutterProject> _projects = const [];
+  final _ticket = ValueNotifier<JiraIssue?>(null);
   final _tasks = <_Task>[];
   final _scrcpyFlags = <String>{'--stay-awake', '--no-audio'};
   StreamSubscription<LogLine>? _crashSub;
@@ -148,6 +150,9 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
     _flutter.addListener(_onFlutter);
     _loadInstalled();
     _loadBuilds();
+    scanFlutterProjects().then((p) {
+      if (mounted) setState(() => _projects = p);
+    });
     _crashSub = _log.onCrash.listen((line) {
       final app = _log.ourPids[line.pid];
       _toast(
@@ -200,6 +205,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
     _flutter.dispose();
     _log.dispose();
     _focus.dispose();
+    _ticket.dispose();
     _filesDir.dispose();
     _filesRefresh.dispose();
     _keyboard.dispose();
@@ -280,10 +286,35 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
 
   String get _baseName => safeFileName(widget.device.displayName);
 
-  Future<void> _screenshot({bool saveAs = false}) async {
+  FlutterProject? get _workProject => _flutter.project ?? _projects.where((p) => p.package == _focus.value).firstOrNull;
+
+  Future<void> _sendToTicket(List<File> files, String comment) async {
+    final issue = _ticket.value;
+    if (issue == null) return;
+    _toast('Sending to ${issue.key}…');
+    try {
+      final jira = WorkService.instance.jira;
+      await jira.attach(issue.key, files);
+      await jira.comment(issue.key, comment);
+      History.activity('work', 'Sent ${files.length} file(s) to ${issue.key}', {'device': widget.device.displayName});
+      _toast(
+        'Sent to ${issue.key}',
+        action: SnackBarAction(label: 'Open', onPressed: () => openUrl(issue.url)),
+      );
+    } catch (e) {
+      _toast('Could not send to ${issue.key}: $e');
+    }
+  }
+
+  Future<void> _screenshot({bool saveAs = false, bool send = false}) async {
     final bytes = await dev.screenshot();
     if (bytes == null) return _toast('Failed to take screenshot');
     String path;
+    if (send) {
+      path = '${(await outputDir()).path}${Platform.pathSeparator}${_baseName}_${timestamp()}.png';
+      await File(path).writeAsBytes(bytes);
+      return _sendToTicket([File(path)], 'Screenshot from ${widget.device.displayName}');
+    }
     if (saveAs) {
       final loc = await getSaveLocation(
         suggestedName: '${_baseName}_${timestamp()}.png',
@@ -305,8 +336,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
     );
   }
 
-  Future<void> _bugReport() async {
-    final codes = context.read<StoreCodesCubit>();
+  Future<void> _bugReport({bool send = false}) async {
     _toast('Creating bug report…');
     final dir = await Directory(
       '${(await outputDir()).path}${Platform.pathSeparator}bugreport_${_baseName}_${timestamp()}',
@@ -326,27 +356,33 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
     );
     final p = props.split('\n').map((s) => s.trim()).toList();
     final apps = await dev.ourApps();
-    final appLines = <String>[];
-    for (final e in apps.entries) {
-      final code = await dev.activationCodeOf(e.key);
-      appLines.add(
-        '- ${appName(e.key)} ${e.value}${code != null ? ' · ${describeCode(codes.byActivationCode(code), code)}' : ''}',
-      );
-    }
+    final appLines = [for (final e in apps.entries) '- ${appName(e.key)} ${e.value}'];
     final summary = [
       '*Device:* ${widget.device.displayName} (${p.elementAtOrNull(0) ?? ''} ${p.elementAtOrNull(1) ?? ''}, Android ${p.elementAtOrNull(2) ?? '?'})',
       '*Serial:* ${p.elementAtOrNull(3) ?? '-'} · *ADB:* ${dev.target}',
       '*Time:* ${DateTime.now()}',
       '*App:*',
-      if (appLines.isEmpty) '- (none of our apps installed)' else ...appLines,
+      if (appLines.isEmpty) '- (none of my apps installed)' else ...appLines,
       if (_log.crashes.isNotEmpty) '*Last crash:* ${_log.crashes.last.time} ${_log.crashes.last.message}',
       '*Attachments:* screenshot.png, logcat.txt${_flutter.lines.isNotEmpty ? ', flutter.txt' : ''} (${dir.path})',
     ].join('\n');
     await File('${dir.path}${sep}info.txt').writeAsString(summary);
     await Clipboard.setData(ClipboardData(text: summary));
+    final files = [
+      for (final f in ['screenshot.png', 'logcat.txt', 'flutter.txt'])
+        if (File('${dir.path}$sep$f').existsSync()) File('${dir.path}$sep$f'),
+    ];
+    final comment = summary.replaceFirst(
+      RegExp(r'\*Attachments:\*.*'),
+      '*Attachments:* ${files.map((f) => f.uri.pathSegments.last).join(', ')}',
+    );
+    if (send) return _sendToTicket(files, comment);
+    final ticket = _ticket.value;
     _toast(
-      'Bug report ready — summary copied, paste it into Jira',
-      action: SnackBarAction(label: 'Open folder', onPressed: () => revealInExplorer('${dir.path}${sep}info.txt')),
+      ticket == null ? 'Bug report ready — summary copied, paste it into Jira' : 'Bug report ready — summary copied',
+      action: ticket == null
+          ? SnackBarAction(label: 'Open folder', onPressed: () => revealInExplorer('${dir.path}${sep}info.txt'))
+          : SnackBarAction(label: 'Send to ${ticket.key}', onPressed: () => _sendToTicket(files, comment)),
     );
   }
 
@@ -356,11 +392,6 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
     await dev.forceStop(pkg);
     await dev.launch(pkg);
     _toast('${appName(pkg)} restarted');
-  }
-
-  Future<void> _codePicker() async {
-    final msg = await showCodePicker(context, dev);
-    if (msg != null) _toast(msg);
   }
 
   Future<void> _openScrcpy() async {
@@ -419,7 +450,6 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
     const SingleActivator(LogicalKeyboardKey.keyS, control: true): _screenshot,
     const SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true): () => _screenshot(saveAs: true),
     const SingleActivator(LogicalKeyboardKey.keyB, control: true): _bugReport,
-    const SingleActivator(LogicalKeyboardKey.keyK, control: true): _codePicker,
     const SingleActivator(LogicalKeyboardKey.keyI, control: true): _installLatest,
     const SingleActivator(LogicalKeyboardKey.keyR, control: true): _restartFocusApp,
     const SingleActivator(LogicalKeyboardKey.keyL, control: true): _log.clear,
@@ -589,6 +619,15 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
             onPressed: _restartFocusApp,
             icon: const Icon(Icons.replay, size: 20),
           ),
+          ValueListenableBuilder(
+            valueListenable: _focus,
+            builder: (_, _, _) => TicketChip(
+              project: _workProject,
+              active: _ticket,
+              onSendScreenshot: () => _screenshot(send: true),
+              onSendBugReport: () => _bugReport(send: true),
+            ),
+          ),
           const VerticalDivider(indent: 14, endIndent: 14),
           // Flutter controls always visible, no need to open the Flutter tab.
           Icon(Icons.circle, size: 9, color: statusColor),
@@ -626,7 +665,6 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
               icon: const Icon(Icons.insights),
             ),
           const VerticalDivider(indent: 14, endIndent: 14),
-          IconButton(tooltip: 'Type store code (Ctrl+K)', onPressed: _codePicker, icon: const Icon(Icons.pin_outlined)),
           _ScreenshotButton(onShot: _screenshot),
           IconButton(
             tooltip: 'Bug report (Ctrl+B)',
@@ -760,7 +798,6 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
                   ],
                 ),
               ),
-              icon(Icons.pin_outlined, 'Type store code (Ctrl+K)', _codePicker),
               _ScreenshotButton(onShot: _screenshot),
               icon(Icons.bug_report_outlined, 'Bug report (Ctrl+B)', _bugReport),
               _InstallButton(
@@ -1005,7 +1042,7 @@ class _FocusAppPicker extends StatelessWidget {
               style: const TextStyle(fontSize: 13),
               borderRadius: BorderRadius.circular(8),
               items: [
-                const DropdownMenuItem(value: null, child: Text('All our apps')),
+                const DropdownMenuItem(value: null, child: Text('All my apps')),
                 for (final p in packages)
                   DropdownMenuItem(
                     value: p,

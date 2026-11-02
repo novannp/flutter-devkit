@@ -20,8 +20,7 @@ import 'modules/history/history_page.dart';
 import 'modules/maintenance/maintenance_page.dart';
 import 'modules/printer/printer_page.dart';
 import 'modules/settings/settings_page.dart';
-import 'modules/stores/view/stores_page.dart';
-import 'modules/terminal/terminal_page.dart';
+import 'modules/work/work_page.dart';
 
 class _Module {
   const _Module(this.label, this.icon, this.page);
@@ -47,11 +46,9 @@ const _groups = [
   _Group('Tools', [
     _Module('Terminal', Icons.terminal, ConsolePage()),
     _Module('Printer', Icons.receipt_long_outlined, PrinterPage()),
-    _Module('Store Codes', Icons.storefront_outlined, StoresPage()),
     _Module('Maintenance', Icons.cleaning_services_outlined, MaintenancePage()),
-    _Module('PAX Terminals', Icons.point_of_sale, TerminalPage()),
   ]),
-  _Group('Team', [_Module('Chat', Icons.forum_outlined, ChatPage())]),
+  _Group('Team', [_Module('Work', Icons.task_alt, WorkPage()), _Module('Chat', Icons.forum_outlined, ChatPage())]),
   _Group('Other', [
     _Module('History', Icons.history, HistoryPage()),
     _Module('Settings', Icons.settings_outlined, SettingsPage()),
@@ -103,7 +100,9 @@ class _ShellState extends State<Shell> {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKey);
     _chatSub = ChatService.instance.incoming.stream.listen(_onChat);
-    BackgroundRunner.instance.onQuit = ChatService.instance.stop;
+    BackgroundRunner.instance.onQuit = () async {
+      await ChatService.instance.stop();
+    };
     WidgetsBinding.instance.addPostFrameCallback((_) => _askNameIfNeeded());
   }
 
@@ -242,7 +241,7 @@ class _Sidebar extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Ravo DevKit', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text('DevKit', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                     Text(_tagline, style: text.labelSmall?.copyWith(color: scheme.outline)),
                   ],
                 ),
@@ -393,7 +392,7 @@ class _NameDialogState extends State<_NameDialog> {
   Widget build(BuildContext context) => PopScope(
     canPop: false,
     child: AlertDialog(
-      title: const Text('Welcome to Ravo DevKit 👋'),
+      title: const Text('Welcome to DevKit 👋'),
       content: SizedBox(
         width: 380,
         child: Column(

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ravo_devkit/modules/printer/escpos.dart';
+import 'package:devkit/modules/printer/escpos.dart';
 
 void main() {
   List<int> replies(List<int> input) {

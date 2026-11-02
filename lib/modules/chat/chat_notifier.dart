@@ -17,7 +17,7 @@ class ChatNotifier {
 
   static Future<void> setup() async {
     try {
-      await localNotifier.setup(appName: 'Ravo DevKit');
+      await localNotifier.setup(appName: 'DevKit');
       _ready = true;
     } catch (_) {
       // Toasts are optional; badge and taskbar flash still work.

@@ -46,6 +46,7 @@ class FlutterSession extends ChangeNotifier {
 
   bool get active =>
       status == FlutterStatus.starting || status == FlutterStatus.running || status == FlutterStatus.reloading;
+
   bool get canReload => status == FlutterStatus.running && _appId != null;
 
   SessionLog? _session;

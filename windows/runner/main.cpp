@@ -23,7 +23,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
       GetCommandLineArguments();
 
   // Jendela workspace per device dibuka dengan --title=<nama device> dan --cascade=<n>.
-  std::wstring title = L"Ravo DevKit";
+  std::wstring title = L"DevKit";
   int cascade = 0;
   for (const auto& arg : command_line_arguments) {
     if (arg.rfind("--title=", 0) == 0) {

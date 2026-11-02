@@ -187,7 +187,7 @@ class ChatService extends ChangeNotifier {
     if (udp == null) return;
     final data = utf8.encode(
       jsonEncode({
-        'app': 'ravo-devkit',
+        'app': 'devkit',
         'type': bye ? 'bye' : 'hello',
         'id': myId,
         'name': myName,
@@ -215,7 +215,7 @@ class ChatService extends ChangeNotifier {
     if (d == null) return;
     try {
       final j = jsonDecode(utf8.decode(d.data)) as Map<String, dynamic>;
-      if (j['app'] != 'ravo-devkit' || j['id'] == myId) return;
+      if (j['app'] != 'devkit' || j['id'] == myId) return;
       final id = j['id'] as String;
       if (j['type'] == 'bye') {
         peers[id]?.lastSeen = DateTime(0);

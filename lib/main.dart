@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'core/background.dart';
+import 'core/apps.dart';
 import 'core/child_processes.dart';
+import 'core/legacy.dart';
 import 'modules/chat/chat_notifier.dart';
 import 'modules/chat/chat_service.dart';
 import 'core/theme.dart';
@@ -19,7 +21,6 @@ import 'modules/devices/services/mdns_service.dart';
 import 'modules/devices/services/network_scanner.dart';
 import 'modules/devices/view/workspace/workspace_page.dart';
 import 'modules/printer/printer_page.dart';
-import 'modules/stores/store_codes_cubit.dart';
 import 'shell.dart';
 import 'core/history.dart';
 
@@ -28,7 +29,11 @@ const workspaceArg = '--workspace=';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Before anything opens the preferences file.
+  await migrateFromLegacyName();
   final tools = await Tools.resolve();
+  // A slow network drive in the project folders shouldn't hold up launch; the list still fills in when it finishes.
+  await loadApps().timeout(const Duration(seconds: 3), onTimeout: () {});
   await loadThemeMode();
   final ws = args.where((a) => a.startsWith(workspaceArg)).firstOrNull;
   final device = ws == null
@@ -78,12 +83,11 @@ class DevKitApp extends StatelessWidget {
                   return cubit;
                 },
               ),
-            BlocProvider(create: (_) => StoreCodesCubit()..init()),
           ],
           child: ValueListenableBuilder(
             valueListenable: themeMode,
             builder: (_, mode, _) => MaterialApp(
-              title: ws == null ? 'Ravo DevKit' : ws.displayName,
+              title: ws == null ? 'DevKit' : ws.displayName,
               debugShowCheckedModeBanner: false,
               theme: buildTheme(Brightness.light),
               darkTheme: buildTheme(Brightness.dark),
