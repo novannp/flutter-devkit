@@ -57,6 +57,10 @@ Type: files; Name: "{userstartup}\Ravo DevKit.lnk"
 [Files]
 Source: "{#Root}\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[Registry]
+; Written at runtime so toasts carry the app's name and icon.
+Root: HKCU; Subkey: "Software\Classes\AppUserModelId\FlutterDevKit"; Flags: dontcreatekey uninsdeletekey
+
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"

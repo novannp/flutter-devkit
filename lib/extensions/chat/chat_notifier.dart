@@ -2,9 +2,9 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
-import 'package:local_notifier/local_notifier.dart';
 
 import '../../core/embed_window.dart';
+import '../../core/native_bridge.dart';
 import 'chat_service.dart';
 
 final _user32 = DynamicLibrary.open('user32.dll');
@@ -27,25 +27,13 @@ void _bounceDock() {
 
 /// Toast + taskbar flash (a Dock bounce on macOS) for incoming chat messages.
 class ChatNotifier {
-  static var _ready = false;
-
-  static Future<void> setup() async {
-    try {
-      await localNotifier.setup(appName: 'Flutter DevKit');
-      _ready = true;
-    } catch (_) {
-      // Toasts are optional; badge and taskbar flash still work.
-    }
-  }
-
   static Future<void> show(ChatMessage m, {required void Function() onOpen}) async {
     flashTaskbar();
-    if (!_ready) return;
-    final n = LocalNotification(
+    await NativeBridge.notify(
       title: m.to == everyone ? '${m.fromName} → Everyone' : m.fromName,
       body: m.text.length > 180 ? '${m.text.substring(0, 180)}…' : m.text,
-    )..onClick = onOpen;
-    await n.show();
+      onClick: onOpen,
+    );
   }
 
   /// Flashes the taskbar button until the window is focused (FLASHW_ALL | FLASHW_TIMERNOFG).
