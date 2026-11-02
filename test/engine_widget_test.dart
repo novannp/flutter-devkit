@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:devkit/core/theme.dart';
 import 'package:devkit/modules/editor/engine/code_editor.dart';
 import 'package:devkit/modules/editor/engine/syntax.dart';
@@ -100,19 +102,57 @@ void main() {
   }
 
   Future<void> keys(WidgetTester tester, LogicalKeyboardKey key, {bool control = false, bool shift = false, bool alt = false}) async {
-    if (control) await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    final primary = Platform.isMacOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft;
+    if (control) await tester.sendKeyDownEvent(primary);
     if (shift) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     if (alt) await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
     await tester.sendKeyEvent(key);
     if (alt) await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
     if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-    if (control) await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    if (control) await tester.sendKeyUpEvent(primary);
     await tester.pump();
   }
 
   double lineY(int line) => notifier.value!.paragraphs.firstWhere((x) => x.index == line).offset.dy;
 
   Offset onLine(WidgetTester tester, int line, {double x = 60}) => tester.getTopLeft(field()) + Offset(x, lineY(line) + 8);
+
+  testWidgets('native menu editing intents reach the focused code editor', (tester) async {
+    var clipboard = '';
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') clipboard = (call.arguments as Map)['text'] as String;
+      if (call.method == 'Clipboard.getData') return {'text': clipboard};
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    await pumpEditor(tester, 'hello');
+    await focus(tester);
+    final context = FocusManager.instance.primaryFocus!.context!;
+    Actions.invoke(context, const SelectAllTextIntent(SelectionChangedCause.keyboard));
+    Actions.invoke(context, const CopySelectionTextIntent.cut(SelectionChangedCause.keyboard));
+    await tester.pump();
+    expect(c.text, '');
+    Actions.invoke(context, const UndoTextIntent(SelectionChangedCause.keyboard));
+    await tester.pump();
+    expect(c.text, 'hello');
+    Actions.invoke(context, const RedoTextIntent(SelectionChangedCause.keyboard));
+    await tester.pump();
+    expect(c.text, '');
+    Actions.invoke(context, const PasteTextIntent(SelectionChangedCause.keyboard));
+    await tester.pump();
+    expect(c.text, 'hello');
+  });
+
+  testWidgets('native menu editing intents respect read-only editors', (tester) async {
+    await pumpEditor(tester, 'hello', readOnly: true);
+    await focus(tester);
+    final context = FocusManager.instance.primaryFocus!.context!;
+    Actions.invoke(context, const SelectAllTextIntent(SelectionChangedCause.keyboard));
+    Actions.invoke(context, const CopySelectionTextIntent.cut(SelectionChangedCause.keyboard));
+    Actions.invoke(context, const PasteTextIntent(SelectionChangedCause.keyboard));
+    await tester.pump();
+    expect(c.text, 'hello');
+  });
 
   testWidgets('typing reaches the text through the input channel, and keys edit it', (tester) async {
     await pumpEditor(tester, 'hello');
