@@ -23,6 +23,12 @@ void main() {
     expect(const DartSettings(lineLength: 100).toServerConfig(dir.path).containsKey('lineLength'), isFalse);
   });
 
+  test('pub get on save is on unless turned off, and survives a save', () {
+    expect(const DartSettings().pubGetOnSave, isTrue);
+    expect(DartSettings.fromJson(const {}).pubGetOnSave, isTrue, reason: 'settings saved before it existed');
+    expect(DartSettings.fromJson(const DartSettings(pubGetOnSave: false).toJson()).pubGetOnSave, isFalse);
+  });
+
   test('settings are kept per project', () async {
     SharedPreferences.setMockInitialValues({});
     await const DartSettings(lineLength: 120, showTodos: true, excludedFolders: ['build']).save('C:/a');

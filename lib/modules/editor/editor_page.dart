@@ -151,7 +151,7 @@ class _EditorPageState extends State<EditorPage> {
     EditorCommands.quickOpen = _quickOpen;
     EditorCommands.commandPalette = _commandPalette;
     EditorCommands.goToSymbol = _goToSymbol;
-    EditorCommands.saveAll = () => _ws?.saveAll();
+    EditorCommands.saveAll = _saveAll;
     _git.addListener(_rebuild);
     // A pull or a teammate's change can touch pubspec.yaml, with nothing in the Editor being saved.
     _packagesPoll = Timer.periodic(const Duration(seconds: 10), (_) => _checkPackages());
@@ -362,9 +362,25 @@ class _EditorPageState extends State<EditorPage> {
     } on FileSystemException catch (e) {
       return _toast('Could not save ${doc.name}: ${e.message}');
     }
-    _checkPackages();
+    isProjectPubspec(doc.path, ws.root) ? _onPubspecSaved(ws) : _checkPackages();
     final f = _flutter;
     if (_reloadOnSave && doc.languageId == 'dart' && f != null && f.canReload) unawaited(f.reload());
+  }
+
+  Future<void> _saveAll() async {
+    final ws = _ws;
+    if (ws == null) return;
+    final pubspec = ws.documents.any((d) => d.dirty && isProjectPubspec(d.path, ws.root));
+    await ws.saveAll();
+    if (pubspec) _onPubspecSaved(ws);
+  }
+
+  void _onPubspecSaved(EditorWorkspace ws) {
+    if (ws.dart.pubGetOnSave && packagesOutOfSyncSince(ws.root) != null) {
+      unawaited(_runTool('pub get'));
+    } else {
+      _checkPackages();
+    }
   }
 
   // ---------------------------------------------------------------- keys
@@ -421,7 +437,7 @@ class _EditorPageState extends State<EditorPage> {
     } else if (key == LogicalKeyboardKey.f11) {
       action = hw.isShiftPressed ? _debugger.stepOut : _debugger.stepInto;
     } else if (hw.isPrimaryPressed) {
-      if (key == LogicalKeyboardKey.keyS) action = hw.isShiftPressed ? () => _ws?.saveAll() : _save;
+      if (key == LogicalKeyboardKey.keyS) action = hw.isShiftPressed ? _saveAll : _save;
       if (key == LogicalKeyboardKey.keyW) action = _ws?.active == null ? null : () => _closeTab(_ws!.active!);
       if (key == LogicalKeyboardKey.keyP) action = _quickOpen;
       if (key == LogicalKeyboardKey.keyG) action = _goToLine;
@@ -498,7 +514,7 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Go to Line', _goToLine, keys: 'Ctrl+G', icon: Icons.format_list_numbered),
         PaletteItem('Go to Symbol in File', _goToSymbol, keys: 'Ctrl+Shift+O', icon: Icons.data_object),
         PaletteItem('Save', _save, keys: 'Ctrl+S', icon: Icons.save_outlined),
-        PaletteItem('Save All', () => _ws?.saveAll(), keys: 'Ctrl+Shift+S', icon: Icons.save_outlined),
+        PaletteItem('Save All', _saveAll, keys: 'Ctrl+Shift+S', icon: Icons.save_outlined),
         PaletteItem('Format Document', _format, keys: 'Shift+Alt+F', icon: Icons.format_align_left),
         PaletteItem('Close Tab', () {
           if (_ws?.active case final doc?) _closeTab(doc);
@@ -1919,6 +1935,7 @@ class _DartSettingsDialogState extends State<_DartSettingsDialog> {
   late final _length = TextEditingController(text: (_projectWidth ?? widget.settings.lineLength)?.toString() ?? '');
   late final _excluded = TextEditingController(text: widget.settings.excludedFolders.join(', '));
   late var _format = widget.settings.formatOnSave;
+  late var _pubGet = widget.settings.pubGetOnSave;
   late var _todos = widget.settings.showTodos;
   late final _projectWidth = projectPageWidth(widget.root);
 
@@ -1936,6 +1953,7 @@ class _DartSettingsDialogState extends State<_DartSettingsDialog> {
       DartSettings(
         lineLength: _projectWidth == null ? length?.clamp(40, 400) : widget.settings.lineLength,
         formatOnSave: _format,
+        pubGetOnSave: _pubGet,
         showTodos: _todos,
         excludedFolders: _excluded.text.split(',').map((f) => f.trim()).where((f) => f.isNotEmpty).toList(),
       ),
@@ -1967,6 +1985,12 @@ class _DartSettingsDialogState extends State<_DartSettingsDialog> {
             title: const Text('Format on save'),
             value: _format,
             onChanged: (v) => setState(() => _format = v),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Run pub get when pubspec.yaml is saved'),
+            value: _pubGet,
+            onChanged: (v) => setState(() => _pubGet = v),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

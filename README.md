@@ -84,6 +84,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 - **Find things**: fuzzy quick open (`online payment` finds `online_payment.dart`, `main.dart:42` jumps to the line), search in files as you type, Open File and Open Recent
 - **One left panel** switches between files, Source Control, search and debug. The terminal and Problems are in the bottom panel, running in the open project
 - **Notifications** in the corner, such as when packages are missing or out of sync, with a button to run `pub get`
+- **`pub get` on save**: saving `pubspec.yaml` runs it by itself; turn it off in the project's Dart settings
 - **Extensions** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>): Device Manager, Emulators, Printer, Notes, Maintenance, History and Work are built in and can be turned off. They open as tabs beside the code, so the Editor stays where it is
 - **Settings**: grouped into General, Editor, Projects, Devices and Tools, with a search box across all of them
 - **Your window**: 13 themes under File, a title bar of Flutter DevKit's own, and a layout that folds its menus into one button on small screens

@@ -176,6 +176,13 @@ void main() {
     expect((await ProjectTabs.load('$a${Platform.pathSeparator}'))!.files, ['1.dart', '2.dart'], reason: 'same folder, however it is written');
   });
 
+  test('only the project\'s own pubspec.yaml counts as saved', () {
+    final root = Directory.systemTemp.path;
+    expect(isProjectPubspec(p.join(root, 'pubspec.yaml'), root), isTrue);
+    expect(isProjectPubspec(p.join(root, 'packages', 'a', 'pubspec.yaml'), root), isFalse);
+    expect(isProjectPubspec(p.join(root, 'lib', 'main.dart'), root), isFalse);
+  });
+
   test('packagesOutOfSyncSince compares pubspec with what pub get left', () async {
     final dir = await Directory.systemTemp.createTemp('pkg');
     addTearDown(() => dir.delete(recursive: true));
