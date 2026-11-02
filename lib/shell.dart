@@ -337,7 +337,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
       applicationVersion: 'Version $appVersion',
       applicationIcon: const AppLogo(size: 48),
       children: [
-        const Text('A Flutter IDE for Windows, with the device tools you test on right beside the code.'),
+        const Text('A Flutter IDE with the device tools you test on right beside the code.'),
         const SizedBox(height: 10),
         Text('Dart ${Platform.version.split(' ').first}  •  ${Platform.operatingSystemVersion}', style: TextStyle(fontSize: 12, color: scheme.outline)),
       ],
