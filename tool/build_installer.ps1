@@ -5,7 +5,8 @@ $root = Split-Path $PSScriptRoot -Parent
 Set-Location $root
 
 if (-not $SkipBuild) {
-  fvm flutter build windows --release --no-tree-shake-icons
+  if (Get-Command fvm -ErrorAction SilentlyContinue) { fvm flutter build windows --release --no-tree-shake-icons }
+  else { flutter build windows --release --no-tree-shake-icons }
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

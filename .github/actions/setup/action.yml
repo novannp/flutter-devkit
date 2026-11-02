@@ -1,0 +1,19 @@
+name: Set up Flutter
+description: Installs the Flutter version pinned in .fvmrc and fetches packages.
+
+runs:
+  using: composite
+  steps:
+    - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      with:
+        flutter-version-file: .fvmrc
+        cache: true
+    # The app and its tests look for the pinned SDK here, where fvm would put it.
+    - if: runner.os == 'Windows'
+      shell: pwsh
+      run: New-Item -ItemType Junction -Path .fvm\flutter_sdk -Target $env:FLUTTER_ROOT -Force | Out-Null
+    - if: runner.os != 'Windows'
+      shell: bash
+      run: mkdir -p .fvm && ln -sfn "$FLUTTER_ROOT" .fvm/flutter_sdk
+    - shell: bash
+      run: flutter pub get
