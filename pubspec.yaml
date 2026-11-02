@@ -111,4 +111,7 @@ flutter:
 
 # xterm 4 still pins equatable ^2; its usage is compatible with 3.
 dependency_overrides:
+  # Patched: the Windows command line repeated the executable, so Git Bash never started.
+  flutter_pty:
+    path: third_party/flutter_pty
   equatable: ^3.0.0

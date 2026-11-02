@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/local_builds.dart';
 import '../../services/flutter_session.dart';
+import '../../../../core/compact_dropdown.dart';
 
 class FlutterTab extends StatefulWidget {
   const FlutterTab({super.key, required this.session, required this.focus});
@@ -114,7 +115,7 @@ class _FlutterTabState extends State<FlutterTab> {
               Row(
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<FlutterProject>(
+                    child: CompactDropdown<FlutterProject>(
                       initialValue: _project,
                       isExpanded: true,
                       decoration: const InputDecoration(

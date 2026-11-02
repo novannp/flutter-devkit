@@ -63,9 +63,9 @@ class _SourceControlViewState extends State<SourceControlView> {
       context: button,
       position: RelativeRect.fromLTRB(at.dx, at.dy, at.dx + box.size.width, at.dy),
       items: [
-        for (final b in branches) CheckedPopupMenuItem(value: b, checked: b == _git.branch, child: Text(b)),
+        for (final b in branches) CheckedPopupMenuItem(height: 30, value: b, checked: b == _git.branch, child: Text(b)),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: '', child: Text('New branch…')),
+        const PopupMenuItem(height: 30, value: '', child: Text('New branch…')),
       ],
     );
     if (picked == null) return;
@@ -148,7 +148,7 @@ class _SourceControlViewState extends State<SourceControlView> {
   }
 
   Widget _branchBar(ColorScheme scheme) => SizedBox(
-    height: 34,
+    height: 28,
     child: Row(
       children: [
         Expanded(

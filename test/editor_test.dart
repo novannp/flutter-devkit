@@ -43,10 +43,6 @@ void main() {
     });
   });
 
-  test('plainHover drops Markdown fences and marks', () {
-    expect(plainHover('```dart\nvoid f()\n```\nType: `int`\n\n\n\nIn *lib/a.dart*.'), 'void f()\nType: int\n\nIn lib/a.dart.');
-  });
-
   test('filterCompletions ranks prefix over fuzzy and honours sort order', () {
     CompletionEntry e(String label, String sort) => CompletionEntry({'label': label, 'sortText': sort});
     final out = filterCompletions([e('setState', '2'), e('StatelessWidget', '3'), e('State', '1'), e('other', '0')], 'sta');

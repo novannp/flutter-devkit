@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/clipboard_image.dart';
 import '../../core/files.dart';
-import '../help/connection_guide.dart';
+import '../../modules/help/connection_guide.dart';
 import 'printer_server.dart';
 import 'receipt_view.dart';
 

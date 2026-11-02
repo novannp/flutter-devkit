@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:devkit/modules/chat/chat_service.dart';
-import 'package:devkit/modules/chat/chat_test_bot.dart';
+import 'package:devkit/extensions/chat/chat_service.dart';
+import 'package:devkit/extensions/chat/chat_test_bot.dart';
 
 void main() {
   test('test bot learns a peer from its beacon and echoes messages back', () async {

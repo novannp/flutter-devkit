@@ -9,8 +9,13 @@ import 'package:devkit/modules/devices/services/network_scanner.dart';
 import 'package:devkit/modules/editor/code_pane.dart';
 import 'package:devkit/modules/editor/dart_sdk.dart';
 import 'package:devkit/modules/editor/editor_page.dart';
+import 'package:devkit/modules/editor/editor_view.dart';
+import 'package:devkit/modules/editor/file_tree.dart';
+import 'package:devkit/modules/editor/markdown_view.dart';
+import 'package:devkit/modules/editor/tool_tabs.dart';
 import 'package:devkit/modules/editor/source_control_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -102,6 +107,16 @@ void main() {
       final editorY = tester.getTopLeft(find.byType(CodeEditor)).dy;
       expect(popupY - editorY, lessThan(120));
 
+      // A click in the code dismisses the suggestions; typing brings them back.
+      await tester.tapAt(tester.getTopLeft(find.byType(CodeEditor)) + const Offset(600, 300));
+      await tester.pump();
+      expect(find.textContaining('print'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 50));
+      ctrl.selection = const CodeLineSelection.collapsed(index: 1, offset: 5);
+      await tester.pump();
+      ctrl.replaceSelection('n');
+      await settle(() => find.textContaining('print').evaluate().isNotEmpty, 'the popup again');
+
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await settle(() => ctrl.text.contains('print'), 'the accepted completion');
       // The file has 4 lines counting the empty one after the final newline.
@@ -122,6 +137,112 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
       await tester.binding.setSurfaceSize(null);
       // Tests default to Android, where the editor handles Enter on its own.
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows), timeout: const Timeout(Duration(minutes: 3)));
+
+    testWidgets('Ctrl+click follows a symbol out of the project, into the SDK', (tester) async {
+      File(main).writeAsStringSync("void main() {\n  print('x');\n}\n");
+      final tools = await tester.runAsync(Tools.resolve);
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      final cubit = DevicesCubit(adb: AdbService(tools!), mdns: MdnsService(), scanner: NetworkScanner(), store: DeviceStore());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BlocProvider.value(
+              value: cubit,
+              child: EditorPage(initialRoot: dir.path, initialFile: main),
+            ),
+          ),
+        ),
+      );
+
+      Future<void> settle(bool Function() ok, String what) async {
+        for (var i = 0; i < 300 && !ok(); i++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        expect(ok(), isTrue, reason: 'timed out waiting for $what');
+      }
+
+      await settle(() => find.byType(CodeEditor).evaluate().isNotEmpty, 'the editor');
+      final pane = tester.state<CodePaneState>(find.byType(CodePane));
+      Offset? word;
+      await settle(() => (word = pane.globalCenterOf(1, 3)) != null, 'the laid out line');
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+
+      // The docs card waits while the pointer travels to it, then lets go.
+      await mouse.moveTo(word!);
+      await tester.pump(const Duration(milliseconds: 600));
+      await settle(() => find.byType(MarkdownView).evaluate().isNotEmpty, 'the docs card');
+      await mouse.moveTo(word! + const Offset(120, 0));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(MarkdownView), findsOneWidget, reason: 'still on its way to the card');
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(MarkdownView), findsNothing);
+
+      // A real mouse: it hovers first, so the Ctrl+hover underline is showing when the click lands.
+      // The caret starts elsewhere, on purpose: the click alone has to decide what's followed.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      for (var i = 0; i < 300; i++) {
+        await mouse.moveTo(word! + Offset(0, i.isEven ? 0 : 1));
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump(const Duration(milliseconds: 20));
+        if (pane.showsLink) break;
+      }
+      expect(pane.showsLink, isTrue, reason: 'Ctrl+hover marks the word');
+      await mouse.down(word!);
+      await tester.pump();
+      await mouse.up();
+      await tester.pump();
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await settle(() => find.text('print.dart').evaluate().isNotEmpty, 'the SDK file to open');
+      expect(find.text('Read-only: SDK or package source'), findsOneWidget);
+
+      // Back on the project's own tab the pane follows, and typing still works there.
+      await tester.tap(find.text('main.dart').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('Read-only: SDK or package source'), findsNothing);
+
+      // Two views side by side, each with its own editor.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.backslash);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byType(CodePane), findsNWidgets(2));
+      expect(find.byType(CodeEditor), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
+
+      // A tool opens as a tab and the Editor stays: its files panel is still there, and it comes back.
+      final tool = AppModule('Probe', Icons.devices_other, const Text('probe page'));
+      ToolTabs.instance.show(tool);
+      await tester.pump();
+      expect(find.text('probe page'), findsOneWidget);
+      expect(find.byType(FileTree), findsOneWidget);
+      expect(find.byType(CodePane), findsNothing, reason: 'the code is behind the tool, not gone');
+      await tester.tap(find.text('Editor'));
+      await tester.pump();
+      expect(find.byType(CodePane), findsNWidgets(2));
+      ToolTabs.instance.close(tool);
+      await tester.pump();
+
+      // A narrow window with the panels open: everything gives way instead of overflowing.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.binding.setSurfaceSize(const Size(560, 400));
+      await tester.pump();
+      expect(tester.takeException()?.toString(), isNull);
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      await tester.pump();
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
+      await tester.binding.setSurfaceSize(null);
     }, variant: TargetPlatformVariant.only(TargetPlatform.windows), timeout: const Timeout(Duration(minutes: 3)));
 
     testWidgets('sets breakpoints from the gutter and F9, and commits from Source Control', (tester) async {
@@ -175,9 +296,43 @@ void main() {
       await tester.tap(find.byType(CodeEditor));
       await tester.pump();
 
-      await key(LogicalKeyboardKey.keyJ, control: true);
-      await tester.tap(find.text('Debug'));
+      // The caret on a brace lights up its partner, even across lines.
+      ctrl.selection = CodeLineSelection.collapsed(index: 0, offset: ctrl.codeLines[0].length);
       await tester.pump();
+      final pane = tester.state<CodePaneState>(find.byType(CodePane));
+      expect(pane.matchedBrackets, ((0, 12), (2, 0)));
+      ctrl.selection = const CodeLineSelection.collapsed(index: 1, offset: 1);
+      await tester.pump();
+      expect(pane.matchedBrackets, isNull);
+
+      // VS Code's keys. Ctrl+D selects the word; re_editor's own default would delete the line.
+      await key(LogicalKeyboardKey.equal, control: true);
+      expect(EditorView.fontSize.value, EditorView.defaultFontSize + 1);
+      await key(LogicalKeyboardKey.minus, control: true);
+      expect(EditorView.fontSize.value, EditorView.defaultFontSize);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.pump();
+      expect(tester.widget<CodeEditor>(find.byType(CodeEditor)).wordWrap, isTrue);
+      await EditorView.toggleWordWrap();
+      await tester.pump();
+      final lineCount = ctrl.lineCount;
+      ctrl.selection = const CodeLineSelection.collapsed(index: 0, offset: 6);
+      await key(LogicalKeyboardKey.keyD, control: true);
+      expect(ctrl.selectedText, 'main');
+      expect(ctrl.lineCount, lineCount);
+      ctrl.selection = const CodeLineSelection.collapsed(index: 0, offset: 0);
+      await key(LogicalKeyboardKey.slash, control: true);
+      expect(ctrl.codeLines[0].text, startsWith('//'));
+      await key(LogicalKeyboardKey.slash, control: true);
+      expect(ctrl.codeLines[0].text, 'void main() {');
+      await key(LogicalKeyboardKey.enter, control: true);
+      expect(ctrl.lineCount, lineCount + 1);
+      await key(LogicalKeyboardKey.keyK, control: true, shift: true);
+      expect(ctrl.lineCount, lineCount);
+
+      await key(LogicalKeyboardKey.keyD, control: true, shift: true);
       expect(find.text('Not running'), findsOneWidget);
 
       // First line of the gutter: on, then off again.

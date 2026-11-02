@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:devkit/modules/printer/escpos.dart';
+import 'package:devkit/extensions/printer/escpos.dart';
 
 void main() {
   test('SNBC line raster (GS D 1, SYN n data, NAK n) becomes one image, 1 = white', () {

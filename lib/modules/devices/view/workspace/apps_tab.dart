@@ -171,10 +171,10 @@ class _AppsTabState extends State<AppsTab> {
                           PopupMenuButton<String>(
                             onSelected: (a) => _action(pkg, a),
                             itemBuilder: (_) => [
-                              if (ours) const PopupMenuItem(value: 'prefs', child: Text('View shared prefs')),
-                              const PopupMenuItem(value: 'stop', child: Text('Force stop')),
-                              const PopupMenuItem(value: 'clear', child: Text('Clear data')),
-                              const PopupMenuItem(value: 'uninstall', child: Text('Uninstall')),
+                              if (ours) const PopupMenuItem(height: 30, value: 'prefs', child: Text('View shared prefs')),
+                              const PopupMenuItem(height: 30, value: 'stop', child: Text('Force stop')),
+                              const PopupMenuItem(height: 30, value: 'clear', child: Text('Clear data')),
+                              const PopupMenuItem(height: 30, value: 'uninstall', child: Text('Uninstall')),
                             ],
                           ),
                         ],

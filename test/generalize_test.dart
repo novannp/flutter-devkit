@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:devkit/core/apps.dart';
 import 'package:devkit/core/legacy.dart';
 import 'package:devkit/modules/devices/services/network_scanner.dart';
-import 'package:devkit/modules/maintenance/core_deps.dart';
+import 'package:devkit/extensions/maintenance/core_deps.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

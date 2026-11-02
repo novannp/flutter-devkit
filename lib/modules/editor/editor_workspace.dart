@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:re_editor/re_editor.dart';
 
+import 'dart_settings.dart';
 import 'lsp_client.dart';
 
 const _maxFileBytes = 20 * 1024 * 1024;
@@ -46,6 +47,34 @@ class Diagnostic {
   }
 }
 
+/// LSP sends docs as either a plain string or a `{kind, value}` object.
+String? lspMarkup(Object? value) {
+  final text = value is Map ? value['value'] as String? : value as String?;
+  return text == null || text.trim().isEmpty ? null : text;
+}
+
+class SignatureInfo {
+  const SignatureInfo(this.label, this.activeStart, this.activeEnd, this.documentation);
+
+  /// From a `textDocument/signatureHelp` answer; null when the caret isn't inside a call.
+  static SignatureInfo? fromLsp(Object? result) {
+    if (result is! Map) return null;
+    final signatures = (result['signatures'] as List?) ?? const [];
+    if (signatures.isEmpty) return null;
+    final sig = signatures[(result['activeSignature'] as int? ?? 0).clamp(0, signatures.length - 1)] as Map;
+    final label = sig['label'] as String? ?? '';
+    final params = (sig['parameters'] as List?) ?? const [];
+    final index = sig['activeParameter'] as int? ?? result['activeParameter'] as int? ?? 0;
+    final active = index < params.length ? (params[index] as Map)['label'] as String? : null;
+    final start = active == null ? -1 : label.indexOf(active);
+    return SignatureInfo(label, start < 0 ? 0 : start, start < 0 ? 0 : start + active!.length, lspMarkup(sig['documentation']));
+  }
+
+  final String label;
+  final int activeStart, activeEnd;
+  final String? documentation;
+}
+
 class CompletionEntry {
   const CompletionEntry(this.raw);
 
@@ -53,7 +82,12 @@ class CompletionEntry {
 
   String get label => raw['label'] as String? ?? '';
   String get filter => raw['filterText'] as String? ?? label;
-  String? get detail => raw['detail'] as String? ?? (raw['labelDetails'] as Map?)?['description'] as String?;
+  String? get detail => (raw['labelDetails'] as Map?)?['description'] as String? ?? raw['detail'] as String?;
+
+  /// The parameters, for showing next to the name.
+  String get signature => (raw['labelDetails'] as Map?)?['detail'] as String? ?? '';
+
+  String? get documentation => lspMarkup(raw['documentation']);
   int get kind => raw['kind'] as int? ?? 1;
   String get sortText => raw['sortText'] as String? ?? label;
 }
@@ -106,6 +140,83 @@ String applyTextEdits(String text, List<Map<String, dynamic>> edits) {
   return out;
 }
 
+final _librarySource = RegExp(r'[\\/](Pub[\\/]Cache|\.pub-cache|fvm[\\/]versions|flutter[\\/](packages|bin[\\/]cache))[\\/]');
+
+/// Code from the SDK or the pub cache: readable by Go to Definition, but an edit would change every project.
+bool isLibrarySource(String path) => _librarySource.hasMatch(path);
+
+class DocSymbol {
+  const DocSymbol(this.name, this.kind, this.startLine, this.startColumn, this.endLine, this.endColumn, this.line, this.column, this.children);
+
+  factory DocSymbol.fromLsp(Map<String, dynamic> m) {
+    Map pos(String range, String end) => (m[range] as Map)[end] as Map;
+    return DocSymbol(
+      m['name'] as String? ?? '',
+      m['kind'] as int? ?? 0,
+      pos('range', 'start')['line'] as int,
+      pos('range', 'start')['character'] as int,
+      pos('range', 'end')['line'] as int,
+      pos('range', 'end')['character'] as int,
+      pos('selectionRange', 'start')['line'] as int,
+      pos('selectionRange', 'start')['character'] as int,
+      [for (final c in (m['children'] as List?) ?? const []) DocSymbol.fromLsp((c as Map).cast<String, dynamic>())],
+    );
+  }
+
+  final String name;
+  final int kind;
+  final int startLine, startColumn, endLine, endColumn;
+
+  /// Where the name itself is, for jumping to it.
+  final int line, column;
+  final List<DocSymbol> children;
+
+  bool contains(int atLine, int atColumn) =>
+      (atLine > startLine || (atLine == startLine && atColumn >= startColumn)) &&
+      (atLine < endLine || (atLine == endLine && atColumn <= endColumn));
+}
+
+/// The symbols around a position, outermost first.
+List<DocSymbol> symbolChainAt(List<DocSymbol> symbols, int line, int column) {
+  final chain = <DocSymbol>[];
+  var level = symbols;
+  while (true) {
+    final hit = level.where((s) => s.contains(line, column)).firstOrNull;
+    if (hit == null) return chain;
+    chain.add(hit);
+    level = hit.children;
+  }
+}
+
+class SemanticToken {
+  const SemanticToken(this.start, this.end, this.type, this.modifiers);
+
+  final int start, end;
+  final String type;
+  final Set<String> modifiers;
+}
+
+/// Reads LSP's relative encoding: five numbers per token, each position relative to the previous token.
+Map<int, List<SemanticToken>> decodeSemanticTokens(List<dynamic> data, List<String> types, List<String> modifiers) {
+  final lines = <int, List<SemanticToken>>{};
+  var line = 0, column = 0;
+  for (var i = 0; i + 4 < data.length; i += 5) {
+    final deltaLine = data[i] as int;
+    line += deltaLine;
+    column = deltaLine == 0 ? column + (data[i + 1] as int) : data[i + 1] as int;
+    final type = data[i + 3] as int;
+    final bits = data[i + 4] as int;
+    if (type >= types.length) continue;
+    lines.putIfAbsent(line, () => []).add(
+      SemanticToken(column, column + (data[i + 2] as int), types[type], {
+        for (final (bit, name) in modifiers.indexed)
+          if (bits & (1 << bit) != 0) name,
+      }),
+    );
+  }
+  return lines;
+}
+
 class EditorDocument extends ChangeNotifier {
   EditorDocument._(this.path, this.controller, this._saved, this._modified);
 
@@ -123,6 +234,13 @@ class EditorDocument extends ChangeNotifier {
   bool changedOnDisk = false;
 
   var diagnostics = const <Diagnostic>[];
+  Map<int, List<SemanticToken>> semantics = const {};
+  List<DocSymbol> symbols = const [];
+
+  void setSymbols(List<DocSymbol> value) {
+    symbols = value;
+    notifyListeners();
+  }
   Timer? _sync;
   void Function()? _onSync;
   CodeLines? _lastLines;
@@ -225,14 +343,6 @@ class EditorDocument extends ChangeNotifier {
 }
 
 /// The server writes hover docs in Markdown; the card shows plain text.
-String plainHover(String markdown) => markdown
-    .split('\n')
-    .where((l) => !l.trimLeft().startsWith('```'))
-    .join('\n')
-    .replaceAll(RegExp(r'[`*]'), '')
-    .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-    .trim();
-
 class EditTarget {
   const EditTarget(this.path, this.line, this.column);
 
@@ -241,6 +351,18 @@ class EditTarget {
 }
 
 /// Open files and language features for one project folder.
+/// One view of the split editor, with its own tabs. A file lives in one group at a time.
+class EditorGroup {
+  final docs = <EditorDocument>[];
+  EditorDocument? active;
+
+  /// Share of the width, against the other groups.
+  double weight = 1;
+
+  /// A tab just arrived. Its editor waits a frame, so the old view has let go of the document first.
+  bool settling = false;
+}
+
 class EditorWorkspace extends ChangeNotifier {
   EditorWorkspace(this.root, {this.spanBuilderFor});
 
@@ -248,7 +370,50 @@ class EditorWorkspace extends ChangeNotifier {
   final CodeLineSpanBuilder Function(String path)? spanBuilderFor;
 
   final documents = <EditorDocument>[];
-  EditorDocument? active;
+  final groups = [EditorGroup()];
+  late EditorGroup focused = groups.first;
+
+  EditorDocument? get active => focused.active;
+
+  EditorGroup? groupOf(EditorDocument doc) => groups.where((g) => g.docs.contains(doc)).firstOrNull;
+
+  void focusGroup(EditorGroup group) {
+    if (identical(focused, group)) return;
+    focused = group;
+    notifyListeners();
+  }
+
+  void moveTab(EditorGroup group, int from, int to) {
+    group.docs.insert(to, group.docs.removeAt(from));
+    notifyListeners();
+  }
+
+  /// Moves a tab to another group, or to a new one on the right when [target] is null.
+  void moveToGroup(EditorDocument doc, EditorGroup? target) {
+    final from = groupOf(doc);
+    if (from == null || identical(from, target)) return;
+    // A lone tab moved to a new group would only trade one view for another.
+    if (target == null && from.docs.length < 2) return;
+    final to = target ?? EditorGroup();
+    if (target == null) groups.insert(groups.indexOf(from) + 1, to);
+    _takeOut(from, doc);
+    to.docs.add(doc);
+    to.active = doc;
+    to.settling = true;
+    focused = to;
+    notifyListeners();
+  }
+
+  void _takeOut(EditorGroup group, EditorDocument doc) {
+    final i = group.docs.indexOf(doc);
+    group.docs.removeAt(i);
+    if (group.active == doc) group.active = group.docs.isEmpty ? null : group.docs[i.clamp(0, group.docs.length - 1)];
+    if (group.docs.isEmpty && groups.length > 1) {
+      final at = groups.indexOf(group);
+      groups.removeAt(at);
+      if (identical(focused, group)) focused = groups[at.clamp(0, groups.length - 1)];
+    }
+  }
   final diagnostics = <String, List<Diagnostic>>{};
 
   LspClient? _lsp;
@@ -256,7 +421,9 @@ class EditorWorkspace extends ChangeNotifier {
   final _opened = <String>{};
   bool analyzing = false;
   String? lspError;
-  bool formatOnSave = true;
+  DartSettings dart = const DartSettings();
+  bool get formatOnSave => dart.formatOnSave;
+  final _semanticTimers = <EditorDocument, Timer>{};
   Timer? _diskPoll;
   StreamSubscription<Map<String, dynamic>>? _diagSub;
   StreamSubscription<bool>? _statusSub;
@@ -283,6 +450,7 @@ class EditorWorkspace extends ChangeNotifier {
   Future<void> _startLsp() async {
     final lsp = LspClient(root);
     lsp.onApplyEdit = applyWorkspaceEdit;
+    lsp.dartConfig = () => dart.toServerConfig(root);
     lsp.onExit = () {
       _lspStart = null;
       _opened.clear();
@@ -292,6 +460,7 @@ class EditorWorkspace extends ChangeNotifier {
     _statusSub = lsp.analyzing.stream.listen((v) {
       analyzing = v;
       notifyListeners();
+      if (!v) documents.forEach(_scheduleSemantics);
     });
     try {
       await lsp.start();
@@ -303,8 +472,48 @@ class EditorWorkspace extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> applyDartSettings(DartSettings settings) async {
+    dart = settings;
+    await settings.save(root);
+    // The server asks for the configuration again after this.
+    _lsp?.notify('workspace/didChangeConfiguration', {'settings': const <String, dynamic>{}});
+    notifyListeners();
+  }
+
+  void _scheduleSemantics(EditorDocument doc) {
+    _semanticTimers[doc]?.cancel();
+    _semanticTimers[doc] = Timer(const Duration(milliseconds: 250), () => refreshSemantics(doc));
+  }
+
+  Future<void> refreshSemantics(EditorDocument doc) async {
+    final lsp = _lsp;
+    if (lsp == null || doc.languageId != 'dart' || !lsp.running) return;
+    final version = doc.version;
+    try {
+      final result = await lsp.request('textDocument/semanticTokens/full', {
+        'textDocument': {'uri': doc.uri},
+      });
+      // Positions from an older text would paint the wrong words; the newer edit has its own request coming.
+      if (doc.version != version || result is! Map || !documents.contains(doc)) return;
+      doc.semantics = decodeSemanticTokens(result['data'] as List, lsp.tokenTypes, lsp.tokenModifiers);
+      doc.controller.forceRepaint();
+      final symbols = await lsp.request('textDocument/documentSymbol', {
+        'textDocument': {'uri': doc.uri},
+      });
+      if (doc.version != version || symbols is! List || !documents.contains(doc)) return;
+      doc.setSymbols([
+        for (final m in symbols.cast<Map>())
+          if (m.containsKey('range')) DocSymbol.fromLsp(m.cast<String, dynamic>()),
+      ]);
+    } on Exception {
+      // Colors are a nicety: the regex highlighting stays until the next edit.
+    }
+  }
+
   void _onDiagnostics(Map<String, dynamic> params) {
     final path = Uri.parse(params['uri'] as String).toFilePath();
+    // Lints in someone else's package aren't this project's problems.
+    if (isLibrarySource(path)) return;
     final list = [
       for (final d in (params['diagnostics'] as List).cast<Map<String, dynamic>>()) Diagnostic.fromLsp(path, d),
     ];
@@ -329,13 +538,15 @@ class EditorWorkspace extends ChangeNotifier {
     if (doc == null) {
       doc = await EditorDocument.open(path, spanBuilder: spanBuilderFor?.call(path));
       documents.add(doc);
+      focused.docs.add(doc);
       doc.diagnostics = diagnostics[path] ?? const [];
       doc.addListener(notifyListeners);
       doc._onSync = () => _sendChange(doc!);
       _diskPoll ??= Timer.periodic(const Duration(seconds: 2), (_) => _checkDisk());
       if (doc.languageId != null) unawaited(_openOnServer(doc));
     }
-    active = doc;
+    focused = groupOf(doc) ?? focused;
+    focused.active = doc;
     notifyListeners();
     if (line != null) revealRequests.add(EditTarget(path, line, column ?? 0));
     return doc;
@@ -352,6 +563,7 @@ class EditorWorkspace extends ChangeNotifier {
   void _sendChange(EditorDocument doc) {
     if (!_opened.contains(doc.path)) return;
     doc.version++;
+    _scheduleSemantics(doc);
     _lsp?.notify('textDocument/didChange', {
       'textDocument': {'uri': doc.uri, 'version': doc.version},
       'contentChanges': [
@@ -371,7 +583,8 @@ class EditorWorkspace extends ChangeNotifier {
   }
 
   void activate(EditorDocument doc) {
-    active = doc;
+    focused = groupOf(doc) ?? focused;
+    focused.active = doc;
     notifyListeners();
   }
 
@@ -384,7 +597,8 @@ class EditorWorkspace extends ChangeNotifier {
         'textDocument': {'uri': doc.uri},
       });
     }
-    if (active == doc) active = documents.isEmpty ? null : documents[i.clamp(0, documents.length - 1)];
+    final group = groupOf(doc);
+    if (group != null) _takeOut(group, doc);
     doc.removeListener(notifyListeners);
     notifyListeners();
     // After the tab's editor is gone from the tree.
@@ -392,6 +606,7 @@ class EditorWorkspace extends ChangeNotifier {
   }
 
   Future<void> save(EditorDocument doc) async {
+    if (isLibrarySource(doc.path)) return;
     if (formatOnSave && doc.languageId == 'dart') {
       try {
         await format(doc);
@@ -441,13 +656,17 @@ class EditorWorkspace extends ChangeNotifier {
     return r is Map ? CompletionEntry(r.cast<String, dynamic>()) : entry;
   }
 
-  /// Hover text at a position, or null when there's nothing to say.
+  Future<String?> documentationOf(EditorDocument doc, CompletionEntry entry) async =>
+      entry.documentation ?? (await resolveCompletion(doc, entry)).documentation;
+
+  Future<SignatureInfo?> signatureHelp(EditorDocument doc, int line, int column) async =>
+      SignatureInfo.fromLsp(await _request(doc, 'textDocument/signatureHelp', _position(doc, line, column)));
+
+  /// Hover Markdown at a position, or null when there's nothing to say.
   Future<String?> hover(EditorDocument doc, int line, int column) async {
     final r = await _request(doc, 'textDocument/hover', _position(doc, line, column));
     if (r is! Map) return null;
-    final contents = r['contents'];
-    final text = contents is Map ? contents['value'] as String? : contents as String?;
-    return (text == null || text.trim().isEmpty) ? null : plainHover(text);
+    return lspMarkup(r['contents']);
   }
 
   Future<EditTarget?> definition(EditorDocument doc, int line, int column) async {
@@ -476,6 +695,7 @@ class EditorWorkspace extends ChangeNotifier {
   }
 
   Future<void> format(EditorDocument doc) async {
+    if (isLibrarySource(doc.path)) return;
     final edits = await _request(doc, 'textDocument/formatting', {
       'textDocument': {'uri': doc.uri},
       'options': {'tabSize': 2, 'insertSpaces': true},
@@ -564,6 +784,9 @@ class EditorWorkspace extends ChangeNotifier {
 
   @override
   void dispose() {
+    for (final t in _semanticTimers.values) {
+      t.cancel();
+    }
     _lsp?.onExit = null;
     _diskPoll?.cancel();
     _diagSub?.cancel();

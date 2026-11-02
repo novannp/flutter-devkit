@@ -6,12 +6,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/files.dart';
 import '../../core/windows.dart';
-import '../devices/models/device.dart';
-import '../devices/services/adb_service.dart';
-import '../devices/view/workspace/display_editor.dart';
+import '../../modules/devices/models/device.dart';
+import '../../modules/devices/services/adb_service.dart';
+import '../../modules/devices/view/workspace/display_editor.dart';
 import 'avd_service.dart';
 import 'system_images_dialog.dart';
 import '../../core/history.dart';
+import '../../core/compact_dropdown.dart';
 
 class EmulatorsPage extends StatefulWidget {
   const EmulatorsPage({super.key});
@@ -324,15 +325,15 @@ class _AvdCard extends StatelessWidget {
                   onSelected: onMenu,
                   itemBuilder: (_) => [
                     if (!a.running) ...const [
-                      PopupMenuItem(value: 'cold', child: Text('Cold boot')),
-                      PopupMenuItem(value: 'headless', child: Text('Start headless (no window)')),
-                      PopupMenuItem(value: 'wipeStart', child: Text('Wipe data & start')),
+                      PopupMenuItem(height: 30, value: 'cold', child: Text('Cold boot')),
+                      PopupMenuItem(height: 30, value: 'headless', child: Text('Start headless (no window)')),
+                      PopupMenuItem(height: 30, value: 'wipeStart', child: Text('Wipe data & start')),
                     ],
-                    const PopupMenuItem(value: 'wipe', child: Text('Wipe data')),
-                    const PopupMenuItem(value: 'edit', child: Text('Edit hardware…')),
-                    const PopupMenuItem(value: 'folder', child: Text('Show in Explorer')),
+                    const PopupMenuItem(height: 30, value: 'wipe', child: Text('Wipe data')),
+                    const PopupMenuItem(height: 30, value: 'edit', child: Text('Edit hardware…')),
+                    const PopupMenuItem(height: 30, value: 'folder', child: Text('Show in Explorer')),
                     const PopupMenuDivider(),
-                    PopupMenuItem(
+                    PopupMenuItem(height: 30, 
                       value: 'delete',
                       child: Text('Delete', style: TextStyle(color: scheme.error)),
                     ),
@@ -677,7 +678,7 @@ class _CreateDialogState extends State<_CreateDialog> {
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<SystemImage>(
+          CompactDropdown<SystemImage>(
             initialValue: _image,
             decoration: const InputDecoration(labelText: 'System image'),
             items: [for (final i in widget.images) DropdownMenuItem(value: i, child: Text(i.label))],

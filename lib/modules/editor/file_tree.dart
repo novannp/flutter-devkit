@@ -193,15 +193,15 @@ class FileTreeState extends State<FileTree> {
       context: context,
       position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
       items: [
-        const PopupMenuItem(value: 'file', child: Text('New file')),
-        const PopupMenuItem(value: 'folder', child: Text('New folder')),
+        const PopupMenuItem(height: 30, value: 'file', child: Text('New file')),
+        const PopupMenuItem(height: 30, value: 'folder', child: Text('New folder')),
         if (e != null) ...[
           const PopupMenuDivider(),
-          const PopupMenuItem(value: 'rename', child: Text('Rename')),
-          const PopupMenuItem(value: 'delete', child: Text('Delete')),
+          const PopupMenuItem(height: 30, value: 'rename', child: Text('Rename')),
+          const PopupMenuItem(height: 30, value: 'delete', child: Text('Delete')),
           const PopupMenuDivider(),
-          const PopupMenuItem(value: 'copy', child: Text('Copy path')),
-          const PopupMenuItem(value: 'reveal', child: Text('Reveal in Explorer')),
+          const PopupMenuItem(height: 30, value: 'copy', child: Text('Copy path')),
+          const PopupMenuItem(height: 30, value: 'reveal', child: Text('Reveal in Explorer')),
         ],
       ],
     );
@@ -225,7 +225,7 @@ class FileTreeState extends State<FileTree> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final rows = _flatten(widget.root, 0);
-    return Container(
+    return Material(
       color: scheme.surfaceContainerLow,
       child: Column(
         children: [
@@ -263,7 +263,7 @@ class FileTreeState extends State<FileTree> {
               child: ListView.builder(
                 controller: _scroll,
                 itemCount: rows.length,
-                itemExtent: 26,
+                itemExtent: 23,
                 itemBuilder: (_, i) {
                   final r = rows[i];
                   final path = r.entity.path;
@@ -278,11 +278,16 @@ class FileTreeState extends State<FileTree> {
                         padding: EdgeInsets.only(left: 6.0 + r.depth * 12, right: 8),
                         child: Row(
                           children: [
-                            Icon(
-                              r.isDir ? (_expanded.contains(path) ? Icons.expand_more : Icons.chevron_right) : _fileIcon(path),
-                              size: r.isDir ? 16 : 14,
-                              color: r.isDir || p.extension(path) != '.dart' ? scheme.outline : scheme.primary,
-                            ),
+                            // Files leave the chevron's space empty so names line up with their folder's.
+                            if (r.isDir)
+                              Icon(_expanded.contains(path) ? Icons.expand_more : Icons.chevron_right, size: 16, color: scheme.outline)
+                            else
+                              const SizedBox(width: 16),
+                            const SizedBox(width: 2),
+                            () {
+                              final (icon, color) = r.isDir ? _folderIcon(path, _expanded.contains(path)) : fileIconOf(path);
+                              return Icon(icon, size: 16, color: color ?? scheme.outline);
+                            }(),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
@@ -308,10 +313,41 @@ class FileTreeState extends State<FileTree> {
   }
 }
 
-IconData _fileIcon(String path) => switch (p.extension(path).toLowerCase()) {
-  '.dart' => Icons.code,
-  '.yaml' || '.yml' || '.json' || '.toml' => Icons.settings_outlined,
-  '.png' || '.jpg' || '.jpeg' || '.webp' || '.svg' || '.ico' => Icons.image_outlined,
-  '.md' => Icons.article_outlined,
-  _ => Icons.insert_drive_file_outlined,
-};
+const _folderColor = Color(0xFFE8A93A);
+
+(IconData, Color?) _folderIcon(String path, bool open) => (
+  switch (p.basename(path)) {
+    'lib' || 'src' => open ? Icons.snippet_folder : Icons.snippet_folder_outlined,
+    'test' || 'integration_test' => Icons.science_outlined,
+    'assets' || 'images' => Icons.perm_media_outlined,
+    'build' || '.dart_tool' || '.fvm' => Icons.folder_off_outlined,
+    _ => open ? Icons.folder_open : Icons.folder,
+  },
+  _folderColor,
+);
+
+(IconData, Color?) fileIconOf(String path) {
+  final name = p.basename(path).toLowerCase();
+  return switch (name) {
+    'pubspec.yaml' => (Icons.inventory_2_outlined, const Color(0xFF42A5F5)),
+    'pubspec.lock' => (Icons.lock_outline, const Color(0xFF90A4AE)),
+    '.gitignore' || '.gitattributes' => (Icons.call_split, const Color(0xFFF4511E)),
+    'analysis_options.yaml' => (Icons.rule, const Color(0xFF42A5F5)),
+    'readme.md' => (Icons.menu_book_outlined, const Color(0xFF42A5F5)),
+    _ => switch (p.extension(name)) {
+      '.dart' => (Icons.code, const Color(0xFF29B6F6)),
+      '.yaml' || '.yml' || '.toml' || '.ini' || '.properties' => (Icons.settings_outlined, const Color(0xFFAB47BC)),
+      '.json' || '.arb' => (Icons.data_object, const Color(0xFFFBC02D)),
+      '.md' => (Icons.article_outlined, const Color(0xFF42A5F5)),
+      '.png' || '.jpg' || '.jpeg' || '.webp' || '.svg' || '.ico' || '.gif' => (Icons.image_outlined, const Color(0xFF26A69A)),
+      '.kt' || '.kts' || '.java' || '.gradle' => (Icons.android, const Color(0xFF66BB6A)),
+      '.swift' || '.plist' => (Icons.apple, const Color(0xFFEF6C00)),
+      '.cpp' || '.cc' || '.c' || '.h' || '.cmake' => (Icons.memory, const Color(0xFF5C6BC0)),
+      '.xml' || '.html' => (Icons.code_off, const Color(0xFFEF6C00)),
+      '.js' || '.ts' || '.css' => (Icons.javascript, const Color(0xFFFBC02D)),
+      '.sh' || '.bat' || '.ps1' => (Icons.terminal, const Color(0xFF8BC34A)),
+      '.exe' || '.dll' || '.so' => (Icons.widgets_outlined, null),
+      _ => (Icons.insert_drive_file_outlined, null),
+    },
+  };
+}

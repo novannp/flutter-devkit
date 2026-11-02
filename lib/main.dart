@@ -9,8 +9,8 @@ import 'core/background.dart';
 import 'core/apps.dart';
 import 'core/child_processes.dart';
 import 'core/legacy.dart';
-import 'modules/chat/chat_notifier.dart';
-import 'modules/chat/chat_service.dart';
+import 'extensions/chat/chat_notifier.dart';
+import 'extensions/chat/chat_service.dart';
 import 'core/theme.dart';
 import 'core/tools.dart';
 import 'modules/devices/cubit/devices_cubit.dart';
@@ -20,7 +20,8 @@ import 'modules/devices/services/device_store.dart';
 import 'modules/devices/services/mdns_service.dart';
 import 'modules/devices/services/network_scanner.dart';
 import 'modules/devices/view/workspace/workspace_page.dart';
-import 'modules/printer/printer_page.dart';
+import 'extensions/printer/printer_page.dart';
+import 'extensions/registry.dart';
 import 'shell.dart';
 import 'core/history.dart';
 
@@ -34,7 +35,7 @@ Future<void> main(List<String> args) async {
   final tools = await Tools.resolve();
   // A slow network drive in the project folders shouldn't hold up launch; the list still fills in when it finishes.
   await loadApps().timeout(const Duration(seconds: 3), onTimeout: () {});
-  await loadThemeMode();
+  await loadAppTheme();
   final ws = args.where((a) => a.startsWith(workspaceArg)).firstOrNull;
   final device = ws == null
       ? null
@@ -45,10 +46,11 @@ Future<void> main(List<String> args) async {
   unawaited(ChildProcesses.killOrphans());
   if (device == null) unawaited(History.prune());
   if (device == null) {
-    unawaited(printerServer.init());
+    await ExtensionManager.instance.load();
+    if (ExtensionManager.instance.isEnabled('printer')) unawaited(printerServer.init());
     await BackgroundRunner.instance.init();
     await ChatNotifier.setup();
-    await ChatService.instance.start();
+    if (ExtensionManager.instance.isEnabled('chat')) await ChatService.instance.start();
   }
   runApp(DevKitApp(tools: tools, workspace: device));
 }
@@ -85,13 +87,11 @@ class DevKitApp extends StatelessWidget {
               ),
           ],
           child: ValueListenableBuilder(
-            valueListenable: themeMode,
-            builder: (_, mode, _) => MaterialApp(
+            valueListenable: appTheme,
+            builder: (_, theme, _) => MaterialApp(
               title: ws == null ? 'DevKit' : ws.displayName,
               debugShowCheckedModeBanner: false,
-              theme: buildTheme(Brightness.light),
-              darkTheme: buildTheme(Brightness.dark),
-              themeMode: mode,
+              theme: buildTheme(theme),
               home: ws == null ? const Shell() : DeviceWorkspacePage(device: ws, standalone: true),
             ),
           ),

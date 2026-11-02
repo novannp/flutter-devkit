@@ -7,6 +7,10 @@ import 'package:xterm/xterm.dart';
 
 import '../../core/child_processes.dart';
 
+/// flutter_pty joins the command line without quoting, so a path with a space splits into several arguments.
+String ptyArgument(String value) =>
+    Platform.isWindows && value.contains(' ') && !value.startsWith('"') ? '"$value"' : value;
+
 class ShellKind {
   const ShellKind(this.label, this.exe, [this.args = const []]);
 
@@ -45,8 +49,8 @@ class ConsoleSession extends ChangeNotifier {
   void _start() {
     exited = false;
     final pty = Pty.start(
-      shell.exe,
-      arguments: shell.args,
+      ptyArgument(shell.exe),
+      arguments: [for (final a in shell.args) ptyArgument(a)],
       workingDirectory: cwd,
       environment: environment,
       columns: terminal.viewWidth,
