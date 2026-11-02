@@ -19,6 +19,7 @@ import 'modules/devices/services/device_store.dart';
 import 'modules/devices/services/mdns_service.dart';
 import 'modules/devices/services/network_scanner.dart';
 import 'modules/devices/view/workspace/workspace_page.dart';
+import 'extensions/emulators/avd_service.dart';
 import 'extensions/printer/printer_page.dart';
 import 'extensions/registry.dart';
 import 'shell.dart';
@@ -38,6 +39,7 @@ Future<void> main(List<String> args) async {
   // A slow network drive in the project folders shouldn't hold up launch; the list still fills in when it finishes.
   await loadApps().timeout(const Duration(seconds: 3), onTimeout: () {});
   await loadAppTheme();
+  await AvdService.loadCustomSdk();
   final ws = args.where((a) => a.startsWith(workspaceArg)).firstOrNull;
   final device = ws == null
       ? null

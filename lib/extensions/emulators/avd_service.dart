@@ -1,4 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/tools.dart';
 
@@ -48,18 +52,57 @@ class SystemImage {
 }
 
 /// AVD files are managed directly (no avdmanager/Java needed); the emulator binary does the rest.
+String? androidSdkInFlutterSettings(String json) {
+  try {
+    final value = (jsonDecode(json) as Map)['android-sdk'];
+    return value is String && value.isNotEmpty ? value : null;
+  } on FormatException {
+    return null;
+  }
+}
+
 class AvdService {
   AvdService(this.tools);
 
   final Tools tools;
   static final _sep = Platform.pathSeparator;
+
+  /// The folder chosen in Settings, for an SDK nothing else can find.
+  static final customSdk = ValueNotifier<String?>(null);
+  static const _prefCustomSdk = 'android_sdk_path';
+
+  static Future<void> loadCustomSdk() async {
+    customSdk.value = (await SharedPreferences.getInstance()).getString(_prefCustomSdk);
+  }
+
+  static Future<void> setCustomSdk(String? path) async {
+    customSdk.value = path;
+    final prefs = await SharedPreferences.getInstance();
+    path == null ? await prefs.remove(_prefCustomSdk) : await prefs.setString(_prefCustomSdk, path);
+  }
+
+  /// What `flutter config --android-sdk` saved. Read from its file, since running flutter takes seconds.
+  static String? _sdkFromFlutterConfig() {
+    final env = Platform.environment;
+    final file = Platform.isWindows
+        ? File('${env['APPDATA']}$_sep.flutter_settings')
+        : File('${env['HOME']}/.config/flutter/settings');
+    try {
+      return file.existsSync() ? androidSdkInFlutterSettings(file.readAsStringSync()) : null;
+    } on FileSystemException {
+      return null;
+    }
+  }
+
   static final _emulatorName = Platform.isWindows ? 'emulator.exe' : 'emulator';
 
   String? get sdkRoot {
     final env = Platform.environment;
     final candidates = [
+      customSdk.value,
       env['ANDROID_HOME'],
       env['ANDROID_SDK_ROOT'],
+      _sdkFromFlutterConfig(),
       if (env['LOCALAPPDATA'] != null) '${env['LOCALAPPDATA']}${_sep}Android${_sep}Sdk',
       if (Platform.isMacOS) '${env['HOME']}/Library/Android/sdk',
       // Fall back to the SDK that owns the adb we use.

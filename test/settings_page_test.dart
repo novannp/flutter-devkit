@@ -1,4 +1,5 @@
 import 'package:devkit/core/tools.dart';
+import 'package:devkit/extensions/emulators/avd_service.dart';
 import 'package:devkit/modules/devices/services/adb_service.dart';
 import 'package:devkit/modules/editor/editor_view.dart';
 import 'package:devkit/modules/settings/settings_page.dart';
@@ -58,6 +59,28 @@ void main() {
     await tester.pump();
     expect(find.text('adb'), findsOneWidget);
     expect(find.text('No settings match'), findsNothing);
+  });
+
+  testWidgets('a chosen Android SDK without an emulator says so, and can be undone', (tester) async {
+    await AvdService.setCustomSdk(null);
+    addTearDown(() => AvdService.setCustomSdk(null));
+    AvdService.customSdk.value = '/no/such/sdk';
+    await pumpPage(tester, const Size(1000, 700));
+    await tester.tap(find.text('Tools'));
+    await tester.pump();
+    expect(find.text('Android SDK'), findsOneWidget);
+    expect(find.text('Use detected'), findsOneWidget);
+    await tester.tap(find.text('Use detected'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump();
+    expect(AvdService.customSdk.value, isNull);
+    expect(find.text('Use detected'), findsNothing);
+  });
+
+  test('reads the SDK flutter config saved', () {
+    expect(androidSdkInFlutterSettings('{"android-sdk": "D:/Android/Sdk", "x": 1}'), 'D:/Android/Sdk');
+    expect(androidSdkInFlutterSettings('{"enable-web": true}'), isNull);
+    expect(androidSdkInFlutterSettings('not json'), isNull);
   });
 
   testWidgets('every category fits the smallest window', (tester) async {
