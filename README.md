@@ -148,10 +148,6 @@ Each device opens in **its own window**, made for multi-device testing.
 
 ### 🧹 Maintenance
 
-- **Switch the branch of any git package** in a project's `pubspec.yaml` or use a local clone, then `pub upgrade` runs
-- **Override any package with a local path** (⋮ menu); active overrides show as orange chips, ✕ removes one
-- Overrides go to `pubspec_overrides.yaml`, so `pubspec.yaml` stays untouched
-- One-click **update git packages**; `pub get`, `pub upgrade`, `flutter clean` with live output
 - Clear the git package cache, **pub cache** and **Gradle cache**
 
 ### 🗂️ Work (Jira + Bitbucket)
