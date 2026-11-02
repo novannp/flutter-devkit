@@ -7,23 +7,30 @@ import 'tools.dart';
 
 final _kernel32 = DynamicLibrary.open('kernel32.dll');
 final _createJobObject = _kernel32
-    .lookupFunction<IntPtr Function(Pointer<Void>, Pointer<Utf16>), int Function(Pointer<Void>, Pointer<Utf16>)>(
-      'CreateJobObjectW',
-    );
+    .lookupFunction<
+      IntPtr Function(Pointer<Void>, Pointer<Utf16>),
+      int Function(Pointer<Void>, Pointer<Utf16>)
+    >('CreateJobObjectW');
 final _setInformationJobObject = _kernel32
-    .lookupFunction<Int32 Function(IntPtr, Int32, Pointer<Void>, Uint32), int Function(int, int, Pointer<Void>, int)>(
-      'SetInformationJobObject',
+    .lookupFunction<
+      Int32 Function(IntPtr, Int32, Pointer<Void>, Uint32),
+      int Function(int, int, Pointer<Void>, int)
+    >('SetInformationJobObject');
+final _assignProcessToJobObject = _kernel32
+    .lookupFunction<Int32 Function(IntPtr, IntPtr), int Function(int, int)>(
+      'AssignProcessToJobObject',
     );
-final _assignProcessToJobObject = _kernel32.lookupFunction<Int32 Function(IntPtr, IntPtr), int Function(int, int)>(
-  'AssignProcessToJobObject',
-);
-final _openProcess = _kernel32.lookupFunction<IntPtr Function(Uint32, Int32, Uint32), int Function(int, int, int)>(
-  'OpenProcess',
-);
-final _closeHandle = _kernel32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('CloseHandle');
+final _openProcess = _kernel32
+    .lookupFunction<
+      IntPtr Function(Uint32, Int32, Uint32),
+      int Function(int, int, int)
+    >('OpenProcess');
+final _closeHandle = _kernel32
+    .lookupFunction<Int32 Function(IntPtr), int Function(int)>('CloseHandle');
 
 const _jobObjectExtendedLimitInformation = 9;
-const _extendedLimitSize = 144; // sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION) on x64
+const _extendedLimitSize =
+    144; // sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION) on x64
 const _limitFlagsOffset = 16;
 const _killOnJobClose = 0x2000;
 const _processSetQuota = 0x0100;
@@ -31,7 +38,10 @@ const _processTerminate = 0x0001;
 
 /// (scrcpy pid, pid of the DevKit that started it) from `ps -axo pid=,command=`.
 Iterable<(int, int)> embeddedScrcpyIn(String ps) sync* {
-  final line = RegExp(r'^\s*(\d+)\s+.*scrcpy\b.*devkit-embed-(\d+)-', multiLine: true);
+  final line = RegExp(
+    r'^\s*(\d+)\s+.*scrcpy\b.*devkit-embed-(\d+)-',
+    multiLine: true,
+  );
   for (final m in line.allMatches(ps)) {
     yield (int.parse(m[1]!), int.parse(m[2]!));
   }
@@ -52,7 +62,13 @@ class ChildProcesses {
     final info = calloc<Uint8>(_extendedLimitSize);
     try {
       (info + _limitFlagsOffset).cast<Uint32>().value = _killOnJobClose;
-      if (_setInformationJobObject(job, _jobObjectExtendedLimitInformation, info.cast(), _extendedLimitSize) == 0) {
+      if (_setInformationJobObject(
+            job,
+            _jobObjectExtendedLimitInformation,
+            info.cast(),
+            _extendedLimitSize,
+          ) ==
+          0) {
         return null;
       }
     } finally {

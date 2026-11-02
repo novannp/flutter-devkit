@@ -6,8 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../modules/devices/view/devices_page.dart';
 import '../modules/devices/view/multi_screen_page.dart';
 import '../modules/editor/tool_tabs.dart';
-import 'chat/chat_page.dart';
-import 'chat/chat_service.dart';
 import 'emulators/emulators_page.dart';
 import 'history/history_page.dart';
 import 'maintenance/maintenance_page.dart';
@@ -100,16 +98,6 @@ final builtinExtensions = <BuiltinExtension>[
     icon: Icons.task_alt,
     menu: 'Team',
     modules: [AppModule('Work', Icons.task_alt, WorkPage())],
-  ),
-  BuiltinExtension(
-    id: 'chat',
-    name: 'Chat',
-    description: 'Chat with teammates on your LAN, and see who is using a device.',
-    icon: Icons.forum_outlined,
-    menu: 'Team',
-    modules: const [AppModule('Chat', Icons.forum_outlined, ChatPage())],
-    onEnable: ChatService.instance.start,
-    onDisable: ChatService.instance.stop,
   ),
 ];
 

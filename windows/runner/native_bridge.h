@@ -10,20 +10,16 @@
 
 class FileDropTarget;
 
-// System notifications and files dragged onto the window, for lib/core/native_bridge.dart.
+// Files dragged onto the window, for lib/core/native_bridge.dart.
 class NativeBridge {
  public:
-  NativeBridge(flutter::BinaryMessenger* messenger, HWND top_level, HWND view);
+  NativeBridge(flutter::BinaryMessenger* messenger, HWND view);
   ~NativeBridge();
-
-  // Takes a toast click posted from its background thread; true if the message was one.
-  bool HandleWindowMessage(UINT message, WPARAM wparam);
 
  private:
   using Channel = flutter::MethodChannel<flutter::EncodableValue>;
 
   std::unique_ptr<Channel> channel_;
-  HWND top_level_;
   HWND view_;
   FileDropTarget* drop_target_ = nullptr;
 };

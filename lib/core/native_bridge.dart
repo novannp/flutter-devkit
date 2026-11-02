@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// What the runner does natively: system notifications, and files dragged onto the window.
+/// Files dragged onto the window, which the runner receives natively.
 /// The other side is windows/runner/native_bridge.cpp and macos/Runner/MainFlutterWindow.swift.
 class NativeBridge {
   static const _channel = MethodChannel('devkit/native');
 
-  static final _clicks = <int, VoidCallback>{};
   static final _areas = <_FileDropAreaState>{};
-  static var _nextId = 0;
   static var _listening = false;
 
   static void _listen() {
@@ -16,8 +14,6 @@ class NativeBridge {
     _listening = true;
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
-        case 'notificationClicked':
-          _clicks.remove(call.arguments as int)?.call();
         case 'dragEntered':
           for (final a in _areas.toList()) {
             a.widget.onEnter?.call();
@@ -33,24 +29,6 @@ class NativeBridge {
           }
       }
     });
-  }
-
-  /// Toasts are optional, so failing to show one isn't an error for the caller.
-  static Future<void> notify({required String title, required String body, VoidCallback? onClick}) async {
-    _listen();
-    final id = _nextId++;
-    if (onClick != null) {
-      _clicks[id] = onClick;
-      // Only the newest few can still be on screen.
-      if (_clicks.length > 50) _clicks.remove(_clicks.keys.first);
-    }
-    try {
-      await _channel.invokeMethod<void>('notify', {'id': id, 'title': title, 'body': body});
-    } on PlatformException {
-      _clicks.remove(id);
-    } on MissingPluginException {
-      _clicks.remove(id);
-    }
   }
 }
 

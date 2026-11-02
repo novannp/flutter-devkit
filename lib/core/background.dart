@@ -42,7 +42,7 @@ class BackgroundRunner with WindowListener, TrayListener {
     }
   }
 
-  /// Last words before exit (e.g. tell chat peers we're leaving).
+  /// Last words before exit, such as saving open files.
   Future<void> Function()? onQuit;
 
   Future<void> setKeepRunning(bool v) async {

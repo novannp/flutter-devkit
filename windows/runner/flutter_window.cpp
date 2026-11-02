@@ -25,7 +25,7 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
-  native_bridge_ = std::make_unique<NativeBridge>(flutter_controller_->engine()->messenger(), GetHandle(), flutter_controller_->view()->GetNativeWindow());
+  native_bridge_ = std::make_unique<NativeBridge>(flutter_controller_->engine()->messenger(), flutter_controller_->view()->GetNativeWindow());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -53,10 +53,6 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
-  if (native_bridge_ && native_bridge_->HandleWindowMessage(message, wparam)) {
-    return 0;
-  }
-
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
