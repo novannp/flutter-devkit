@@ -59,7 +59,7 @@ class ChatTestBot extends ChangeNotifier {
               _send(
                 id,
                 id,
-                'Ping ${t.hour}:${t.minute.toString().padLeft(2, '0')} — minimize DevKit to see the notification',
+                'Ping ${t.hour}:${t.minute.toString().padLeft(2, '0')} — minimize Flutter DevKit to see the notification',
               );
             }
           })

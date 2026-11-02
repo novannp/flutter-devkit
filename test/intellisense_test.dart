@@ -132,6 +132,32 @@ void main() {
       }
     });
 
+    test('the server offers snippets, and one inserts with its stops ready', () async {
+      final file = p.join(dir.path, 'lib', 'snippets.dart');
+      File(file).writeAsStringSync('void run() {\n  for\n}\n');
+      final doc = await ws.open(file);
+      // The first answer can come before the file's analysis is ready.
+      var items = await ws.completion(doc, 1, 5);
+      for (var i = 0; i < 20 && !items.any((c) => c.kind == 15); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        items = await ws.completion(doc, 1, 5);
+      }
+      final fori = items.firstWhere((c) => c.filter == 'for' && c.kind == 15);
+      expect(fori.kind, 15);
+      expect(fori.raw['insertTextFormat'], 2);
+      final session = ws.applyCompletion(doc, await ws.resolveCompletion(doc, fori), line: 1, start: 2, end: 5);
+      expect(session, isNotNull);
+      final text = doc.controller.text;
+      expect(text, contains('for (var i = 0; i < count; i++) {'));
+      expect(text, isNot(contains(r'\$')));
+      expect(text.split('\n')[2], startsWith('    '), reason: 'the body keeps the indent of the line it was typed on');
+      expect(doc.controller.selectedText, 'count');
+      expect(doc.controller.selection.isCollapsed, isFalse);
+      expect(session!.move(1), isTrue);
+      expect(session.active, isFalse);
+      expect(doc.controller.selection.isCollapsed, isTrue);
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
     test('hover is Markdown, completion has docs, signature help tracks the argument', () async {
       final doc = await ws.open(main);
       final lines = doc.controller.text.split('\n');

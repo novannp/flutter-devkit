@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:re_editor/re_editor.dart';
+
+import 'engine/code_editor.dart';
 
 /// Find (Ctrl+F) and replace (Ctrl+H) above the code.
 class CodeFindPanel extends StatelessWidget implements PreferredSizeWidget {

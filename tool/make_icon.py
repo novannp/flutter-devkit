@@ -1,4 +1,4 @@
-"""Generates the app icon (windows/runner/resources/app_icon.ico, assets/tray.ico, docs/logo.png).
+"""Generates the app icon (windows/runner/resources/app_icon.ico, assets/tray.ico, assets/logo.png, docs/logo.png).
 
 Run: python tool/make_icon.py
 """
@@ -9,8 +9,8 @@ from PIL import Image, ImageDraw, ImageFilter
 ROOT = Path(__file__).resolve().parent.parent
 S = 1024  # draw large, downscale for crisp edges
 
-TOP = (52, 211, 153)  # emerald-400
-BOTTOM = (4, 120, 87)  # emerald-700
+TOP = (56, 189, 248)  # sky-400
+BOTTOM = (3, 74, 150)  # deep blue
 
 
 def render() -> Image.Image:
@@ -28,15 +28,26 @@ def render() -> Image.Image:
 
     # Soft top highlight.
     shine = Image.new('L', (S, S), 0)
-    ImageDraw.Draw(shine).ellipse((-200, -620, S + 200, 430), fill=46)
+    ImageDraw.Draw(shine).ellipse((-200, -620, S + 200, 430), fill=20)
     shine = Image.composite(shine, Image.new('L', (S, S), 0), mask)
     icon = Image.alpha_composite(icon, Image.merge('RGBA', [Image.new('L', (S, S), 255)] * 3 + [shine]))
 
-    bolt = [(585, 150), (285, 575), (480, 575), (420, 875), (740, 425), (540, 425), (620, 150)]
+    # An F with chamfered arms, and a small diamond where its lower right would be.
+    letter = [
+        [(300, 200), (800, 200), (652, 348), (300, 348)],
+        [(300, 200), (448, 200), (448, 824), (300, 824)],
+        [(300, 432), (652, 432), (504, 580), (300, 580)],
+    ]
+    diamond = [(640, 590), (760, 710), (640, 830), (520, 710)]
     shadow = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).polygon([(x + 14, y + 22) for x, y in bolt], fill=(2, 60, 44, 120))
-    icon = Image.alpha_composite(icon, shadow.filter(ImageFilter.GaussianBlur(18)))
-    ImageDraw.Draw(icon).polygon(bolt, fill=(255, 255, 255, 255))
+    draw = ImageDraw.Draw(shadow)
+    for shape in [*letter, diamond]:
+        draw.polygon([(x + 12, y + 20) for x, y in shape], fill=(1, 40, 90, 110))
+    icon = Image.alpha_composite(icon, shadow.filter(ImageFilter.GaussianBlur(16)))
+    draw = ImageDraw.Draw(icon)
+    for shape in letter:
+        draw.polygon(shape, fill=(255, 255, 255, 255))
+    draw.polygon(diamond, fill=(125, 232, 255, 255))
     return icon
 
 
@@ -47,6 +58,7 @@ def main() -> None:
         icon.save(out, sizes=sizes)
     (ROOT / 'docs').mkdir(exist_ok=True)
     icon.resize((256, 256), Image.LANCZOS).save(ROOT / 'docs/logo.png')
+    icon.resize((128, 128), Image.LANCZOS).save(ROOT / 'assets/logo.png')
     print('icons written')
 
 

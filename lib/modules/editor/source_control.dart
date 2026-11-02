@@ -57,41 +57,56 @@ Map<int, GitMark> parseMarks(String diff) {
   return marks;
 }
 
-enum DiffKind { header, hunk, added, removed, context }
+/// One row of a side by side diff. A null number means that side has no such line.
+class DiffRow {
+  const DiffRow(this.beforeLine, this.before, this.afterLine, this.after);
 
-class DiffLine {
-  const DiffLine(this.kind, this.text, this.line);
+  final int? beforeLine, afterLine;
+  final String before, after;
 
-  final DiffKind kind;
-  final String text;
-
-  /// 0-based line in the new file; null when the line isn't in it.
-  final int? line;
+  bool get changed => beforeLine == null || afterLine == null || before != after;
 }
 
-List<DiffLine> parseDiff(String diff) {
-  final out = <DiffLine>[];
-  var line = 0;
+final _hunkHeader = RegExp(r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@');
+
+/// Lines up a unified diff into rows, with a changed block's old and new lines next to each other.
+/// Numbers are 0-based.
+List<DiffRow> parseSideBySide(String diff) {
+  final rows = <DiffRow>[];
+  final removed = <(int, String)>[], added = <(int, String)>[];
+  void flush() {
+    for (var i = 0; i < removed.length || i < added.length; i++) {
+      final old = i < removed.length ? removed[i] : null;
+      final now = i < added.length ? added[i] : null;
+      rows.add(DiffRow(old?.$1, old?.$2 ?? '', now?.$1, now?.$2 ?? ''));
+    }
+    removed.clear();
+    added.clear();
+  }
+
+  var before = 0, after = 0;
   var inHunk = false;
-  for (final text in const LineSplitter().convert(diff)) {
-    final m = _hunk.firstMatch(text);
+  for (final line in const LineSplitter().convert(diff)) {
+    final m = _hunkHeader.firstMatch(line);
     if (m != null) {
+      flush();
       inHunk = true;
-      line = int.parse(m[2]!) - 1;
-      out.add(DiffLine(DiffKind.hunk, text, line));
-    } else if (!inHunk) {
-      out.add(DiffLine(DiffKind.header, text, null));
-    } else if (text.startsWith('+')) {
-      out.add(DiffLine(DiffKind.added, text, line++));
-    } else if (text.startsWith('-')) {
-      out.add(DiffLine(DiffKind.removed, text, null));
-    } else if (text.startsWith(r'\')) {
-      out.add(DiffLine(DiffKind.header, text, null));
+      before = int.parse(m[1]!) - 1;
+      after = int.parse(m[2]!) - 1;
+    } else if (!inHunk || line.startsWith(r'\')) {
+      continue;
+    } else if (line.startsWith('-')) {
+      removed.add((before++, line.substring(1)));
+    } else if (line.startsWith('+')) {
+      added.add((after++, line.substring(1)));
     } else {
-      out.add(DiffLine(DiffKind.context, text, line++));
+      flush();
+      final text = line.isEmpty ? '' : line.substring(1);
+      rows.add(DiffRow(before++, text, after++, text));
     }
   }
-  return out;
+  flush();
+  return rows;
 }
 
 class GitOutput {
@@ -250,13 +265,14 @@ class SourceControl extends ChangeNotifier {
     ['switch', if (create) '-c', name],
   ]);
 
-  Future<List<DiffLine>> diffOf(GitChange c, {required bool staged}) async {
+  /// The whole file on both sides: as much context as any file could have.
+  Future<List<DiffRow>> sideBySideOf(GitChange c, {required bool staged}) async {
     if (c.untracked) {
       final text = await File(absolute(c.path)).readAsString().catchError((_) => '');
-      return [for (final (i, l) in const LineSplitter().convert(text).indexed) DiffLine(DiffKind.added, '+$l', i)];
+      return [for (final (i, l) in const LineSplitter().convert(text).indexed) DiffRow(null, '', i, l)];
     }
-    final r = await _git(['diff', '--no-color', '--no-ext-diff', if (staged) '--cached', '--', c.path]);
-    return parseDiff(r.text);
+    final r = await _git(['diff', '-U1000000', '--no-color', '--no-ext-diff', if (staged) '--cached', '--', c.path]);
+    return parseSideBySide(r.text);
   }
 
   /// How a saved file differs from HEAD, for the gutter.

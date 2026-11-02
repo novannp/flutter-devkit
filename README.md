@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/logo.png" width="112" alt="DevKit logo" />
+<img src="docs/logo.png" width="112" alt="Flutter DevKit logo" />
 
-# DevKit
+# Flutter DevKit
 
 **The Flutter workbench: one window for your code, devices, logs and builds.**
 
@@ -15,7 +15,7 @@ Edit code, find devices, mirror them, read logs, hot reload, and fake printers, 
 
 [Install](#-install) · [Features](#-features) · [Shortcuts](#%EF%B8%8F-workspace-shortcuts) · [First run](#-first-run) · [Troubleshooting](#-troubleshooting) · [Development](#%EF%B8%8F-development)
 
-<img src="docs/screenshot.png" width="860" alt="DevKit devices screen" />
+<img src="docs/screenshot.png" width="860" alt="Flutter DevKit devices screen" />
 
 </div>
 
@@ -26,61 +26,74 @@ Edit code, find devices, mirror them, read logs, hot reload, and fake printers, 
 1. Download **[`dist/DevKit-Setup.exe`](dist/DevKit-Setup.exe)** and run it.
 2. That's it. No admin rights needed, and `adb` + `scrcpy` are already inside.
 
-To upgrade, run the newer setup over the old one. DevKit is closed for you, and settings from builds with the previous name carry over.
+To upgrade, run the newer setup over the old one. Flutter DevKit is closed for you, and settings from builds with the previous name carry over.
 
 > [!NOTE]
 > The installer isn't code-signed yet, so Windows may show **"Windows protected your PC"**. Click **More info → Run anyway**. Copying it from a shared folder instead of downloading usually avoids the prompt.
 
 ## 💡 Why you'll love it
 
-Testing Flutter apps on real devices used to mean: check the IP in Settings, `adb connect`, open scrcpy, another terminal for logcat, another for `flutter run`, then hunt for a real printer. DevKit does all of it in one window:
+Testing Flutter apps on real devices used to mean: check the IP in Settings, `adb connect`, open scrcpy, another terminal for logcat, another for `flutter run`, then hunt for a real printer. Flutter DevKit does all of it in one window:
 
-- ✍️ **Edits your code** with full Dart analysis, using the SDK your project pins with fvm
+- ✍️ **Edits your code** in its own fast editor, with multiple cursors and full Dart analysis, using the SDK your project pins with fvm
 - 🔍 **Finds every device** on your network, across subnets: USB, Wi-Fi 5555, and Wireless debugging
 - 🖥️ **Mirrors and controls** devices at 60 fps, one by one or side by side
 - 🔥 **Flutter run, hot reload, hot restart** next to the live screen and logcat
 - 🧾 **Prints receipts without a printer**, straight on screen
 - 👥 **Shows who's using which tablet** across the team
-- 🗂️ **Jira ticket → branch → PR** without leaving DevKit
+- 🗂️ **Jira ticket → branch → PR** without leaving Flutter DevKit
 
 ## ✨ Features
 
 ### ✍️ Editor
 
-A native code editor with no WebView. The Dart analysis server starts only when you open a Dart file, and analyzes only the projects you have open.
+Flutter DevKit opens on the Editor, and everything else opens around it. The editor is our own, written for Flutter DevKit: no WebView and no third-party editor package. It only lays out the lines in view, so large files stay smooth, and the caret, scrolling and panels all move instead of jumping.
 
-- **Follows fvm**: analysis, `flutter` commands and the built-in terminal all use the SDK in `.fvm` / `.fvmrc`; projects without fvm use the one on `PATH`
-- **Language features**: completion with auto-import and docs beside each suggestion, parameter hints, errors and warnings as you type, formatted hover docs, go to definition, find references, rename, quick fixes
-- **Flutter**: run on a connected device or Windows, hot reload on save, hot restart, `pub get` and friends; output lines with a `lib/…:line` open that spot
+**Writing code**
+
+- **Multiple cursors**: <kbd>Ctrl</kbd>+<kbd>D</kbd> adds the next match, <kbd>Alt</kbd>+click adds a cursor anywhere, and typing, deleting and moving apply to all of them
+- **Editing**: auto-closing brackets and quotes, smart Home and Enter, line moves and copies, comments, code folding, find and replace with regex, undo that groups typing, word wrap and zoom
+- **Colors**: syntax highlighting for Dart, YAML, JSON, XML, Kotlin, Gradle, Swift, Java, C/C++, JavaScript, CSS, Markdown, Bash and PowerShell. In Dart the analyzer's colors go on top, and matching brackets light up at the caret
+- **Tabs**: drag to reorder, split into views with <kbd>Ctrl</kbd>+<kbd>\\</kbd>, right click to move a tab between views. A file shows in one view at a time. Each project remembers its tabs, and tabs follow changes on disk without ever overwriting unsaved edits
+
+**Understanding code**
+
+- **Language features**: completion with auto-import and docs beside each suggestion, Flutter and Dart snippets (`stless`, `stful`, `stanim`, `for`, `forin`...) with Tab between placeholders, parameter hints, errors as you type, formatted hover docs, rename, quick fixes
+- **Go anywhere**: <kbd>Ctrl</kbd>+click a usage to reach its definition, even inside the Flutter SDK or a package (those open read-only). <kbd>Ctrl</kbd>+click a declaration for an overlay of its usages, grouped by file
+- **Breadcrumb** from the folder down to the method. Click a folder to list what's inside, or a symbol to jump to its neighbours
+- **Follows fvm**: analysis, `flutter` commands and the terminal use the SDK in `.fvm` / `.fvmrc`, or the one on `PATH`. The status bar shows the Flutter and Dart versions and the analyzer's progress
 - **Dart settings** per project, under the options button: line length, format on save, TODOs in Problems, folders the analyzer skips. A `page_width` in `analysis_options.yaml` wins
-- **Editing**: tabs, syntax highlighting (Dart, YAML, JSON, XML, Kotlin, Gradle, Swift and more) with analyzer-based colors for Dart, code folding, find and replace, format on save, undo
-- **Project**: file tree with create/rename/delete, fuzzy quick open (`online payment` finds `online_payment.dart`, `main.dart:42` jumps to the line), search in files, problems panel, terminal
-- **Debugger**: breakpoints in the gutter, step over/into/out, call stack, variables you can expand, evaluate in a frame, pause on exceptions. It connects by itself when you press Run, on a device or on Windows
-- **Source Control**: changed files, stage and unstage, commit, push and pull, switch or create branches, discard, a diff panel, and gutter marks for lines that differ from `HEAD`
-- **Layout**: the Editor is the main window. One left panel switches between files, Source Control, search and debug. Tools from the title bar's menus open as tabs next to the code, so the Editor stays where it is. A breadcrumb runs from the folder down to the method, and clicking a folder in it lists what's inside, and the status bar shows the Flutter and Dart versions
-- **Run target menu**: pick a device, or start an emulator from it, normally or with a cold boot. The phone button docks the device's screen beside the code
-- Fits small windows: the title bar's menus fold into one button, and side panels give way to the code. About is under Help
-- **File menu**: Open File (<kbd>Ctrl</kbd>+<kbd>O</kbd>), Open Folder, Open Recent. Output lines are colored by level and honour ANSI colors
-- **Themes** under File: DevKit Light and Dark, Dark+, Light+, One Dark, Dracula, Monokai, Nord, Solarized, GitHub and High Contrast. Matching brackets light up at the caret
-- **Tabs**: drag to reorder, split the editor into views with <kbd>Ctrl</kbd>+<kbd>\\</kbd>, and right click to move a tab between views. A file shows in one view at a time. SDK and package files open read-only
-- **Extensions** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>): Device Manager, Emulators, Printer, Notes, Maintenance, History, Work and Chat are built-in extensions you can turn off
-- Tabs follow changes on disk, such as a branch switch; unsaved edits are never overwritten
+
+**Running and debugging**
+
+- **Flutter**: run on a device or Windows, hot reload on save, hot restart, `pub get` and friends. Output is colored by level, honours ANSI colors, and lines with a `lib/…:line` open that spot
+- **Run menu**: pick a device, or start an emulator from it, normally or with a cold boot. The phone button docks the device's screen beside the code
+- **Debugger**: breakpoints in the gutter (a faint dot on hover shows where a click puts one), step over/into/out, call stack, variables you can expand, evaluate in a frame, pause on exceptions. It connects by itself when you press Run
+
+**Project and team**
+
+- **Source Control**: changed files, stage, commit, push and pull, branches, discard, a side by side before and after diff in its own tab, and gutter marks for lines that differ from `HEAD`
+- **Find things**: fuzzy quick open (`online payment` finds `online_payment.dart`, `main.dart:42` jumps to the line), search in files as you type, Open File and Open Recent
+- **One left panel** switches between files, Source Control, search and debug. The terminal and Problems are in the bottom panel, running in the open project
+- **Notifications** in the corner, such as when packages are missing or out of sync, with a button to run `pub get`
+- **Extensions** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>): Device Manager, Emulators, Printer, Notes, Maintenance, History, Work and Chat are built in and can be turned off. They open as tabs beside the code, so the Editor stays where it is
+- **Your window**: 13 themes under File, a title bar of Flutter DevKit's own, and a layout that folds its menus into one button on small screens
 
 | Keys | Action |
 | --- | --- |
-| <kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> | Save / save all |
+| <kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>O</kbd> | Save / save all / open file |
 | <kbd>Ctrl</kbd>+<kbd>P</kbd> / <kbd>Ctrl</kbd>+<kbd>G</kbd> | Quick open / go to line |
 | <kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> | Find / search in files |
 | <kbd>Ctrl</kbd>+<kbd>Space</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> / <kbd>F1</kbd> | Completion / parameter hints / show docs |
 | <kbd>F12</kbd> / <kbd>Shift</kbd>+<kbd>F12</kbd> | Go to definition / find references (also on right click) |
-| <kbd>Ctrl</kbd>+click | On a usage: go to its definition. On a declaration: list its usages |
+| <kbd>Ctrl</kbd>+click | On a usage: go to its definition. On a declaration: an overlay of its usages, grouped by file |
 | <kbd>F2</kbd> / <kbd>Ctrl</kbd>+<kbd>.</kbd> / <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> | Rename / quick fix / format |
 | <kbd>F5</kbd> / <kbd>Shift</kbd>+<kbd>F5</kbd> | Run / stop |
 | <kbd>Ctrl</kbd>+<kbd>F5</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F5</kbd> | Hot reload / hot restart |
 | <kbd>F9</kbd> / <kbd>F6</kbd> | Toggle breakpoint / pause (<kbd>F5</kbd> continues) |
 | <kbd>F10</kbd> / <kbd>F11</kbd> / <kbd>Shift</kbd>+<kbd>F11</kbd> | Step over / into / out |
 | <kbd>Ctrl</kbd>+<kbd>B</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> / <kbd>G</kbd> / <kbd>D</kbd> / <kbd>M</kbd> / <kbd>U</kbd> | Toggle side panel / files / Source Control / debug / problems / output |
-| <kbd>Ctrl</kbd>+<kbd>D</kbd> | Select the word, then the next match (one selection at a time) |
+| <kbd>Ctrl</kbd>+<kbd>D</kbd> / <kbd>Alt</kbd>+click / <kbd>Esc</kbd> | Select the word, then add a cursor at each next match / add a cursor / back to one |
 | <kbd>Ctrl</kbd>+<kbd>/</kbd> / <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>A</kbd> | Line / block comment |
 | <kbd>Ctrl</kbd>+<kbd>L</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> | Select / delete line |
 | <kbd>Alt</kbd>+<kbd>↑↓</kbd> / <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>↑↓</kbd> | Move / copy lines |
@@ -145,7 +158,7 @@ Each device opens in **its own window**, made for multi-device testing.
 - **My tickets**: what's assigned to you, grouped by status, with description, comments and status changes
 - **Start work**: one click creates `feature/POS-123-…` (or `bugfix/…`) from `origin/develop`, moves the ticket to *In Progress* and opens VS Code
 - **Push & create PR**: title and description from the ticket, default reviewers added, ticket moves to *Code Review*
-- **Pull requests**: *To review* / *Mine* / *All* across your repos; **check out** a PR to test it on a device, **approve** from DevKit
+- **Pull requests**: *To review* / *Mine* / *All* across your repos; **check out** a PR to test it on a device, **approve** from Flutter DevKit
 - **Ticket in the workspace**: the device window shows the ticket of the branch you run; send a **screenshot** or **bug report** to it with one click
 - Works with Jira Cloud (API token) and Server/Data Center (personal access token); tokens are encrypted for your Windows account
 
@@ -157,10 +170,10 @@ Each device opens in **its own window**, made for multi-device testing.
 
 ### 🧰 And more
 
-- **Terminal** tabs (Git Bash / PowerShell / cmd) in any project folder
-- **Multi Screen**: many devices in one window, with broadcast input
+- **Terminal** in the Editor's bottom panel, running in the open project with its pinned SDK on `PATH`
+- **Multi Screen**: pick the devices you want in one window, with broadcast input
 - Built-in **connection guide** for USB, Wireless debugging and the printer
-- **Keeps running in the tray** when closed · light & dark theme
+- **Keeps running in the tray** when closed (quit from File or the tray icon)
 
 ## ⌨️ Workspace shortcuts
 
@@ -179,6 +192,10 @@ Each device opens in **its own window**, made for multi-device testing.
 
 ## 🧭 First run
 
+A short **Getting started** guide opens the first time you launch the app. It covers opening a project, writing code, running, debugging and committing. Bring it back from **Help → Getting started**.
+
+To set up devices and the printer:
+
 1. **Settings → Project folders**: add the folder where you clone repos. Repos are matched by their Android `applicationId`, up to 3 levels deep, and become **My apps**. For apps you don't have cloned, add a package prefix in **Settings → My apps**.
 2. **Devices**: if the orange **Network scan may miss devices** banner appears, click **Fix network access** once.
 3. **Devices → Scan network**: phones with Wireless debugging show up. If one says **Needs pairing**, click its QR icon once.
@@ -186,12 +203,14 @@ Each device opens in **its own window**, made for multi-device testing.
 
 ## 🛟 Troubleshooting
 
+Uncaught errors are kept with their stack traces in `errors.log`. **Help → Show error log** opens its folder, which is useful to attach to a bug report.
+
 | Problem | Try this |
 | --- | --- |
 | Device on another subnet isn't found | Add the subnet in **Settings → Network scan** (`192.168.5`, `10.1.0.0/22`). The PC needs a route to it, and the device must be on port 5555: Wireless debugging discovery doesn't cross subnets. |
 | Phone doesn't show up | Same Wi-Fi as the PC? Wireless debugging on? Click **Fix network access** on Devices (one admin prompt). |
 | Tired of re-pairing | Device menu → **Enable port 5555**. Scans then find it on `ip:5555` until it reboots. |
-| "Needs pairing" won't go away | Phone: **Wireless debugging → Pair device with pairing code**, then DevKit: **Pair device → Pairing code**. |
+| "Needs pairing" won't go away | Phone: **Wireless debugging → Pair device with pairing code**, then Flutter DevKit: **Pair device → Pairing code**. |
 | `adb` keeps restarting | Another `adb` version is running (Android Studio, an old SDK). Keep just one on `PATH`. |
 | Git packages stuck on an old commit | **Maintenance → Git packages cache → Clear**, then **Update core**. |
 | Need an unmerged fix in a git package | **Maintenance →** click the package chip → **Git branch** or **Local folder**. |
@@ -225,36 +244,41 @@ The version comes from `pubspec.yaml`.
 
 ```text
 lib/
-  core/            theme, tools (adb/scrcpy lookup), tray, project scanning, source links
-  modules/
-    devices/       discovery, pairing, workspace window, multi screen
-    editor/        code editor, file tree, Dart analysis server over LSP, fvm SDK lookup
-    emulators/     AVD manager, system image downloads
-    printer/       ESC/POS parser, TCP server, receipt view
-    console/       embedded terminals (ConPTY + xterm)
-    chat/          LAN chat (UDP discovery, TCP messages, notifications)
-    maintenance/   pub/Gradle cache cleanup, core packages, local overrides
-    notes/         sticky notes
-    work/          Jira + Bitbucket: tickets, branches, pull requests
-    history/       activity, crashes, session logs
-    help/          connection guide
+  core/              themes, tools (adb/scrcpy lookup), tray, project scanning, source links
+  modules/           what Flutter DevKit is built on
+    editor/          Editor page, panels, Dart analysis server over LSP, debugger, Source Control
+      engine/        our text editor: text model, multiple cursors, undo, syntax highlighting, rendering
+    devices/         discovery, pairing, workspace window, multi screen
+    console/         terminals (ConPTY + xterm)
+    help/            connection guide
     settings/
+  extensions/        built-in extensions, listed in registry.dart
+    emulators/       AVD manager, system image downloads
+    printer/         ESC/POS parser, TCP server, receipt view
+    chat/            LAN chat (UDP discovery, TCP messages, notifications)
+    maintenance/     pub/Gradle cache cleanup, core packages, local overrides
+    notes/           sticky notes
+    work/            Jira + Bitbucket: tickets, branches, pull requests
+    history/         activity, crashes, session logs
 tool/
   build_installer.ps1     release build + installer
   make_icon.py            regenerates the app icon
   make_installer_art.py   regenerates the installer wizard images
 windows/installer/        Inno Setup script and wizard images
 windows/third_party/scrcpy/   bundled scrcpy + adb (Apache-2.0)
+third_party/flutter_pty/      flutter_pty with Windows fixes for starting shells
 ```
 
-New app? Put its repo in a project folder, and DevKit recognises it everywhere.
+New app? Put its repo in a project folder, and Flutter DevKit recognises it everywhere.
 
 </details>
 
 ## 🧭 Roadmap: toward a Flutter IDE
 
-DevKit already covers editing, running on devices, and package management. Next up:
+Flutter DevKit already covers editing, running on devices, and package management. Next up:
 
+- [ ] **Command palette** and go to symbol: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>
+- [ ] **The same file in two views** of a split editor
 - [ ] **Projects** as a top-level page: open a project, then see its devices, builds and git state
 - [ ] **Widget inspector** in the debugger, over the VM service
 - [ ] **More git in the editor**: blame, merge conflicts

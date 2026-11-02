@@ -45,22 +45,17 @@ diff --git a/a b/a
     });
   });
 
-  test('parseDiff numbers lines in the new file', () {
-    final lines = parseDiff('diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1,3 +1,3 @@\n keep\n-old\n+new\n tail\n');
-    expect(lines.map((l) => l.kind), [
-      DiffKind.header,
-      DiffKind.header,
-      DiffKind.header,
-      DiffKind.hunk,
-      DiffKind.context,
-      DiffKind.removed,
-      DiffKind.added,
-      DiffKind.context,
+  test('parseSideBySide lines up changed blocks and keeps both line numbers', () {
+    final rows = parseSideBySide('diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1,4 +1,4 @@\n keep\n-old1\n-old2\n+new1\n tail\n+added\n\\ No newline at end of file\n');
+    expect([for (final r in rows) (r.beforeLine, r.before, r.afterLine, r.after)], [
+      (0, 'keep', 0, 'keep'),
+      (1, 'old1', 1, 'new1'),
+      (2, 'old2', null, ''),
+      (3, 'tail', 2, 'tail'),
+      (null, '', 3, 'added'),
     ]);
-    expect(lines[4].line, 0);
-    expect(lines[5].line, isNull);
-    expect(lines[6].line, 1);
-    expect(lines[7].line, 2);
+    expect(rows.map((r) => r.changed), [false, true, true, false, true]);
+    expect(parseSideBySide('Binary files a/x and b/x differ\n'), isEmpty);
   });
 
   test('stages, diffs, commits, branches and discards in a real repo', () async {
@@ -95,9 +90,10 @@ diff --git a/a b/a
     expect(await sc.marksOf(file.path), {1: GitMark.modified, 2: GitMark.added});
 
     final tracked = sc.unstaged.firstWhere((c) => c.path == 'a file.txt');
-    final diff = await sc.diffOf(tracked, staged: false);
-    expect(diff.where((l) => l.kind == DiffKind.added).map((l) => l.text), ['+TWO', '+three']);
-    expect((await sc.diffOf(sc.unstaged.firstWhere((c) => c.untracked), staged: false)).single.text, '+fresh');
+    final diff = await sc.sideBySideOf(tracked, staged: false);
+    expect([for (final r in diff) (r.before, r.after)], [('one', 'one'), ('two', 'TWO'), ('', 'three')]);
+    final fresh = (await sc.sideBySideOf(sc.unstaged.firstWhere((c) => c.untracked), staged: false)).single;
+    expect((fresh.beforeLine, fresh.after), (null, 'fresh'));
 
     expect(await sc.stage([tracked]), isTrue);
     expect(sc.staged.single.path, 'a file.txt');

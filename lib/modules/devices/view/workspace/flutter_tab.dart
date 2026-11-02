@@ -243,7 +243,7 @@ class _FlutterTabState extends State<FlutterTab> {
                       padding: const EdgeInsets.all(24),
                       child: Text(
                         _projects.isEmpty
-                            ? 'No Flutter projects in project folders. Set them in Settings (main DevKit) or Install → "Set project folders…".'
+                            ? 'No Flutter projects in project folders. Set them in Settings (main Flutter DevKit) or Install → "Set project folders…".'
                             : 'Pick a project, then Run.\nAttach = connect to a running debug app (e.g. from VS Code).',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: scheme.outline),

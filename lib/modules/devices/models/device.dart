@@ -1,4 +1,4 @@
-import 'package:equatable/equatable.dart';
+import '../../../core/equatable.dart';
 
 enum AdbState { unknown, connected, unauthorized, unpaired, offline }
 

@@ -59,7 +59,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final valid = MdnsService.isValidType(type);
     if (valid) await (await SharedPreferences.getInstance()).setString(MdnsService.serviceTypeKey, type);
     messenger.showSnackBar(
-      SnackBar(width: 420, content: Text(valid ? 'Saved. Restart DevKit to apply.' : 'Use a form like _myapp._tcp')),
+      SnackBar(width: 420, content: Text(valid ? 'Saved. Restart Flutter DevKit to apply.' : 'Use a form like _myapp._tcp')),
     );
   }
 
@@ -91,7 +91,7 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: BackgroundRunner.instance.setKeepRunning,
               title: const Text('Keep running when closed'),
               subtitle: const Text(
-                'The close button minimizes DevKit so the printer emulator and scans keep running. '
+                'The close button minimizes Flutter DevKit so the printer emulator and scans keep running. '
                 'Reopen it from the taskbar or tray icon; quit from the tray or the power button in the sidebar.',
               ),
             ),

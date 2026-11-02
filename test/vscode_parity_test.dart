@@ -4,11 +4,11 @@ import 'package:devkit/core/theme.dart';
 import 'package:devkit/extensions/registry.dart';
 import 'package:devkit/modules/editor/brackets.dart';
 import 'package:devkit/modules/editor/breadcrumbs.dart';
-import 'package:devkit/modules/editor/code_pane.dart';
 import 'package:devkit/modules/editor/dart_sdk.dart';
 import 'package:devkit/modules/editor/editor_view.dart';
 import 'package:devkit/modules/editor/editor_workspace.dart';
 import 'package:devkit/modules/editor/log_style.dart';
+import 'package:devkit/modules/editor/notices.dart';
 import 'package:flutter/material.dart' show Color, FontWeight, TextSpan, TextStyle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -27,21 +27,6 @@ void main() {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  group('nextOccurrence', () {
-    const lines = ['foo bar', 'bar foo', 'baz'];
-
-    test('finds the next match, then wraps around', () {
-      expect(nextOccurrence(lines, 'foo', 0, 3), (1, 4));
-      expect(nextOccurrence(lines, 'foo', 1, 7), (0, 0));
-      expect(nextOccurrence(lines, 'bar', 0, 7), (1, 0));
-    });
-
-    test('nothing to find', () {
-      expect(nextOccurrence(lines, 'nope', 0, 0), isNull);
-      expect(nextOccurrence(lines, '', 0, 0), isNull);
-    });
-  });
 
   group('symbols', () {
     DocSymbol sym(String name, int start, int end, [List<DocSymbol> children = const []]) =>
@@ -176,6 +161,39 @@ void main() {
     await File(p.join(dir.path, 'A.dart')).writeAsString('');
     expect(folderEntries(dir.path).map((e) => p.basename(e.path)), ['Alpha', 'zeta', 'A.dart', 'b.dart']);
     expect(folderEntries(p.join(dir.path, 'missing')), isEmpty);
+  });
+
+  test('ProjectTabs keeps each project apart', () async {
+    SharedPreferences.setMockInitialValues({});
+    final a = p.join(Directory.systemTemp.path, 'a'), b = p.join(Directory.systemTemp.path, 'b');
+    expect(await ProjectTabs.load(a), isNull);
+    await const ProjectTabs(['1.dart', '2.dart'], '2.dart').save(a);
+    await const ProjectTabs(['3.dart'], null).save(b);
+    final loaded = (await ProjectTabs.load(a))!;
+    expect(loaded.files, ['1.dart', '2.dart']);
+    expect(loaded.active, '2.dart');
+    expect((await ProjectTabs.load(b))!.files, ['3.dart']);
+    expect((await ProjectTabs.load('$a${Platform.pathSeparator}'))!.files, ['1.dart', '2.dart'], reason: 'same folder, however it is written');
+  });
+
+  test('packagesOutOfSyncSince compares pubspec with what pub get left', () async {
+    final dir = await Directory.systemTemp.createTemp('pkg');
+    addTearDown(() => dir.delete(recursive: true));
+    expect(packagesOutOfSyncSince(dir.path), isNull, reason: 'not a Dart project');
+    final pubspec = File(p.join(dir.path, 'pubspec.yaml'))..writeAsStringSync('name: a');
+    expect(packagesOutOfSyncSince(dir.path), isNotNull, reason: 'never fetched');
+    final config = File(p.join(dir.path, '.dart_tool', 'package_config.json'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('{}');
+    final now = DateTime.now();
+    pubspec.setLastModifiedSync(now.subtract(const Duration(minutes: 5)));
+    config.setLastModifiedSync(now.subtract(const Duration(minutes: 1)));
+    expect(packagesOutOfSyncSince(dir.path), isNull, reason: 'fetched since');
+    pubspec.setLastModifiedSync(now);
+    expect(packagesOutOfSyncSince(dir.path), isNotNull, reason: 'edited since');
+    pubspec.setLastModifiedSync(now.subtract(const Duration(minutes: 5)));
+    File(p.join(dir.path, 'pubspec.lock')).writeAsStringSync('');
+    expect(packagesOutOfSyncSince(dir.path), isNotNull, reason: 'the lock changed, as with a pull');
   });
 
   group('output log', () {
@@ -359,6 +377,7 @@ void main() {
     File(main)
       ..createSync(recursive: true)
       ..writeAsStringSync(_source);
+    File(p.join(dir.path, 'lib', 'second.dart')).writeAsStringSync('class Second {}\n');
     final ws = EditorWorkspace(dir.path);
     addTearDown(() async {
       ws.dispose();
@@ -366,9 +385,18 @@ void main() {
       await dir.delete(recursive: true).catchError((_) => dir);
     });
     final doc = await ws.open(main);
+    expect(ws.startingAnalyzer, isTrue, reason: 'says so while the server comes up');
     for (var i = 0; i < 300 && doc.symbols.isEmpty; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
+    expect(ws.startingAnalyzer, isFalse);
+
+    // A second file opened after analysis settled still gets its colors.
+    final second = await ws.open(main.replaceFirst('main.dart', 'second.dart'));
+    for (var i = 0; i < 100 && second.semantics.isEmpty; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    expect(second.semantics, isNotEmpty);
     final line = _source.split('\n').indexWhere((l) => l.contains('final greeting'));
     expect(symbolChainAt(doc.symbols, line, 6).map((s) => s.name), containsAllInOrder(['Greeter', 'hello']));
     expect(doc.symbols.map((s) => s.name), containsAll(['Greeter', 'main']));

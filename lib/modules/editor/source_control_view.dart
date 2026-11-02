@@ -257,43 +257,137 @@ class _SourceControlViewState extends State<SourceControlView> {
   }
 }
 
-class DiffView extends StatelessWidget {
-  const DiffView({super.key, required this.title, required this.lines, required this.onLine});
+/// Before and after next to each other, in one scroll so their lines stay level.
+class SideBySideDiff extends StatefulWidget {
+  const SideBySideDiff({super.key, required this.git, required this.change, required this.staged, required this.onLine});
 
-  final String title;
-  final List<DiffLine> lines;
+  final SourceControl git;
+  final GitChange change;
+  final bool staged;
+
+  /// Goes to a line of the current file.
   final ValueChanged<int> onLine;
+
+  @override
+  State<SideBySideDiff> createState() => _SideBySideDiffState();
+}
+
+class _SideBySideDiffState extends State<SideBySideDiff> {
+  List<DiffRow>? _rows;
+  var _onlyChanges = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.git.addListener(_load);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    widget.git.removeListener(_load);
+    super.dispose();
+  }
+
+  // Saves and git operations change the file, and the diff should say so.
+  Future<void> _load() async {
+    final rows = await widget.git.sideBySideOf(widget.change, staged: widget.staged);
+    if (!mounted) return;
+    final old = _rows;
+    final same = old != null && old.length == rows.length && [for (var i = 0; i < rows.length; i++) old[i].before == rows[i].before && old[i].after == rows[i].after].every((x) => x);
+    if (!same) setState(() => _rows = rows);
+  }
+
+  Widget _side(ColorScheme scheme, int? number, String text, Color? tint, {VoidCallback? onTap}) {
+    final content = Container(
+      color: number == null ? scheme.onSurface.withValues(alpha: .04) : tint,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 44,
+            child: Text(
+              number == null ? '' : '${number + 1}',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontFamily: 'Consolas', fontSize: 12, color: scheme.outline),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text, style: TextStyle(fontFamily: 'Consolas', fontSize: 12.5, color: scheme.onSurface)),
+          ),
+        ],
+      ),
+    );
+    return onTap == null ? content : InkWell(onTap: onTap, child: content);
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    if (lines.isEmpty) {
-      return Center(
-        child: Text(title.isEmpty ? 'Pick a changed file in Source Control.' : 'No differences in $title.', style: TextStyle(color: scheme.outline)),
-      );
-    }
-    return SelectionArea(
-      child: ListView.builder(
-        itemCount: lines.length,
-        itemExtent: 19,
-        itemBuilder: (_, i) {
-          final l = lines[i];
-          final (bg, fg) = switch (l.kind) {
-            DiffKind.added => (const Color(0x2622C55E), scheme.onSurface),
-            DiffKind.removed => (const Color(0x26EF4444), scheme.onSurface),
-            DiffKind.hunk => (scheme.primary.withValues(alpha: .08), scheme.primary),
-            DiffKind.header => (null, scheme.outline),
-            DiffKind.context => (null, scheme.onSurface),
-          };
-          final text = Container(
-            color: bg,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            alignment: Alignment.centerLeft,
-            child: Text(l.text, maxLines: 1, softWrap: false, overflow: TextOverflow.clip, style: TextStyle(fontFamily: 'Consolas', fontSize: 12.5, color: fg)),
-          );
-          final line = l.line;
-          return line == null ? text : InkWell(onTap: () => onLine(line), child: text);
-        },
+    final all = _rows;
+    if (all == null) return const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)));
+    final rows = _onlyChanges ? all.where((r) => r.changed).toList() : all;
+    Widget heading(String text) => Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      ),
+    );
+    return Material(
+      color: scheme.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 28,
+            color: scheme.surfaceContainerLow,
+            child: Row(
+              children: [
+                heading(widget.staged ? 'Before (HEAD)' : (widget.change.staged ? 'Before (staged)' : 'Before (HEAD)')),
+                heading(widget.staged ? 'After (staged)' : 'After (working copy)'),
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: _onlyChanges ? scheme.primary : scheme.onSurfaceVariant, textStyle: const TextStyle(fontSize: 12)),
+                  onPressed: () => setState(() => _onlyChanges = !_onlyChanges),
+                  child: const Text('Changes only'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: rows.isEmpty
+                ? Center(child: Text('No differences', style: TextStyle(color: scheme.outline)))
+                : SelectionArea(
+                    child: ListView.builder(
+                      itemCount: rows.length,
+                      itemBuilder: (_, i) {
+                        final r = rows[i];
+                        final after = r.afterLine;
+                        return IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(child: _side(scheme, r.beforeLine, r.before, r.changed ? const Color(0x26EF4444) : null)),
+                              VerticalDivider(width: 1, color: scheme.outlineVariant),
+                              Expanded(
+                                child: _side(
+                                  scheme,
+                                  after,
+                                  r.after,
+                                  r.changed ? const Color(0x2622C55E) : null,
+                                  onTap: after == null ? null : () => widget.onLine(after),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }

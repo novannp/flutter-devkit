@@ -29,7 +29,8 @@ class MultiScreenPage extends StatefulWidget {
 }
 
 class _MultiScreenPageState extends State<MultiScreenPage> {
-  final _hidden = <String>{};
+  /// Empty at first: mirroring is heavy, so nothing starts until someone picks a device.
+  final _picked = <String>{};
   final _devs = <String, DeviceAdb>{};
   final _controllers = <String, ScreenMirrorController>{};
   String? _selected;
@@ -45,7 +46,7 @@ class _MultiScreenPageState extends State<MultiScreenPage> {
 
   Future<void> _probeSizes() async {
     if (!mounted) return;
-    final shown = context.read<DevicesCubit>().state.devices.where((d) => d.adb == AdbState.connected).toList();
+    final shown = context.read<DevicesCubit>().state.devices.where((d) => d.adb == AdbState.connected && _picked.contains(d.id)).toList();
     for (final d in shown) {
       if (d.adbTarget == null) continue;
       final bytes = await _dev(d).screenshot();
@@ -163,7 +164,7 @@ class _MultiScreenPageState extends State<MultiScreenPage> {
     return BlocBuilder<DevicesCubit, DevicesState>(
       builder: (context, state) {
         final connected = state.devices.where((d) => d.adb == AdbState.connected && d.adbTarget != null).toList();
-        final shown = connected.where((d) => !_hidden.contains(d.id)).toList();
+        final shown = connected.where((d) => _picked.contains(d.id)).toList();
         final selected = shown.where((d) => d.id == _selected).firstOrNull ?? shown.firstOrNull;
         final useFast = _fast && !_broadcast && _adb.tools.scrcpy != null;
 
@@ -197,8 +198,11 @@ class _MultiScreenPageState extends State<MultiScreenPage> {
                     for (final d in connected)
                       FilterChip(
                         label: Text(d.displayName),
-                        selected: !_hidden.contains(d.id),
-                        onSelected: (v) => setState(() => v ? _hidden.remove(d.id) : _hidden.add(d.id)),
+                        selected: _picked.contains(d.id),
+                        onSelected: (v) {
+                          setState(() => v ? _picked.add(d.id) : _picked.remove(d.id));
+                          if (v) unawaited(_probeSizes());
+                        },
                       ),
                   ],
                 ),
@@ -239,7 +243,7 @@ class _MultiScreenPageState extends State<MultiScreenPage> {
                                                 broadcast: _broadcast,
                                                 onSelect: () => setState(() => _selected = d.id),
                                                 onInput: (input) => _broadcastFrom(d, shown, input),
-                                                onHide: () => setState(() => _hidden.add(d.id)),
+                                                onHide: () => setState(() => _picked.remove(d.id)),
                                               ),
                                             ),
                                           ],
