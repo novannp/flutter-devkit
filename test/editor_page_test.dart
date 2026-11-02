@@ -275,6 +275,16 @@ void main() {
       await tester.pump();
       expect(find.textContaining('usages of helper'), findsNothing, reason: 'the cancelled answer is dropped');
 
+      // Ctrl+Space says it's working even if the analyzer isn't ready, and Esc gives up on it too.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('Loading suggestions…'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(find.text('Loading suggestions…'), findsNothing);
+
       // The declaration isn't one of its own usages; the other file's use is listed too, once it's indexed.
       for (var i = 0; i < 40 && find.text('3 usages of helper').evaluate().isEmpty; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
