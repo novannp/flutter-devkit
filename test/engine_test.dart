@@ -371,4 +371,51 @@ void main() {
     expect(const _Point(1, ['a']) == const _Point(1, ['b']), isFalse);
     expect(const _Point(1, ['a']) == const _Point(2, ['a']), isFalse);
   });
+
+  group('cursors that meet', () {
+    CodeLineEditingController editor(String text) => CodeLineEditingController(codeLines: CodeLines.fromText(text));
+
+    test('Backspace with cursors side by side takes each character once', () {
+      final c = editor('abcd');
+      c.selection = const CodeLineSelection.collapsed(index: 0, offset: 2);
+      c.addCursor(const CodeLineSelection.collapsed(index: 0, offset: 3));
+      c.deleteBackward();
+      expect(c.text, 'ad');
+      expect(c.extraSelections, isEmpty, reason: 'they land on one spot');
+      c.undo();
+      expect(c.text, 'abcd');
+    });
+
+    test('Backspace across a line break next to a cursor before it', () {
+      final c = editor('ab\ncd');
+      c.selection = const CodeLineSelection.collapsed(index: 0, offset: 2);
+      c.addCursor(const CodeLineSelection.collapsed(index: 1, offset: 0));
+      c.deleteBackward();
+      expect(c.text, 'acd');
+    });
+
+    test('overlapping selections act as one', () {
+      final c = editor('abcdef');
+      c.selection = const CodeLineSelection(baseIndex: 0, baseOffset: 1, extentIndex: 0, extentOffset: 4);
+      c.addCursor(const CodeLineSelection(baseIndex: 0, baseOffset: 2, extentIndex: 0, extentOffset: 5));
+      c.insertTyped('Z');
+      expect(c.text, 'aZf');
+    });
+
+    test('wrapping several selections keeps each one\'s own text', () {
+      final c = editor('one two');
+      c.selection = const CodeLineSelection(baseIndex: 0, baseOffset: 0, extentIndex: 0, extentOffset: 3);
+      c.addCursor(const CodeLineSelection(baseIndex: 0, baseOffset: 4, extentIndex: 0, extentOffset: 7));
+      c.insertTyped('(');
+      expect(c.text, '(one) (two)');
+    });
+
+    test('a block comment wraps each cursor\'s own text', () {
+      final c = editor('one two');
+      c.selection = const CodeLineSelection(baseIndex: 0, baseOffset: 0, extentIndex: 0, extentOffset: 3);
+      c.addCursor(const CodeLineSelection(baseIndex: 0, baseOffset: 4, extentIndex: 0, extentOffset: 7));
+      c.toggleBlockComment();
+      expect(c.text, '/*one*/ /*two*/');
+    });
+  });
 }

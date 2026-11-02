@@ -18,12 +18,22 @@ class LspFrameParser {
     while (true) {
       final end = _indexOfSeparator(bytes);
       if (end < 0) break;
-      final length = int.parse(
-        RegExp(r'Content-Length:\s*(\d+)', caseSensitive: false).firstMatch(ascii.decode(bytes.sublist(0, end)))![1]!,
-      );
       final start = end + _separator.length;
+      final header = RegExp(r'Content-Length:\s*(\d+)', caseSensitive: false).firstMatch(ascii.decode(bytes.sublist(0, end), allowInvalid: true));
+      // Anything else the process printed isn't a message; waiting on it would stall the rest.
+      if (header == null) {
+        bytes = bytes.sublist(start);
+        continue;
+      }
+      final length = int.parse(header[1]!);
       if (bytes.length < start + length) break;
-      messages.add(jsonDecode(utf8.decode(bytes.sublist(start, start + length))) as Map<String, dynamic>);
+      try {
+        if (jsonDecode(utf8.decode(bytes.sublist(start, start + length), allowMalformed: true)) case final Map<String, dynamic> message) {
+          messages.add(message);
+        }
+      } on FormatException {
+        // A broken message is dropped, and the ones after it still arrive.
+      }
       bytes = bytes.sublist(start + length);
     }
     _buffer.add(bytes);

@@ -81,7 +81,8 @@ class _FilesTabState extends State<FilesTab> {
 
   void _up() {
     if (_dir == '/') return;
-    final parent = _dir.substring(0, _dir.lastIndexOf('/'));
+    final slash = _dir.lastIndexOf('/');
+    final parent = slash <= 0 ? '' : _dir.substring(0, slash);
     _open(parent.isEmpty ? '/' : parent);
   }
 

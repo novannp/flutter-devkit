@@ -1372,7 +1372,7 @@ class _EditorPageState extends State<EditorPage> {
               axis: Axis.horizontal,
               onDrag: (d) => setState(() {
                 final width = _groupsKey.currentContext?.size?.width;
-                if (width == null) return;
+                if (width == null || i >= ws.groups.length) return;
                 final left = ws.groups[i - 1];
                 final change = d / width * total;
                 // Neither side gets too narrow to use.

@@ -249,10 +249,58 @@ class CodeLineEditingController extends ChangeNotifier {
     if (_undo.length > 2000) _undo.removeAt(0);
   }
 
+  static int _byStart(CodeLineSelection a, CodeLineSelection b) => a.startIndex != b.startIndex
+      ? a.startIndex - b.startIndex
+      : a.startOffset != b.startOffset
+      ? a.startOffset - b.startOffset
+      : a.endIndex != b.endIndex
+      ? a.endIndex - b.endIndex
+      : a.endOffset - b.endOffset;
+
+  /// Cursors can come to overlap, as when Backspace reaches back over the one before. Edits assume
+  /// they don't, so overlapping ones become one.
+  void _mergeCursors() {
+    if (_extras.isEmpty) return;
+    final sorted = [..._allSelections]..sort(_byStart);
+    bool startsBefore(int line, int col, int otherLine, int otherCol) => line < otherLine || (line == otherLine && col < otherCol);
+    final merged = <CodeLineSelection>[];
+    for (final s in sorted) {
+      final last = merged.isEmpty ? null : merged.last;
+      final overlaps =
+          last != null &&
+          (startsBefore(s.startIndex, s.startOffset, last.endIndex, last.endOffset) ||
+              (s.startIndex == last.startIndex && s.startOffset == last.startOffset && s.endIndex == last.endIndex && s.endOffset == last.endOffset));
+      if (!overlaps) {
+        merged.add(s);
+        continue;
+      }
+      final endsLater = startsBefore(last.endIndex, last.endOffset, s.endIndex, s.endOffset);
+      merged.last = CodeLineSelection(
+        baseIndex: last.startIndex,
+        baseOffset: last.startOffset,
+        extentIndex: endsLater ? s.endIndex : last.endIndex,
+        extentOffset: endsLater ? s.endOffset : last.endOffset,
+      );
+    }
+    if (merged.length == _extras.length + 1) return;
+    final primary = merged.firstWhere(
+      (m) => !startsBefore(_selection.startIndex, _selection.startOffset, m.startIndex, m.startOffset) && !startsBefore(m.endIndex, m.endOffset, _selection.endIndex, _selection.endOffset),
+      orElse: () => merged.first,
+    );
+    _selection = primary;
+    _extras = [
+      for (final m in merged)
+        if (!identical(m, primary)) m,
+    ];
+  }
+
   /// Applies [edit] at every cursor, first to last, keeping later cursors in place as lines come and go.
   void _editAll(String Function(CodeLineSelection s) edit, {bool typing = false, CodeLineSelection Function(int line, int col, CodeLineSelection original)? cursorAfter}) {
     final before = _allSelections;
-    final order = [..._allSelections]..sort((a, b) => a.startIndex != b.startIndex ? a.startIndex - b.startIndex : a.startOffset - b.startOffset);
+    _mergeCursors();
+    final order = [..._allSelections]..sort(_byStart);
+    // Asked up front, since an edit may read the text under its cursor and the loop below changes it.
+    final edits = {for (final s in order) s: edit(s).replaceAll('\r\n', '\n')};
     final changes = <_Change>[];
     final after = <CodeLineSelection, CodeLineSelection>{};
     var lineShift = 0, colShift = 0, lastEndLine = -1, firstLine = 1 << 30;
@@ -262,7 +310,7 @@ class CodeLineEditingController extends ChangeNotifier {
       final startCol = s.startOffset + (sameLine ? colShift : 0);
       final endLine = s.endIndex + lineShift;
       final endCol = s.endOffset + (s.endIndex == lastEndLine ? colShift : 0);
-      final inserted = edit(s).replaceAll('\r\n', '\n');
+      final inserted = edits[s]!;
       final removed = _rangeText(startLine, startCol, endLine, endCol);
       final (toLine, toCol) = _splice(startLine, startCol, endLine, endCol, inserted);
       changes.add(_Change(startLine, startCol, removed, inserted));
@@ -273,7 +321,11 @@ class CodeLineEditingController extends ChangeNotifier {
       lastEndLine = s.endIndex;
     }
     _selection = after[_selection]!;
-    _extras = [for (final e in _extras) after[e]!];
+    final seen = <CodeLineSelection>{_selection};
+    _extras = [
+      for (final e in _extras)
+        if (seen.add(after[e]!)) after[e]!,
+    ];
     _stickyColumn = null;
     _record(_Step(changes, before, _allSelections, typing));
     _changed(from: firstLine);
@@ -570,15 +622,18 @@ class CodeLineEditingController extends ChangeNotifier {
   }
 
   void toggleBlockComment([String open = '/*', String close = '*/']) {
-    final inner = selectedText.replaceAll('\r\n', '\n');
-    final s = _selection;
-    if (inner.startsWith(open) && inner.endsWith(close) && inner.length >= open.length + close.length) {
-      _editAll((_) => inner.substring(open.length, inner.length - close.length));
+    bool commented(String t) => t.startsWith(open) && t.endsWith(close) && t.length >= open.length + close.length;
+    final all = {for (final s in _allSelections) s: _textIn(s).replaceAll('\r\n', '\n')};
+    if (all.values.every(commented)) {
+      _editAll((s) {
+        final inner = _textIn(s).replaceAll('\r\n', '\n');
+        return commented(inner) ? inner.substring(open.length, inner.length - close.length) : inner;
+      });
       return;
     }
     _editAll(
-      (_) => '$open$inner$close',
-      cursorAfter: (line, col, _) => s.isCollapsed ? CodeLineSelection.collapsed(index: line, offset: col - close.length) : CodeLineSelection.collapsed(index: line, offset: col),
+      (s) => '$open${_textIn(s).replaceAll('\r\n', '\n')}$close',
+      cursorAfter: (line, col, s) => s.isCollapsed ? CodeLineSelection.collapsed(index: line, offset: col - close.length) : CodeLineSelection.collapsed(index: line, offset: col),
     );
   }
 
@@ -796,8 +851,9 @@ class CodeLineEditingController extends ChangeNotifier {
     final normal = text.replaceAll('\r\n', '\n');
     // As many lines as cursors: each cursor gets its own.
     final parts = normal.split('\n');
+    _mergeCursors();
     if (_extras.isNotEmpty && parts.length == _extras.length + 1) {
-      final order = [..._allSelections]..sort((a, b) => a.startIndex != b.startIndex ? a.startIndex - b.startIndex : a.startOffset - b.startOffset);
+      final order = [..._allSelections]..sort(_byStart);
       _editAll((s) => parts[order.indexOf(s)]);
     } else {
       _editAll((_) => normal);

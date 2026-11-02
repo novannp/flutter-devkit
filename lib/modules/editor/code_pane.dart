@@ -510,7 +510,8 @@ class CodePaneState extends State<CodePane> {
         }
         final text = _ctrl.codeLines[line].text;
         finish();
-        _filter(text.substring(start.clamp(0, text.length), sel.extentOffset.clamp(start, text.length)));
+        final from = start.clamp(0, text.length);
+        _filter(text.substring(from, sel.extentOffset.clamp(from, text.length)));
         if (manual && _shown.isEmpty) _showCompletionNote('No suggestions', line, column);
       } on Exception {
         // The server restarting or a timeout only means no suggestions this time.
@@ -615,7 +616,9 @@ class CodePaneState extends State<CodePane> {
     final line = _popupLine, start = _wordStart;
     _closePopup();
     final resolved = await widget.workspace.resolveCompletion(_doc, entry);
-    if (!mounted) return;
+    final sel = _ctrl.selection;
+    // Resolving takes a moment, and an edit made meanwhile can move or remove the line.
+    if (!mounted || sel.extentIndex != line || sel.extentOffset < start) return;
     _applying = true;
     _snippet = widget.workspace.applyCompletion(_doc, resolved, line: line, start: start, end: _ctrl.selection.extentOffset);
     _lastLines = _ctrl.codeLines;
@@ -792,8 +795,11 @@ class CodePaneState extends State<CodePane> {
     widget.onTarget(target);
   });
 
+  /// A line's text, for callers holding a line number across an await: the file may be shorter now.
+  String _textOf(int line) => line >= 0 && line < _ctrl.codeLines.length ? _ctrl.codeLines[line].text : '';
+
   Future<void> _findReferences(int line, int col) => _guard(() async {
-    final text = _ctrl.codeLines[line].text;
+    final text = _textOf(line);
     final at = col.clamp(0, text.length);
     final word = _wordBefore.firstMatch(text.substring(0, at))![0]! + RegExp(r'^[A-Za-z0-9_$]*').firstMatch(text.substring(at))![0]!;
     final token = _beginLoading(word.isEmpty ? 'Finding usages…' : 'Finding usages of $word…', line, col);
@@ -1011,7 +1017,7 @@ class CodePaneState extends State<CodePane> {
     } finally {
       if (token == _loadingToken) _endLoading();
     }
-    if (target != null && !isDeclarationAt(target, _doc.path, line, col, _ctrl.codeLines[line].text)) return widget.onTarget(target);
+    if (target != null && !isDeclarationAt(target, _doc.path, line, col, _textOf(line))) return widget.onTarget(target);
     await _findReferences(line, col);
   });
 
@@ -1037,7 +1043,7 @@ class CodePaneState extends State<CodePane> {
   }
 
   Future<void> _rename(int line, int col) => _guard(() async {
-    final text = _ctrl.codeLines[line].text;
+    final text = _textOf(line);
     final left = _wordBefore.firstMatch(text.substring(0, col.clamp(0, text.length)))![0]!;
     final right = RegExp(r'^[A-Za-z0-9_$]*').firstMatch(text.substring(col.clamp(0, text.length)))![0]!;
     final ctrl = TextEditingController(text: '$left$right')..selection = TextSelection(baseOffset: 0, extentOffset: left.length + right.length);
@@ -1226,8 +1232,7 @@ class CodePaneState extends State<CodePane> {
     final pos = _positionAt(local);
     if (pos == null) return;
     final (line, col) = pos;
-    final text = _ctrl.codeLines[line].text;
-    if (col >= text.length) return;
+    if (col >= _textOf(line).length) return;
     await _loadHover(line, col, _caretOffset(line, col) ?? local);
   }
 
@@ -1257,7 +1262,7 @@ class CodePaneState extends State<CodePane> {
     setState(() {
       _hover = parts.join('\n\n---\n');
       _hoverAt = at;
-      final text = _ctrl.codeLines[line].text;
+      final text = _textOf(line);
       final from = col.clamp(0, text.length);
       _hoverWord = (
         line,
