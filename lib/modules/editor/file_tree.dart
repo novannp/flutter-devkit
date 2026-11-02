@@ -326,6 +326,9 @@ const _folderColor = Color(0xFFE8A93A);
   _folderColor,
 );
 
+// Material has no Dart mark; tool/make_icon_font.py builds this one.
+const _dartIcon = IconData(0xE000, fontFamily: 'DevKitIcons');
+
 (IconData, Color?) fileIconOf(String path) {
   final name = p.basename(path).toLowerCase();
   return switch (name) {
@@ -335,7 +338,7 @@ const _folderColor = Color(0xFFE8A93A);
     'analysis_options.yaml' => (Icons.rule, const Color(0xFF42A5F5)),
     'readme.md' => (Icons.menu_book_outlined, const Color(0xFF42A5F5)),
     _ => switch (p.extension(name)) {
-      '.dart' => (Icons.code, const Color(0xFF29B6F6)),
+      '.dart' => (_dartIcon, const Color(0xFF40C4FF)),
       '.yaml' || '.yml' || '.toml' || '.ini' || '.properties' => (Icons.settings_outlined, const Color(0xFFAB47BC)),
       '.json' || '.arb' => (Icons.data_object, const Color(0xFFFBC02D)),
       '.md' => (Icons.article_outlined, const Color(0xFF42A5F5)),
