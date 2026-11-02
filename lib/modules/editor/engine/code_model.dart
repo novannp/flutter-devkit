@@ -187,6 +187,20 @@ class CodeLineEditingController extends ChangeNotifier {
     notifyListeners();
   }
 
+  var _disposed = false;
+
+  // Late answers, like colors from the analyzer, can arrive after the document has closed.
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   void forceRepaint() {
     paintVersion++;
     notifyListeners();

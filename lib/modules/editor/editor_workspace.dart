@@ -344,8 +344,17 @@ class EditorDocument extends ChangeNotifier {
     return true;
   }
 
+  var _disposed = false;
+
+  // The analyzer's answers can land after the tab or project has closed.
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   @override
   void dispose() {
+    _disposed = true;
     _sync?.cancel();
     controller.removeListener(_onControllerChanged);
     controller.dispose();
