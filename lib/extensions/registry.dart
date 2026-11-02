@@ -80,7 +80,7 @@ final builtinExtensions = <BuiltinExtension>[
   const BuiltinExtension(
     id: 'maintenance',
     name: 'Maintenance',
-    description: 'Check the SDKs and tools projects depend on, and clean up what builds leave behind.',
+    description: 'Clean up the caches and emulator images that builds leave behind.',
     icon: Icons.cleaning_services_outlined,
     menu: 'Tools',
     modules: [AppModule('Maintenance', Icons.cleaning_services_outlined, MaintenancePage())],
