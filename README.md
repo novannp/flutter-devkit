@@ -54,6 +54,8 @@ A native code editor with no WebView. The Dart analysis server starts only when 
 - **Flutter**: run on a connected device or Windows, hot reload on save, hot restart, `pub get` and friends; output lines with a `lib/…:line` open that spot
 - **Editing**: tabs, syntax highlighting (Dart, YAML, JSON, XML, Kotlin, Gradle, Swift and more), code folding, find and replace, format on save, undo
 - **Project**: file tree with create/rename/delete, quick open, search in files, problems panel, terminal
+- **Debugger**: breakpoints in the gutter, step over/into/out, call stack, variables you can expand, evaluate in a frame, pause on exceptions. It connects by itself when you press Run, on a device or on Windows
+- **Source Control**: changed files, stage and unstage, commit, push and pull, switch or create branches, discard, a diff panel, and gutter marks for lines that differ from `HEAD`
 - Tabs follow changes on disk, such as a branch switch; unsaved edits are never overwritten
 
 | Keys | Action |
@@ -66,6 +68,9 @@ A native code editor with no WebView. The Dart analysis server starts only when 
 | <kbd>F2</kbd> / <kbd>Ctrl</kbd>+<kbd>.</kbd> / <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> | Rename / quick fix / format |
 | <kbd>F5</kbd> / <kbd>Shift</kbd>+<kbd>F5</kbd> | Run / stop |
 | <kbd>Ctrl</kbd>+<kbd>F5</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F5</kbd> | Hot reload / hot restart |
+| <kbd>F9</kbd> / <kbd>F6</kbd> | Toggle breakpoint / pause (<kbd>F5</kbd> continues) |
+| <kbd>F10</kbd> / <kbd>F11</kbd> / <kbd>Shift</kbd>+<kbd>F11</kbd> | Step over / into / out |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | Source Control |
 | <kbd>Ctrl</kbd>+<kbd>J</kbd> / <kbd>Ctrl</kbd>+<kbd>`</kbd> | Toggle panel / terminal |
 
 ### 📡 Devices
@@ -233,8 +238,8 @@ New app? Put its repo in a project folder, and DevKit recognises it everywhere.
 DevKit already covers editing, running on devices, and package management. Next up:
 
 - [ ] **Projects** as a top-level page: open a project, then see its devices, builds and git state
-- [ ] **Debugger**: breakpoints, stepping and the widget inspector over the VM service
-- [ ] **Git in the editor**: changed files, inline diff, blame
+- [ ] **Widget inspector** in the debugger, over the VM service
+- [ ] **More git in the editor**: blame, merge conflicts
 - [ ] **Beyond Android and Windows**: iOS, macOS and Linux targets
 
 ---

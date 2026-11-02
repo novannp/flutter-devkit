@@ -51,6 +51,7 @@ dependencies:
   local_notifier: ^0.1.6
   re_editor: ^0.10.0
   re_highlight: ^0.0.3
+  vm_service: ^15.4.0
 
 dev_dependencies:
   flutter_test:

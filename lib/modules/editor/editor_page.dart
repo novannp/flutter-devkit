@@ -17,8 +17,12 @@ import '../devices/models/device.dart';
 import '../devices/services/flutter_session.dart';
 import 'code_pane.dart';
 import 'dart_sdk.dart';
+import 'debug_panel.dart';
+import 'debugger.dart';
 import 'editor_workspace.dart';
 import 'file_tree.dart';
+import 'source_control.dart';
+import 'source_control_view.dart';
 
 const _prefRoot = 'editor_root';
 const _prefFiles = 'editor_open_files';
@@ -46,7 +50,7 @@ class EditorPage extends StatefulWidget {
   State<EditorPage> createState() => _EditorPageState();
 }
 
-enum _Panel { problems, output, terminal, search }
+enum _Panel { problems, output, debug, diff, terminal, search }
 
 class _EditorPageState extends State<EditorPage> {
   EditorWorkspace? _ws;
@@ -62,6 +66,16 @@ class _EditorPageState extends State<EditorPage> {
 
   ConsoleSession? _terminal;
   FlutterSession? _flutter;
+  final _debugger = Debugger();
+  final _pageFocus = FocusNode(debugLabel: 'editor page');
+  final _git = SourceControl();
+  Timer? _gitPoll;
+  var _showGit = false;
+  var _diffTitle = '';
+  String? _diffPath;
+  List<DiffLine> _diff = const [];
+  String? _debugUri;
+  (String, int)? _shownStop;
   String? _device;
   bool _reloadOnSave = true;
   final _tool = <String>[];
@@ -77,6 +91,10 @@ class _EditorPageState extends State<EditorPage> {
   void initState() {
     super.initState();
     editorSaveAllOnQuit = () async => _ws?.saveAll();
+    _git.addListener(_rebuild);
+    _debugger
+      ..onMessage = ((m) => _flutter?.note(m, error: true))
+      ..addListener(_onDebugger);
     _load();
   }
 
@@ -87,8 +105,16 @@ class _EditorPageState extends State<EditorPage> {
     _ws?.removeListener(_rebuild);
     _ws?.dispose();
     _terminal?.dispose();
-    _flutter?.removeListener(_rebuild);
+    _pageFocus.dispose();
+    _gitPoll?.cancel();
+    _git
+      ..removeListener(_rebuild)
+      ..dispose();
+    _flutter?.removeListener(_onFlutter);
     _flutter?.dispose();
+    _debugger
+      ..removeListener(_onDebugger)
+      ..dispose();
     _searchCtrl.dispose();
     _outputScroll.dispose();
     super.dispose();
@@ -138,9 +164,11 @@ class _EditorPageState extends State<EditorPage> {
     }
     _terminal?.dispose();
     _terminal = null;
-    _flutter?.removeListener(_rebuild);
+    _flutter?.removeListener(_onFlutter);
     _flutter?.dispose();
     _flutter = null;
+    _debugUri = null;
+    unawaited(_debugger.disconnect());
     final ws = EditorWorkspace(
       root,
       spanBuilderFor: (path) => diagnosticsSpanBuilder(() => _ws?.documentAt(path)?.diagnostics ?? const []),
@@ -153,7 +181,11 @@ class _EditorPageState extends State<EditorPage> {
     setState(() {
       _ws = ws;
       _hits = const [];
+      _diff = const [];
+      _diffTitle = '';
+      _diffPath = null;
     });
+    unawaited(_git.open(root));
     for (final f in files) {
       if (File(f).existsSync()) await _openFile(f);
     }
@@ -225,7 +257,17 @@ class _EditorPageState extends State<EditorPage> {
     final key = e.logicalKey;
     void Function()? action;
     if (key == LogicalKeyboardKey.f5 && !hw.isControlPressed) {
-      action = hw.isShiftPressed ? () => _flutter?.stop() : _run;
+      action = hw.isShiftPressed ? () => _flutter?.stop() : (_debugger.paused ? _debugger.resume : _run);
+    } else if (hw.isControlPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyG) {
+      action = _toggleGit;
+    } else if (key == LogicalKeyboardKey.f6) {
+      action = _debugger.pause;
+    } else if (key == LogicalKeyboardKey.f9) {
+      action = () => _paneKey.currentState?.toggleBreakpointAtCursor();
+    } else if (key == LogicalKeyboardKey.f10) {
+      action = _debugger.stepOver;
+    } else if (key == LogicalKeyboardKey.f11) {
+      action = hw.isShiftPressed ? _debugger.stepOut : _debugger.stepInto;
     } else if (hw.isControlPressed) {
       if (key == LogicalKeyboardKey.keyS) action = hw.isShiftPressed ? () => _ws?.saveAll() : _save;
       if (key == LogicalKeyboardKey.keyW) action = _ws?.active == null ? null : () => _closeTab(_ws!.active!);
@@ -301,12 +343,73 @@ class _EditorPageState extends State<EditorPage> {
     if (device == null) return _toast('Pick a device first');
     await ws.saveAll();
     if (_flutter?.deviceId != device) {
-      _flutter?.removeListener(_rebuild);
+      _flutter?.removeListener(_onFlutter);
       _flutter?.dispose();
-      _flutter = FlutterSession(device)..addListener(_rebuild);
+      _flutter = FlutterSession(device)..addListener(_onFlutter);
     }
     _showPanel(_Panel.output);
-    await _flutter!.start(_project(ws), attach: false);
+    // Pausing at start gets the breakpoints in before main runs; the debugger resumes once they're set.
+    await _flutter!.start(_project(ws), attach: false, extraArgs: _debugger.hasBreakpoints ? const ['--start-paused'] : const []);
+  }
+
+  // A click on a panel can leave nothing focused, and then F9 or F10 reach no one.
+  Widget _keepingKeys(Widget child) => Listener(
+    onPointerUp: (_) => WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_pageFocus.hasFocus && FocusManager.instance.primaryFocus is FocusScopeNode) _pageFocus.requestFocus();
+    }),
+    child: child,
+  );
+
+  void _toggleGit() {
+    setState(() => _showGit = !_showGit);
+    _gitPoll?.cancel();
+    _gitPoll = null;
+    if (!_showGit) return;
+    unawaited(_git.refresh());
+    // Terminals and other tools change the repo too.
+    _gitPoll = Timer.periodic(const Duration(seconds: 4), (_) => _git.refresh());
+  }
+
+  Future<void> _showDiff(GitChange change, bool staged) async {
+    final lines = await _git.diffOf(change, staged: staged);
+    if (!mounted) return;
+    setState(() {
+      _diff = lines;
+      _diffTitle = change.path;
+      _diffPath = _git.absolute(change.path);
+    });
+    _showPanel(_Panel.diff);
+  }
+
+  void _onFlutter() {
+    _rebuild();
+    final uri = _flutter?.vmServiceUri, root = _ws?.root;
+    if (uri == _debugUri) return;
+    _debugUri = uri;
+    if (uri == null || root == null) {
+      unawaited(_debugger.disconnect());
+      return;
+    }
+    unawaited(
+      _debugger.connect(uri, root).catchError((Object e) {
+        _flutter?.note('Debugger could not connect: $e', error: true);
+      }),
+    );
+  }
+
+  void _onDebugger() {
+    _rebuild();
+    final frame = _debugger.currentFrame;
+    if (frame == null) {
+      _shownStop = null;
+      return;
+    }
+    // Only follow a new stop, so reading other files while paused doesn't jump back.
+    final path = frame.path;
+    if (_debugger.selectedFrame != 0 || path == null || _shownStop == (path, frame.line)) return;
+    _shownStop = (path, frame.line);
+    _showPanel(_Panel.debug);
+    unawaited(_openFile(path, line: frame.line, column: frame.column));
   }
 
   Future<void> _runTool(String args) async {
@@ -380,7 +483,8 @@ class _EditorPageState extends State<EditorPage> {
     if (ws == null) return _Welcome(projects: _projects, onOpen: _openRoot, onPick: _pickFolder);
     final scheme = Theme.of(context).colorScheme;
     final doc = ws.active;
-    return Focus(
+    return _keepingKeys(Focus(
+      focusNode: _pageFocus,
       onKeyEvent: (_, e) => _onKey(e),
       child: Column(
         children: [
@@ -391,12 +495,28 @@ class _EditorPageState extends State<EditorPage> {
               children: [
                 SizedBox(
                   width: _treeWidth,
-                  child: FileTree(
-                    key: _treeKey,
-                    root: ws.root,
-                    onOpen: _openFile,
-                    errorsIn: (path) => ws.diagnostics[path]?.where((d) => d.severity == 1).length ?? 0,
-                    isOpen: (path) => p.equals(ws.active?.path ?? '', path),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _sideTabs(scheme),
+                      Expanded(
+                        // The tree stays mounted, so its open folders survive a look at Source Control.
+                        child: IndexedStack(
+                          index: _showGit ? 1 : 0,
+                          sizing: StackFit.expand,
+                          children: [
+                            FileTree(
+                              key: _treeKey,
+                              root: ws.root,
+                              onOpen: _openFile,
+                              errorsIn: (path) => ws.diagnostics[path]?.where((d) => d.severity == 1).length ?? 0,
+                              isOpen: (path) => p.equals(ws.active?.path ?? '', path),
+                            ),
+                            SourceControlView(git: _git, onBeforeCommit: ws.saveAll, onDiff: _showDiff),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 _DragHandle(
@@ -416,6 +536,8 @@ class _EditorPageState extends State<EditorPage> {
                                 key: _paneKey,
                                 workspace: ws,
                                 doc: doc,
+                                debugger: _debugger,
+                                git: _git,
                                 onKey: _onKey,
                                 onTarget: (t) => _openFile(t.path, line: t.line, column: t.column),
                                 onReferences: _showReferences,
@@ -437,6 +559,24 @@ class _EditorPageState extends State<EditorPage> {
           _statusBar(ws, scheme),
         ],
       ),
+    ));
+  }
+
+  Widget _sideTabs(ColorScheme scheme) {
+    Widget tab(String tip, IconData icon, bool selected, String? badge) => IconButton(
+      tooltip: tip,
+      iconSize: 18,
+      visualDensity: VisualDensity.compact,
+      color: selected ? scheme.primary : scheme.onSurfaceVariant,
+      onPressed: selected ? null : _toggleGit,
+      icon: badge == null ? Icon(icon) : Badge(label: Text(badge), child: Icon(icon)),
+    );
+    final count = _git.changes.length;
+    return Row(
+      children: [
+        tab('Files', Icons.folder_outlined, !_showGit, null),
+        tab('Source Control (Ctrl+Shift+G)', Icons.call_split, _showGit, count == 0 ? null : '$count'),
+      ],
     );
   }
 
@@ -690,6 +830,8 @@ class _EditorPageState extends State<EditorPage> {
               children: [
                 tab(_Panel.problems, 'Problems (${ws.allDiagnostics.length})'),
                 tab(_Panel.output, 'Output'),
+                tab(_Panel.debug, _debugger.paused ? 'Debug (paused)' : 'Debug'),
+                tab(_Panel.diff, 'Diff'),
                 tab(_Panel.terminal, 'Terminal'),
                 tab(_Panel.search, 'Search'),
                 const Spacer(),
@@ -708,6 +850,19 @@ class _EditorPageState extends State<EditorPage> {
             child: switch (_panel) {
               _Panel.problems => _problems(ws, scheme),
               _Panel.output => _output(scheme),
+              _Panel.debug => DebugPanel(
+                debugger: _debugger,
+                root: ws.root,
+                onOpen: (path, line, column) => _openFile(path, line: line, column: column),
+              ),
+              _Panel.diff => DiffView(
+                title: _diffTitle,
+                lines: _diff,
+                onLine: (line) {
+                  final path = _diffPath;
+                  if (path != null && File(path).existsSync()) _openFile(path, line: line, column: 0);
+                },
+              ),
               _Panel.terminal => _terminalView(ws),
               _Panel.search => _searchView(ws, scheme),
             },
