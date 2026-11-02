@@ -58,6 +58,46 @@ diff --git a/a b/a
     expect(parseSideBySide('Binary files a/x and b/x differ\n'), isEmpty);
   });
 
+  test('blame says who last touched each line', () {
+    const out = '''
+1111111111111111111111111111111111111111 1 1 2
+author Ana Silva
+author-time 1000000
+summary First line
+filename a.dart
+\tone
+1111111111111111111111111111111111111111 2 2
+author Ana Silva
+author-time 1000000
+summary First line
+filename a.dart
+\ttwo
+0000000000000000000000000000000000000000 3 3 1
+author Not Committed Yet
+author-time 2000000
+summary Version of a.dart from a.dart
+filename a.dart
+\tthree
+''';
+    final blame = parseBlame(out);
+    expect(blame.keys, [0, 1, 2]);
+    expect(blame[1]!.author, 'Ana Silva');
+    expect(blame[1]!.summary, 'First line');
+    expect(blame[1]!.committed, isTrue);
+    expect(blame[2]!.committed, isFalse);
+    expect(blame[2]!.describe(DateTime.now()), 'Not committed yet');
+  });
+
+  test('ages read the way people say them', () {
+    final now = DateTime(2026, 6, 1);
+    expect(ageOf(now.subtract(const Duration(seconds: 5)), now), 'just now');
+    expect(ageOf(now.subtract(const Duration(minutes: 1)), now), '1 minute ago');
+    expect(ageOf(now.subtract(const Duration(hours: 3)), now), '3 hours ago');
+    expect(ageOf(now.subtract(const Duration(days: 8)), now), '1 week ago');
+    expect(ageOf(now.subtract(const Duration(days: 70)), now), '2 months ago');
+    expect(ageOf(now.subtract(const Duration(days: 800)), now), '2 years ago');
+  });
+
   test('stages, diffs, commits, branches and discards in a real repo', () async {
     final dir = await Directory.systemTemp.createTemp('devkit_git');
     addTearDown(() => dir.delete(recursive: true).catchError((_) => dir));
@@ -111,6 +151,11 @@ diff --git a/a b/a
     expect(await sc.switchTo('feature/x', create: true), isTrue);
     expect(sc.branch, 'feature/x');
     expect(await sc.branches(), containsAll(['main', 'feature/x']));
+
+    final blame = await sc.blameOf(file.path);
+    expect(blame, hasLength(3));
+    expect(blame[0]!.committed, isTrue);
+    expect(await sc.blameOf(p.join(dir.path, 'never tracked.txt')), isEmpty);
 
     await file.writeAsString('thrown away\n');
     await sc.refresh();

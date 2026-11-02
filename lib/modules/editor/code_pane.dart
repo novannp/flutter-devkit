@@ -222,6 +222,7 @@ class CodePaneState extends State<CodePane> {
   bool _applying = false;
 
   Map<int, GitMark> _marks = const {};
+  Map<int, BlameLine> _blame = const {};
   var _wasDirty = false;
 
   // Docs beside the completion popup.
@@ -294,6 +295,7 @@ class CodePaneState extends State<CodePane> {
     HardwareKeyboard.instance.addHandler(_onHardwareKey);
     EditorView.listenable.addListener(_onDebugger);
     widget.git.addListener(_loadMarks);
+    EditorView.lineBlame.addListener(_loadMarks);
     _doc.addListener(_onDoc);
     _wasDirty = _doc.dirty;
     _loadMarks();
@@ -318,6 +320,7 @@ class CodePaneState extends State<CodePane> {
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     EditorView.listenable.removeListener(_onDebugger);
     widget.git.removeListener(_loadMarks);
+    EditorView.lineBlame.removeListener(_loadMarks);
     _doc.removeListener(_onDoc);
     _find.dispose();
     _focus.dispose();
@@ -336,6 +339,20 @@ class CodePaneState extends State<CodePane> {
     final doc = _doc;
     final marks = await widget.git.marksOf(doc.path);
     if (mounted && identical(doc, _doc) && !mapEquals(marks, _marks)) setState(() => _marks = marks);
+    final blame = EditorView.lineBlame.value ? await widget.git.blameOf(doc.path) : const <int, BlameLine>{};
+    if (mounted && identical(doc, _doc)) setState(() => _blame = blame);
+  }
+
+  /// Blame describes the saved file, so its line numbers mean nothing during unsaved edits.
+  (String, Offset)? _blameAtCaret() {
+    if (_doc.dirty || _blame.isEmpty) return null;
+    final sel = _ctrl.selection;
+    final blame = _blame[sel.extentIndex];
+    if (blame == null || !sel.isCollapsed) return null;
+    final end = _caretOffset(sel.extentIndex, _ctrl.codeLines[sel.extentIndex].length);
+    final para = _paragraphAt(sel.extentIndex);
+    if (end == null || para == null) return null;
+    return (blame.describe(DateTime.now()), end - Offset(0, para.preferredLineHeight));
   }
 
   void _shiftBreakpoints(CodeLines before, CodeLines after, int cursor) {
@@ -394,6 +411,7 @@ class CodePaneState extends State<CodePane> {
     _link = null;
     _pointer = null;
     _marks = const {};
+    _blame = const {};
     unawaited(_loadMarks());
   }
 
@@ -1011,6 +1029,8 @@ class CodePaneState extends State<CodePane> {
         const PopupMenuDivider(),
         PopupMenuItem(height: 30, value: () => _codeActions(line, col), child: const _MenuRow('Quick Fix…', 'Ctrl+.')),
         PopupMenuItem(height: 30, value: () => _showHoverAtCaret(line, col), child: const _MenuRow('Show Docs', 'F1')),
+        const PopupMenuDivider(),
+        PopupMenuItem(height: 30, value: EditorView.toggleLineBlame, child: _MenuRow(EditorView.lineBlame.value ? 'Hide Line Blame' : 'Show Line Blame', '')),
       ],
     );
     picked?.call();
@@ -1476,6 +1496,14 @@ class CodePaneState extends State<CodePane> {
                   ),
                 ),
               ),
+            if (EditorView.lineBlame.value && _indicator != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _BlamePainter(_indicator!, scheme.outline, EditorView.fontSize.value - 1, _blameAtCaret, () => _fieldOrigin()?.dx ?? 0),
+                  ),
+                ),
+              ),
             if (_bracket != null && _indicator != null)
               Positioned.fill(
                 child: IgnorePointer(
@@ -1670,6 +1698,39 @@ class _GutterPainter extends CustomPainter {
   @override
   bool shouldRepaint(_GutterPainter old) =>
       !setEquals(old.lines, lines) || old.current != current || !mapEquals(old.marks, marks);
+}
+
+class _BlamePainter extends CustomPainter {
+  _BlamePainter(this.notifier, this.color, this.fontSize, this.blame, this.left) : super(repaint: notifier);
+
+  final CodeIndicatorValueNotifier notifier;
+  final Color color;
+  final double fontSize;
+  final (String, Offset)? Function() blame;
+  final double Function() left;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final found = blame();
+    if (found == null) return;
+    final (text, at) = found;
+    final start = at.dx + 28;
+    if (start < left() || start >= size.width) return;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: fontSize, height: 1.4, color: color.withValues(alpha: .75)),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: size.width - start - 12);
+    painter.paint(canvas, Offset(start, at.dy));
+    painter.dispose();
+  }
+
+  @override
+  bool shouldRepaint(_BlamePainter old) => old.color != color || old.fontSize != fontSize;
 }
 
 class _BracketPainter extends CustomPainter {

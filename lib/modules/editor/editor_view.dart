@@ -14,12 +14,14 @@ class EditorView {
 
   static final fontSize = ValueNotifier(defaultFontSize);
   static final wordWrap = ValueNotifier(false);
-  static final listenable = Listenable.merge([fontSize, wordWrap]);
+  static final lineBlame = ValueNotifier(false);
+  static final listenable = Listenable.merge([fontSize, wordWrap, lineBlame]);
 
   static Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     fontSize.value = prefs.getDouble(_prefFontSize) ?? defaultFontSize;
     wordWrap.value = prefs.getBool(_prefWordWrap) ?? false;
+    lineBlame.value = prefs.getBool(_prefLineBlame) ?? false;
   }
 
   static Future<void> zoom(double delta) => _setFontSize(fontSize.value + delta);
@@ -31,6 +33,11 @@ class EditorView {
     await (await SharedPreferences.getInstance()).setDouble(_prefFontSize, fontSize.value);
   }
 
+  static Future<void> toggleLineBlame() async {
+    lineBlame.value = !lineBlame.value;
+    await (await SharedPreferences.getInstance()).setBool(_prefLineBlame, lineBlame.value);
+  }
+
   static Future<void> toggleWordWrap() async {
     wordWrap.value = !wordWrap.value;
     await (await SharedPreferences.getInstance()).setBool(_prefWordWrap, wordWrap.value);
@@ -38,6 +45,7 @@ class EditorView {
 }
 
 const _prefRecents = 'editor_recents';
+const _prefLineBlame = 'editor_line_blame';
 
 /// Folders and files opened lately, newest first.
 class RecentPaths {
