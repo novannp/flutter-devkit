@@ -621,7 +621,7 @@ class _IssueDetailState extends State<_IssueDetail> {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Add your repo folder in Settings → Project folders to start branches from here.',
+              'Add your repo folder in Settings → Projects to start branches from here.',
               style: TextStyle(color: scheme.outline, fontSize: 12),
             ),
           ),

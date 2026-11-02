@@ -1,17 +1,19 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-import '../devices/cubit/devices_cubit.dart';
-
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/apps.dart';
 import '../../core/background.dart';
+import '../../core/compact_dropdown.dart';
 import '../../core/local_builds.dart';
+import '../../core/theme.dart';
+import '../devices/cubit/devices_cubit.dart';
 import '../devices/services/adb_service.dart';
 import '../devices/services/mdns_service.dart';
 import '../devices/services/network_scanner.dart';
+import '../editor/editor_page.dart' show EditorCommands;
+import '../editor/editor_view.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -20,15 +22,35 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
+class _Setting {
+  const _Setting(this.title, this.description, {this.trailing, this.below});
+
+  final String title, description;
+  final Widget? trailing, below;
+}
+
+class _Section {
+  const _Section(this.label, this.icon, this.settings);
+
+  final String label;
+  final IconData icon;
+  final List<_Setting> settings;
+}
+
 class _SettingsPageState extends State<SettingsPage> {
+  static const _navBelow = 640.0;
+
   List<String> _folders = const [];
   List<FlutterProject> _projects = const [];
   List<String> _subnets = const [];
   final _mdnsType = TextEditingController();
+  final _search = TextEditingController();
+  var _selected = 0;
 
   @override
   void initState() {
     super.initState();
+    _search.addListener(() => setState(() {}));
     _load();
   }
 
@@ -50,6 +72,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void dispose() {
     _mdnsType.dispose();
+    _search.dispose();
     super.dispose();
   }
 
@@ -70,174 +93,334 @@ class _SettingsPageState extends State<SettingsPage> {
     _load();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
+  List<_Section> _sections(BuildContext context) {
     final tools = context.read<AdbService>().tools;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-      children: [
-        Text('Settings', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        Text('Saved on this machine only, so each developer can differ.', style: TextStyle(color: scheme.outline)),
-        const SizedBox(height: 16),
-        ValueListenableBuilder(
-          valueListenable: keepRunningOnClose,
-          builder: (_, on, _) => Card(
-            child: SwitchListTile(
-              value: on,
-              onChanged: BackgroundRunner.instance.setKeepRunning,
-              title: const Text('Keep running when closed'),
-              subtitle: const Text(
-                'The close button minimizes Flutter DevKit so the printer emulator and scans keep running. '
-                'Reopen it from the taskbar or tray icon; quit from the tray or the power button in the sidebar.',
+    return [
+      _Section('General', Icons.tune, [
+        _Setting(
+          'Theme',
+          'The colors of the whole app.',
+          trailing: ValueListenableBuilder(
+            valueListenable: appTheme,
+            builder: (_, current, _) => SizedBox(
+              width: 180,
+              child: CompactDropdown<AppTheme>(
+                key: ValueKey(current.id),
+                value: current,
+                isExpanded: true,
+                items: [for (final t in appThemes) DropdownMenuItem(value: t, child: Text(t.name))],
+                onChanged: (t) {
+                  if (t != null) setAppTheme(t);
+                },
               ),
             ),
           ),
         ),
-        ValueListenableBuilder(
-          valueListenable: DevicesCubit.autoPort5555,
-          builder: (_, on, _) => Card(
-            child: SwitchListTile(
+        _Setting(
+          'Keep running when closed',
+          'The close button hides the window, so the printer and scans keep going. Quit from the File menu or the tray.',
+          trailing: ValueListenableBuilder(
+            valueListenable: keepRunningOnClose,
+            builder: (_, on, _) => Switch(value: on, onChanged: BackgroundRunner.instance.setKeepRunning),
+          ),
+        ),
+      ]),
+      _Section('Editor', Icons.code, [
+        _Setting(
+          'Font size',
+          'Also Ctrl and + or - in the editor.',
+          trailing: ValueListenableBuilder(
+            valueListenable: EditorView.fontSize,
+            builder: (_, size, _) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(tooltip: 'Smaller', visualDensity: VisualDensity.compact, onPressed: () => EditorView.zoom(-1), icon: const Icon(Icons.remove, size: 18)),
+                SizedBox(width: 28, child: Text('${size.round()}', textAlign: TextAlign.center)),
+                IconButton(tooltip: 'Larger', visualDensity: VisualDensity.compact, onPressed: () => EditorView.zoom(1), icon: const Icon(Icons.add, size: 18)),
+              ],
+            ),
+          ),
+        ),
+        _Setting(
+          'Word wrap',
+          'Long lines continue on the next row. Also Alt+Z.',
+          trailing: ValueListenableBuilder(
+            valueListenable: EditorView.wordWrap,
+            builder: (_, on, _) => Switch(value: on, onChanged: (_) => EditorView.toggleWordWrap()),
+          ),
+        ),
+        _Setting(
+          'Dart settings',
+          'Line length, format on save and more, for the open project.',
+          trailing: OutlinedButton(onPressed: () => EditorCommands.openDartSettings?.call(), child: const Text('Open')),
+        ),
+      ]),
+      _Section('Projects', Icons.folder_outlined, [
+        _Setting(
+          'Project folders',
+          'Folders holding your repos, or a repo itself. Their projects show on the start page and in Run and Install latest build.',
+          trailing: OutlinedButton.icon(onPressed: _add, icon: const Icon(Icons.add, size: 16), label: const Text('Add folder')),
+          below: _folderList(),
+        ),
+        _Setting(
+          'My apps',
+          "Apps in your project folders count automatically. Add a package prefix for apps you test but haven't cloned. Listed devices update after a restart.",
+          below: _ListSetting(
+            values: appPrefixes,
+            hint: 'com.example.',
+            error: 'Letters, digits, _ and . only',
+            isValid: isValidPackageId,
+            onChanged: (v) async {
+              await saveAppPrefixes(v);
+              setState(() {});
+            },
+          ),
+        ),
+      ]),
+      _Section('Devices', Icons.devices_outlined, [
+        _Setting(
+          'Auto-switch to port 5555',
+          'Devices on USB or a random Wireless debugging port move to ip:5555, so they reconnect over Wi-Fi without pairing until they reboot.',
+          trailing: ValueListenableBuilder(
+            valueListenable: DevicesCubit.autoPort5555,
+            builder: (_, on, _) => Switch(
               value: on,
               onChanged: (v) async {
                 DevicesCubit.autoPort5555.value = v;
                 await (await SharedPreferences.getInstance()).setBool('auto_port_5555', v);
               },
-              title: const Text('Auto-switch devices to port 5555'),
-              subtitle: const Text(
-                'Devices connected by USB or a random Wireless-debugging port move to ip:5555 by themselves, '
-                'so they reconnect over Wi-Fi without pairing (until they reboot).',
-              ),
             ),
           ),
         ),
-        const SizedBox(height: 24),
-        Row(
-          children: [
-            Text('Project folders', style: text.titleMedium),
-            const Spacer(),
-            FilledButton.icon(
-              onPressed: _add,
-              icon: const Icon(Icons.create_new_folder_outlined),
-              label: const Text('Add folder'),
-            ),
-          ],
+        _Setting(
+          'Network scan subnets',
+          "Other subnets to scan besides this PC's own and those of devices seen before. This PC needs a route to them, and only devices on port 5555 are found there.",
+          below: _ListSetting(
+            values: _subnets,
+            hint: '192.168.5 or 10.1.0.0/22',
+            error: 'Use 192.168.5, 192.168.5.0/24 or 10.1.0.0/22 (up to /20)',
+            isValid: (v) => subnetHosts(v) != null,
+            onChanged: (v) async {
+              setState(() => _subnets = v);
+              await NetworkScanner.setExtraSubnets(v);
+            },
+          ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Pick a folder that contains your repos (e.g. D:\\Work) or a repo folder itself. '
-          'Used for Flutter run/attach and Install latest build.',
-          style: TextStyle(color: scheme.outline, fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        if (_folders.isEmpty)
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.info_outline, color: Colors.orange),
-              title: const Text('No project folders yet'),
-              subtitle: Text(
-                ProjectFolders.guess() == null
-                    ? 'Add the folder where you clone repos.'
-                    : 'Suggested: ${ProjectFolders.guess()}',
-              ),
-              trailing: ProjectFolders.guess() == null
-                  ? null
-                  : TextButton(
-                      onPressed: () async {
-                        await ProjectFolders.add(ProjectFolders.guess()!);
-                        _load();
-                      },
-                      child: const Text('Use suggestion'),
-                    ),
+        _Setting(
+          'App discovery service',
+          'The mDNS type of apps that announce themselves on the network. Press Enter to save.',
+          trailing: SizedBox(
+            width: 180,
+            child: TextField(
+              controller: _mdnsType,
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(isDense: true, hintText: '_myapp._tcp'),
+              onSubmitted: _saveMdnsType,
             ),
           ),
+        ),
+      ]),
+      _Section('Tools', Icons.build_outlined, [
+        _tool('adb', tools.adb, 'Install Android SDK Platform-Tools and add it to PATH.'),
+        _tool('scrcpy', tools.scrcpy, 'It comes with the app, so reinstalling brings it back.'),
+      ]),
+    ];
+  }
+
+  _Setting _tool(String name, String? path, String hint) => _Setting(
+    name,
+    path ?? 'Not found. $hint',
+    trailing: Tooltip(
+      message: path == null ? 'Not found' : 'Found',
+      child: Icon(path == null ? Icons.error_outline : Icons.check_circle, size: 18, color: path == null ? Colors.red : Colors.green),
+    ),
+  );
+
+  Widget _folderList() {
+    final scheme = Theme.of(context).colorScheme;
+    final guess = ProjectFolders.guess();
+    if (_folders.isEmpty) {
+      return Row(
+        children: [
+          Expanded(
+            child: Text(guess == null ? 'No folders yet.' : 'No folders yet. Suggested: $guess', style: TextStyle(fontSize: 13, color: scheme.outline)),
+          ),
+          if (guess != null)
+            TextButton(
+              onPressed: () async {
+                await ProjectFolders.add(guess);
+                _load();
+              },
+              child: const Text('Use it'),
+            ),
+        ],
+      );
+    }
+    return Column(
+      children: [
         for (final f in _folders)
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.folder_outlined),
-              title: Text(f),
-              subtitle: Text('${_projects.where((p) => p.path.startsWith(f)).length} Flutter projects'),
-              trailing: IconButton(
+          Row(
+            children: [
+              Icon(Icons.folder_outlined, size: 16, color: scheme.outline),
+              const SizedBox(width: 8),
+              Expanded(child: Text(f, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))),
+              Text('${_projects.where((p) => p.path.startsWith(f)).length} projects', style: TextStyle(fontSize: 12, color: scheme.outline)),
+              IconButton(
                 tooltip: 'Remove',
+                visualDensity: VisualDensity.compact,
                 onPressed: () async {
                   await ProjectFolders.remove(f);
                   _load();
                 },
-                icon: const Icon(Icons.close),
+                icon: const Icon(Icons.close, size: 16),
               ),
-            ),
-          ),
-        if (_projects.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final p in _projects)
-                Chip(
-                  avatar: Icon(p.usesFvm ? Icons.layers_outlined : Icons.flutter_dash, size: 16),
-                  label: Text(p.name),
-                ),
             ],
           ),
-        ],
-        const SizedBox(height: 28),
-        Text('Network scan', style: text.titleMedium),
-        const SizedBox(height: 4),
-        Text(
-          "Scan network covers this PC's subnets and those of devices seen before. Add the others here "
-          '(192.168.5, 10.1.0.0/22, up to /20). This PC must have a route to them, and across subnets only '
-          'devices on port 5555 are found: Wireless debugging discovery stays within one subnet.',
-          style: TextStyle(color: scheme.outline, fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        _ListSetting(
-          values: _subnets,
-          hint: 'Add subnet, e.g. 192.168.5',
-          error: 'Use 192.168.5, 192.168.5.0/24 or 10.1.0.0/22 (up to /20)',
-          isValid: (v) => subnetHosts(v) != null,
-          onChanged: (v) async {
-            setState(() => _subnets = v);
-            await NetworkScanner.setExtraSubnets(v);
-          },
-        ),
-        const SizedBox(height: 28),
-        Text('My apps', style: text.titleMedium),
-        const SizedBox(height: 4),
-        Text(
-          'Apps from your project folders count automatically. Add a package prefix for apps you test but '
-          "don't have cloned. Devices already listed update after a restart.",
-          style: TextStyle(color: scheme.outline, fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        _ListSetting(
-          values: appPrefixes,
-          hint: 'Add package prefix, e.g. com.example.',
-          error: 'Letters, digits, _ and . only',
-          isValid: isValidPackageId,
-          onChanged: (v) async {
-            await saveAppPrefixes(v);
-            setState(() {});
-          },
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _mdnsType,
-          decoration: const InputDecoration(
-            labelText: 'App discovery mDNS service type',
-            helperText: 'For apps that announce themselves on the LAN. Press Enter to save.',
-          ),
-          onSubmitted: _saveMdnsType,
-        ),
-        const SizedBox(height: 28),
-        Text('Tools', style: text.titleMedium),
-        const SizedBox(height: 8),
-        _ToolRow(name: 'adb', path: tools.adb, hint: 'Install Android SDK Platform-Tools and add it to PATH'),
-        _ToolRow(name: 'scrcpy', path: tools.scrcpy, hint: 'Bundled with the app — rebuild if missing'),
       ],
+    );
+  }
+
+  Widget _navItem(ColorScheme scheme, _Section s, int index) {
+    final on = index == _selected;
+    return Material(
+      color: on ? scheme.primary.withValues(alpha: .14) : Colors.transparent,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () {
+          _search.clear();
+          setState(() => _selected = index);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(s.icon, size: 16, color: on ? scheme.primary : scheme.outline),
+              const SizedBox(width: 8),
+              Text(s.label, style: TextStyle(fontSize: 13, color: on ? scheme.primary : null, fontWeight: on ? FontWeight.w600 : null)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final sections = _sections(context);
+    final words = _search.text.toLowerCase().split(' ').where((w) => w.isNotEmpty).toList();
+    final searching = words.isNotEmpty;
+    final shown = searching
+        ? [
+            for (final s in sections)
+              (s.label, s.settings.where((x) {
+                final hay = '${s.label} ${x.title} ${x.description}'.toLowerCase();
+                return words.every(hay.contains);
+              }).toList()),
+          ].where((e) => e.$2.isNotEmpty).toList()
+        : [(sections[_selected].label, sections[_selected].settings)];
+
+    final content = ListView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      children: [
+        if (shown.isEmpty) Padding(padding: const EdgeInsets.only(top: 24), child: Center(child: Text('No settings match', style: TextStyle(color: scheme.outline)))),
+        for (final (label, settings) in shown) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+          for (final s in settings) _SettingRow(s),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (_, box) {
+        final narrow = box.maxWidth < _navBelow;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: TextField(
+                controller: _search,
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'Search settings',
+                  prefixIcon: const Icon(Icons.search, size: 16),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 32),
+                  suffixIcon: searching ? IconButton(tooltip: 'Clear', onPressed: _search.clear, icon: const Icon(Icons.close, size: 15)) : null,
+                ),
+              ),
+            ),
+            if (narrow)
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(children: [for (var i = 0; i < sections.length; i++) _navItem(scheme, sections[i], i)]),
+              ),
+            Divider(height: 1, color: scheme.outlineVariant),
+            Expanded(
+              child: narrow
+                  ? content
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: 170,
+                          child: ListView(
+                            padding: const EdgeInsets.all(8),
+                            children: [for (var i = 0; i < sections.length; i++) _navItem(scheme, sections[i], i)],
+                          ),
+                        ),
+                        VerticalDivider(width: 1, color: scheme.outlineVariant),
+                        Expanded(child: content),
+                      ],
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SettingRow extends StatelessWidget {
+  const _SettingRow(this.setting);
+
+  final _Setting setting;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: .5)))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(setting.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text(setting.description, style: TextStyle(fontSize: 12, color: scheme.outline)),
+                  ],
+                ),
+              ),
+              if (setting.trailing != null) ...[const SizedBox(width: 16), setting.trailing!],
+            ],
+          ),
+          if (setting.below != null) ...[const SizedBox(height: 8), setting.below!],
+        ],
+      ),
     );
   }
 }
@@ -301,37 +484,19 @@ class _ListSettingState extends State<_ListSetting> {
       ],
       TextField(
         controller: _ctrl,
+        style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
+          isDense: true,
           hintText: widget.hint,
           errorText: _error,
           suffixIcon: IconButton(
             tooltip: 'Add',
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add, size: 16),
             onPressed: () => _submit(_ctrl.text),
           ),
         ),
         onSubmitted: _submit,
       ),
     ],
-  );
-}
-
-class _ToolRow extends StatelessWidget {
-  const _ToolRow({required this.name, required this.path, required this.hint});
-
-  final String name;
-  final String? path;
-  final String hint;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    child: ListTile(
-      leading: Icon(
-        path != null ? Icons.check_circle : Icons.error_outline,
-        color: path != null ? Colors.green : Colors.red,
-      ),
-      title: Text(name),
-      subtitle: Text(path ?? 'Not found. $hint'),
-    ),
   );
 }
