@@ -3,7 +3,8 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-fvm flutter build macos --release --no-tree-shake-icons
+if command -v fvm >/dev/null; then fvm flutter build macos --release --no-tree-shake-icons
+else flutter build macos --release --no-tree-shake-icons; fi
 
 APP="build/macos/Build/Products/Release/Flutter DevKit.app"
 STAGE="$(mktemp -d)"
