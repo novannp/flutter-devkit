@@ -18,11 +18,12 @@ int? projectPageWidth(String root) {
 
 /// Dart settings for one project.
 class DartSettings {
-  const DartSettings({this.lineLength, this.formatOnSave = true, this.showTodos = false, this.excludedFolders = const []});
+  const DartSettings({this.lineLength, this.formatOnSave = true, this.pubGetOnSave = true, this.showTodos = false, this.excludedFolders = const []});
 
   factory DartSettings.fromJson(Map<String, dynamic> json) => DartSettings(
     lineLength: json['lineLength'] as int?,
     formatOnSave: json['formatOnSave'] as bool? ?? true,
+    pubGetOnSave: json['pubGetOnSave'] as bool? ?? true,
     showTodos: json['showTodos'] as bool? ?? false,
     excludedFolders: (json['excludedFolders'] as List?)?.cast<String>() ?? const [],
   );
@@ -30,6 +31,7 @@ class DartSettings {
   /// Null keeps the formatter's default of 80.
   final int? lineLength;
   final bool formatOnSave;
+  final bool pubGetOnSave;
   final bool showTodos;
 
   /// Relative to the project, as typed.
@@ -38,6 +40,7 @@ class DartSettings {
   Map<String, dynamic> toJson() => {
     'lineLength': lineLength,
     'formatOnSave': formatOnSave,
+    'pubGetOnSave': pubGetOnSave,
     'showTodos': showTodos,
     'excludedFolders': excludedFolders,
   };

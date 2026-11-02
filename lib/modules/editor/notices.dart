@@ -14,6 +14,8 @@ int? packagesOutOfSyncSince(String root) {
   return changed.millisecondsSinceEpoch;
 }
 
+bool isProjectPubspec(String path, String root) => p.equals(path, p.join(root, 'pubspec.yaml'));
+
 class NoticeAction {
   const NoticeAction(this.label, this.onPressed);
 
