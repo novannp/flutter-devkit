@@ -8,6 +8,8 @@ import '../../core/background.dart';
 import '../../core/compact_dropdown.dart';
 import '../../core/local_builds.dart';
 import '../../core/theme.dart';
+import '../../core/tools.dart';
+import '../../extensions/emulators/avd_service.dart';
 import '../devices/cubit/devices_cubit.dart';
 import '../devices/services/adb_service.dart';
 import '../devices/services/mdns_service.dart';
@@ -224,6 +226,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _Section('Tools', Icons.build_outlined, [
         _tool('adb', tools.adb, 'It comes with the app, so reinstalling brings it back.'),
         _tool('scrcpy', tools.scrcpy, 'It comes with the app, so reinstalling brings it back.'),
+        _androidSdk(tools),
       ]),
     ];
   }
@@ -236,6 +239,37 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Icon(path == null ? Icons.error_outline : Icons.check_circle, size: 18, color: path == null ? Colors.red : Colors.green),
     ),
   );
+
+  _Setting _androidSdk(Tools tools) {
+    final found = AvdService(tools).sdkRoot;
+    final custom = AvdService.customSdk.value;
+    return _Setting(
+      'Android SDK',
+      found ?? (custom == null ? 'Not found. Emulators need it; choose its folder if it isn\'t in the usual place.' : "$custom has no emulator in it. Choose the SDK's folder."),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (custom != null)
+            TextButton(
+              onPressed: () async {
+                await AvdService.setCustomSdk(null);
+                setState(() {});
+              },
+              child: const Text('Use detected'),
+            ),
+          OutlinedButton(
+            onPressed: () async {
+              final path = await getDirectoryPath(confirmButtonText: 'Use this SDK');
+              if (path == null) return;
+              await AvdService.setCustomSdk(path);
+              setState(() {});
+            },
+            child: const Text('Change'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _folderList() {
     final scheme = Theme.of(context).colorScheme;
