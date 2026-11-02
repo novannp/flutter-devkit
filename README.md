@@ -80,7 +80,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 
 **Project and team**
 
-- **Source Control**: changed files, stage, commit, push and pull, branches, discard, a side by side before and after diff in its own tab, and gutter marks for lines that differ from `HEAD`
+- **Source Control**: changed files, stage, commit, push and pull, branches, discard one file or everything at once (a copy stays in `git stash`), a side by side before and after diff in its own tab, and gutter marks for lines that differ from `HEAD`
 - **Find things**: fuzzy quick open (`online payment` finds `online_payment.dart`, `main.dart:42` jumps to the line), search in files as you type, Open File and Open Recent
 - **One left panel** switches between files, Source Control, search and debug. The terminal and Problems are in the bottom panel, running in the open project
 - **Notifications** in the corner, such as when packages are missing or out of sync, with a button to run `pub get`

@@ -530,6 +530,7 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Debug: Step Over', _debugger.stepOver, keys: 'F10', icon: Icons.redo),
         PaletteItem('Debug: Step Into', _debugger.stepInto, keys: 'F11', icon: Icons.south_east),
         PaletteItem('Debug: Step Out', _debugger.stepOut, keys: 'Shift+F11', icon: Icons.north_east),
+        PaletteItem('Git: Discard All Changes', () => unawaited(confirmDiscardAll(context, _git)), icon: Icons.undo),
         PaletteItem('Flutter: Pub Get', () => unawaited(_runTool('pub get')), icon: Icons.download_outlined),
         PaletteItem('Flutter: Pub Upgrade', () => unawaited(_runTool('pub upgrade')), icon: Icons.upgrade),
         PaletteItem('Flutter: Clean', () => unawaited(_runTool('clean')), icon: Icons.cleaning_services_outlined),
