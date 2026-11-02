@@ -6,9 +6,12 @@ import '../devices/cubit/devices_cubit.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/apps.dart';
 import '../../core/background.dart';
 import '../../core/local_builds.dart';
 import '../devices/services/adb_service.dart';
+import '../devices/services/mdns_service.dart';
+import '../devices/services/network_scanner.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -20,6 +23,8 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   List<String> _folders = const [];
   List<FlutterProject> _projects = const [];
+  List<String> _subnets = const [];
+  final _mdnsType = TextEditingController();
 
   @override
   void initState() {
@@ -30,12 +35,32 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _load() async {
     final folders = await ProjectFolders.get();
     final projects = await scanFlutterProjects();
+    await loadApps();
+    final subnets = await NetworkScanner.extraSubnets();
+    _mdnsType.text = await MdnsService.serviceType();
     if (mounted) {
       setState(() {
         _folders = folders;
         _projects = projects;
+        _subnets = subnets;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _mdnsType.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveMdnsType(String value) async {
+    final type = value.trim();
+    final messenger = ScaffoldMessenger.of(context);
+    final valid = MdnsService.isValidType(type);
+    if (valid) await (await SharedPreferences.getInstance()).setString(MdnsService.serviceTypeKey, type);
+    messenger.showSnackBar(
+      SnackBar(width: 420, content: Text(valid ? 'Saved. Restart DevKit to apply.' : 'Use a form like _myapp._tcp')),
+    );
   }
 
   Future<void> _add() async {
@@ -160,6 +185,54 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
         const SizedBox(height: 28),
+        Text('Network scan', style: text.titleMedium),
+        const SizedBox(height: 4),
+        Text(
+          "Scan network covers this PC's subnets and those of devices seen before. Add the others here "
+          '(192.168.5, 10.1.0.0/22, up to /20). This PC must have a route to them, and across subnets only '
+          'devices on port 5555 are found: Wireless debugging discovery stays within one subnet.',
+          style: TextStyle(color: scheme.outline, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        _ListSetting(
+          values: _subnets,
+          hint: 'Add subnet, e.g. 192.168.5',
+          error: 'Use 192.168.5, 192.168.5.0/24 or 10.1.0.0/22 (up to /20)',
+          isValid: (v) => subnetHosts(v) != null,
+          onChanged: (v) async {
+            setState(() => _subnets = v);
+            await NetworkScanner.setExtraSubnets(v);
+          },
+        ),
+        const SizedBox(height: 28),
+        Text('My apps', style: text.titleMedium),
+        const SizedBox(height: 4),
+        Text(
+          'Apps from your project folders count automatically. Add a package prefix for apps you test but '
+          "don't have cloned. Devices already listed update after a restart.",
+          style: TextStyle(color: scheme.outline, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        _ListSetting(
+          values: appPrefixes,
+          hint: 'Add package prefix, e.g. com.example.',
+          error: 'Letters, digits, _ and . only',
+          isValid: isValidPackageId,
+          onChanged: (v) async {
+            await saveAppPrefixes(v);
+            setState(() {});
+          },
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _mdnsType,
+          decoration: const InputDecoration(
+            labelText: 'App discovery mDNS service type',
+            helperText: 'For apps that announce themselves on the LAN. Press Enter to save.',
+          ),
+          onSubmitted: _saveMdnsType,
+        ),
+        const SizedBox(height: 28),
         Text('Tools', style: text.titleMedium),
         const SizedBox(height: 8),
         _ToolRow(name: 'adb', path: tools.adb, hint: 'Install Android SDK Platform-Tools and add it to PATH'),
@@ -167,6 +240,80 @@ class _SettingsPageState extends State<SettingsPage> {
       ],
     );
   }
+}
+
+/// Removable chips plus a field that adds to them.
+class _ListSetting extends StatefulWidget {
+  const _ListSetting({
+    required this.values,
+    required this.hint,
+    required this.error,
+    required this.isValid,
+    required this.onChanged,
+  });
+
+  final List<String> values;
+  final String hint;
+  final String error;
+  final bool Function(String) isValid;
+  final ValueChanged<List<String>> onChanged;
+
+  @override
+  State<_ListSetting> createState() => _ListSettingState();
+}
+
+class _ListSettingState extends State<_ListSetting> {
+  final _ctrl = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _submit(String input) {
+    final v = input.trim();
+    if (v.isEmpty) return;
+    if (!widget.isValid(v)) return setState(() => _error = widget.error);
+    setState(() => _error = null);
+    _ctrl.clear();
+    if (!widget.values.contains(v)) widget.onChanged([...widget.values, v]);
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (widget.values.isNotEmpty) ...[
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final v in widget.values)
+              InputChip(
+                label: Text(v),
+                onDeleted: () => widget.onChanged(widget.values.where((x) => x != v).toList()),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+      ],
+      TextField(
+        controller: _ctrl,
+        decoration: InputDecoration(
+          hintText: widget.hint,
+          errorText: _error,
+          suffixIcon: IconButton(
+            tooltip: 'Add',
+            icon: const Icon(Icons.add),
+            onPressed: () => _submit(_ctrl.text),
+          ),
+        ),
+        onSubmitted: _submit,
+      ),
+    ],
+  );
 }
 
 class _ToolRow extends StatelessWidget {

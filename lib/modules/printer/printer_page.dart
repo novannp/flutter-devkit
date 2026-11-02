@@ -397,8 +397,7 @@ class _ConnectCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'POS apps always print to port 9100 (Backoffice only stores the IP), '
-                      "so they won't reach this emulator.",
+                      "Apps that always print to port 9100 won't reach this emulator.",
                     ),
                   ),
                   TextButton(onPressed: () => onPort(PrinterServer.defaultPort), child: const Text('Use 9100')),
@@ -412,7 +411,7 @@ class _ConnectCard extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Icon(Icons.lan_outlined, size: 18),
-                const Text('In Backoffice, set the receipt printer IP to'),
+                const Text('In your app, set the receipt printer IP to'),
                 for (final ip in ips) code(ip),
                 Text('· port is always', style: TextStyle(color: scheme.outline)),
                 code('$port'),

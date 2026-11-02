@@ -1,12 +1,21 @@
 import 'dart:async';
 
 import 'package:bonsoir/bonsoir.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/device.dart';
 
-/// TXT record contract broadcast by each of our apps: app (package), version, serial, model, env, adb_port.
+/// TXT record contract broadcast by apps that opt in: app (package), version, serial, model, env, adb_port.
 class MdnsService {
-  static const serviceType = '_ravodev._tcp';
+  static const defaultServiceType = '_devkit._tcp';
+  static const serviceTypeKey = 'mdns_service_type';
+
+  static bool isValidType(String type) => RegExp(r'^_[a-z0-9-]+\._(tcp|udp)$').hasMatch(type);
+
+  static Future<String> serviceType() async {
+    final saved = (await SharedPreferences.getInstance()).getString(serviceTypeKey);
+    return saved != null && isValidType(saved) ? saved : defaultServiceType;
+  }
 
   BonsoirDiscovery? _discovery;
   StreamSubscription? _sub;
@@ -15,7 +24,7 @@ class MdnsService {
     required void Function(String serviceName, Device device) onFound,
     required void Function(String serviceName) onLost,
   }) async {
-    final discovery = BonsoirDiscovery(type: serviceType, printLogs: false);
+    final discovery = BonsoirDiscovery(type: await serviceType(), printLogs: false);
     await discovery.initialize();
     _sub = discovery.eventStream!.listen((event) {
       switch (event) {

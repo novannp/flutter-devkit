@@ -16,6 +16,9 @@ class CoreDep {
   /// Set when pubspec_overrides.yaml points this package at a local folder.
   final String? localPath;
 
+  /// Repo folder name; pub caches it as `<repo>-<hash>`.
+  String? get repo => url?.split(RegExp(r'[/:]')).last.replaceFirst(RegExp(r'\.git$'), '');
+
   String get source => localPath != null ? 'local ${p.basename(localPath!)}' : (ref ?? 'default');
 }
 
@@ -35,6 +38,16 @@ class CoreDeps {
     return (start, end);
   }
 
+  /// Packages the project pulls from git, the ones teams usually share and pin by branch.
+  static Future<List<String>> gitPackages(String project) async {
+    final lines = (await _pubspec(project).readAsString()).split('\n');
+    return {
+      for (final m in lines.map(RegExp(r'^  (\w+):\s*$').firstMatch).nonNulls)
+        if (_block(lines, m[1]!) case (final s, final e))
+          if (lines.sublist(s, e).any((l) => RegExp(r'^\s+git:').hasMatch(l))) m[1]!,
+    }.toList();
+  }
+
   static Future<List<CoreDep>> read(String project, List<String> names) async {
     final lines = (await _pubspec(project).readAsString()).split('\n');
     final overrides = _overrides(project).existsSync() ? await _overrides(project).readAsString() : '';
@@ -46,7 +59,7 @@ class CoreDeps {
             final local = RegExp('^  $n:\\s*\\n\\s+path:\\s*(.+)\$', multiLine: true).firstMatch(overrides)?[1]?.trim();
             return CoreDep(
               name: n,
-              url: RegExp(r'url:\s*(\S+)').firstMatch(block)?[1],
+              url: RegExp(r'(?:url|git):[ \t]*(\S+)').firstMatch(block)?[1],
               ref: RegExp(r'ref:\s*(\S+)').firstMatch(block)?[1],
               localPath: local == null ? null : p.normalize(p.join(project, local)),
             );
@@ -126,6 +139,27 @@ class CoreDeps {
     if (!exclude.parent.existsSync()) return;
     await exclude.writeAsString('\npubspec_overrides.yaml\n', mode: FileMode.append);
   }
+
+  /// Every package pubspec_overrides.yaml points at a local folder: name → absolute path.
+  static Future<Map<String, String>> localOverrides(String project) async {
+    final file = _overrides(project);
+    if (!file.existsSync()) return {};
+    final re = RegExp(r'^  (\w+):\s*\n\s+path:\s*(.+)$', multiLine: true);
+    return {
+      for (final m in re.allMatches(await file.readAsString())) m[1]!: p.normalize(p.join(project, m[2]!.trim())),
+    };
+  }
+
+  /// The `name:` in [folder]'s pubspec.yaml, or null when it isn't a Dart package.
+  static Future<String?> packageName(String folder) async {
+    final pubspec = _pubspec(folder);
+    if (!pubspec.existsSync()) return null;
+    return RegExp(r'^name:\s*(\w+)', multiLine: true).firstMatch(await pubspec.readAsString())?[1];
+  }
+
+  /// Whether [name] is a direct dependency (regular or dev) of the project.
+  static Future<bool> isDirect(String project, String name) async =>
+      RegExp('^  $name:', multiLine: true).hasMatch(await _pubspec(project).readAsString());
 
   /// Local clones of [name] found in the configured project folders.
   static Future<List<String>> localClones(String name) async {

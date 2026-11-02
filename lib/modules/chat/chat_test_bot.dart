@@ -72,7 +72,7 @@ class ChatTestBot extends ChangeNotifier {
     if (udp == null) return;
     final data = utf8.encode(
       jsonEncode({
-        'app': 'ravo-devkit',
+        'app': 'devkit',
         'type': bye ? 'bye' : 'hello',
         'id': _id,
         'name': name,
@@ -91,7 +91,7 @@ class ChatTestBot extends ChangeNotifier {
     if (d == null) return;
     try {
       final j = jsonDecode(utf8.decode(d.data)) as Map<String, dynamic>;
-      if (j['app'] != 'ravo-devkit' || j['id'] == _id || j['type'] != 'hello') return;
+      if (j['app'] != 'devkit' || j['id'] == _id || j['type'] != 'hello') return;
       _peers[j['id'] as String] = (d.address.address, j['port'] as int);
     } catch (_) {}
   }

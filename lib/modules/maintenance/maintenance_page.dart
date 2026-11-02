@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,9 +16,6 @@ import 'core_dep_dialog.dart';
 import 'core_deps.dart';
 import '../../core/history.dart';
 
-/// Shared git packages our apps pull from Bitbucket.
-const corePackages = ['pos_core', 'pf_processor_plugin'];
-const _gitCacheRepos = ['pos-resource', 'pf_processor_plugin'];
 const _prefUpdateCmd = 'maint_update_cmd';
 const _defaultUpdateCmd = 'flutter pub upgrade {packages}';
 
@@ -27,13 +25,13 @@ String get _pubCache =>
     Platform.environment['PUB_CACHE'] ?? '${Platform.environment['LOCALAPPDATA'] ?? _home}${_sep}Pub${_sep}Cache';
 String get _gradleCaches => '${Platform.environment['GRADLE_USER_HOME'] ?? '$_home$_sep.gradle'}${_sep}caches';
 
-List<Directory> _gitCacheDirs() {
+List<Directory> _gitCacheDirs(Set<String> repos) {
   final dirs = <Directory>[];
   for (final base in [Directory('$_pubCache${_sep}git'), Directory('$_pubCache${_sep}git${_sep}cache')]) {
     if (!base.existsSync()) continue;
     for (final d in base.listSync().whereType<Directory>()) {
       final n = d.uri.pathSegments.where((s) => s.isNotEmpty).last;
-      if (_gitCacheRepos.any((r) => n.startsWith('$r-'))) dirs.add(d);
+      if (repos.any((r) => n.startsWith('$r-'))) dirs.add(d);
     }
   }
   return dirs;
@@ -71,6 +69,9 @@ class _MaintenancePageState extends State<MaintenancePage> {
   List<FlutterProject>? _projects;
   final _deps = <String, List<String>>{};
   final _coreDeps = <String, List<CoreDep>>{};
+
+  /// Local path overrides other than the git packages (those show on their own chips).
+  final _otherOverrides = <String, Map<String, String>>{};
   int? _gradleSize, _pubSize, _gitSize, _imagesSize;
   final _log = <String>[];
   final _logScroll = ScrollController();
@@ -80,8 +81,9 @@ class _MaintenancePageState extends State<MaintenancePage> {
   @override
   void initState() {
     super.initState();
-    _loadProjects();
-    _measure();
+    _loadProjects().then((_) {
+      if (mounted) _measure();
+    });
     SharedPreferences.getInstance().then((p) {
       if (mounted) setState(() => _updateCmd = p.getString(_prefUpdateCmd) ?? _defaultUpdateCmd);
     });
@@ -93,15 +95,15 @@ class _MaintenancePageState extends State<MaintenancePage> {
     super.dispose();
   }
 
+  Set<String> get _gitNames => {for (final d in _deps.values) ...d};
+  Set<String> get _gitRepos => {for (final d in _coreDeps.values) ...d.map((c) => c.repo).nonNulls};
+
   Future<void> _loadProjects() async {
     final projects = await scanFlutterProjects();
     for (final p in projects) {
-      final pubspec = await File('${p.path}${_sep}pubspec.yaml').readAsString();
-      _deps[p.path] = [
-        for (final c in corePackages)
-          if (RegExp('^\\s+$c:', multiLine: true).hasMatch(pubspec)) c,
-      ];
+      _deps[p.path] = await CoreDeps.gitPackages(p.path);
       _coreDeps[p.path] = await CoreDeps.read(p.path, _deps[p.path]!);
+      await _readOverrides(p);
     }
     if (mounted) setState(() => _projects = projects);
   }
@@ -112,7 +114,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
     final results = await Future.wait([
       _sizeOf([_gradleCaches]),
       _sizeOf([_pubCache]),
-      _sizeOf(_gitCacheDirs().map((d) => d.path).toList()),
+      _sizeOf(_gitCacheDirs(_gitRepos).map((d) => d.path).toList()),
       _sizeOf([if (sdk != null) '$sdk${_sep}system-images']),
     ]);
     if (!mounted) return;
@@ -178,6 +180,45 @@ class _MaintenancePageState extends State<MaintenancePage> {
     }
     await _exec('pub upgrade ${dep.name} · ${p.name}', _flutter(p, 'pub upgrade ${dep.name}'), cwd: p.path);
     _coreDeps[p.path] = await CoreDeps.read(p.path, _deps[p.path] ?? const []);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _readOverrides(FlutterProject p) async {
+    final all = await CoreDeps.localOverrides(p.path);
+    _otherOverrides[p.path] = {
+      for (final e in all.entries)
+        if (!(_deps[p.path] ?? const []).contains(e.key)) e.key: e.value,
+    };
+  }
+
+  Future<void> _overrideLocal(FlutterProject p) async {
+    final folder = await getDirectoryPath(confirmButtonText: 'Use this package');
+    if (folder == null) return;
+    final name = await CoreDeps.packageName(folder);
+    if (name == null) {
+      _append('✗ $folder has no pubspec.yaml with a name');
+      return;
+    }
+    if (name == await CoreDeps.packageName(p.path)) {
+      _append('✗ That is ${p.name} itself');
+      return;
+    }
+    if (!await CoreDeps.isDirect(p.path, name)) {
+      _append('$name is not a direct dependency of ${p.name}; overriding it anyway (affects transitive use)');
+    }
+    await _setOverride(p, name, folder);
+  }
+
+  Future<void> _setOverride(FlutterProject p, String name, String? folder) async {
+    try {
+      await CoreDeps.setLocal(p.path, name, folder);
+      _append(folder == null ? '$name → back to pubspec.yaml' : '$name → local $folder (pubspec_overrides.yaml)');
+    } catch (e) {
+      _append('✗ $e');
+      return;
+    }
+    await _exec('pub get · ${p.name}', _flutter(p, 'pub get'), cwd: p.path);
+    await _readOverrides(p);
     if (mounted) setState(() {});
   }
 
@@ -250,12 +291,12 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
   Future<void> _clearGitCache() async {
     if (!await _confirm(
-      'Delete cached ${corePackages.join(' & ')}?',
-      'Forces a fresh clone from Bitbucket on the next pub get — fixes a stuck/old version (${_fmt(_gitSize)}).',
+      'Delete cached ${_gitNames.join(' & ')}?',
+      'Forces a fresh clone on the next pub get — fixes a stuck/old version (${_fmt(_gitSize)}).',
     )) {
       return;
     }
-    await _deleteDirs('pos_core / pf_processor_plugin cache', _gitCacheDirs());
+    await _deleteDirs('Git packages cache', _gitCacheDirs(_gitRepos));
   }
 
   Future<void> _editUpdateCmd() async {
@@ -271,7 +312,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
             autofocus: true,
             style: const TextStyle(fontFamily: 'Consolas'),
             decoration: const InputDecoration(
-              helperText: '{packages} becomes the core packages the project uses. Use && to chain commands.',
+              helperText: '{packages} becomes the git packages the project uses. Use && to chain commands.',
             ),
           ),
         ),
@@ -325,8 +366,8 @@ class _MaintenancePageState extends State<MaintenancePage> {
             children: [
               _CacheCard(
                 icon: Icons.inventory_2_outlined,
-                title: 'Core packages cache',
-                subtitle: 'pos_core & pf_processor_plugin (git)',
+                title: 'Git packages cache',
+                subtitle: _gitNames.isEmpty ? 'No git packages in your projects' : _gitNames.join(' & '),
                 size: _gitSize,
                 action: 'Clear',
                 onPressed: busy ? null : _clearGitCache,
@@ -409,13 +450,14 @@ class _MaintenancePageState extends State<MaintenancePage> {
                               final p = _projects![i];
                               final deps = _deps[p.path] ?? const [];
                               final core = _coreDeps[p.path] ?? const <CoreDep>[];
+                              final others = _otherOverrides[p.path] ?? const <String, String>{};
                               return ListTile(
                                 title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(p.path, style: text.bodySmall?.copyWith(color: scheme.outline)),
-                                    if (core.isNotEmpty) ...[
+                                    if (core.isNotEmpty || others.isNotEmpty) ...[
                                       const SizedBox(height: 6),
                                       Wrap(
                                         spacing: 6,
@@ -432,6 +474,15 @@ class _MaintenancePageState extends State<MaintenancePage> {
                                               label: Text('${dep.name} · ${dep.source}'),
                                               tooltip: 'Switch branch or use a local folder',
                                               onPressed: busy ? null : () => _changeDep(p, dep),
+                                            ),
+                                          for (final e in others.entries)
+                                            InputChip(
+                                              visualDensity: VisualDensity.compact,
+                                              avatar: const Icon(Icons.folder_open, size: 15, color: Colors.orange),
+                                              label: Text('${e.key} · local ${e.value.split(_sep).last}'),
+                                              tooltip: e.value,
+                                              deleteButtonTooltipMessage: 'Remove override',
+                                              onDeleted: busy ? null : () => _setOverride(p, e.key, null),
                                             ),
                                         ],
                                       ),
@@ -455,8 +506,15 @@ class _MaintenancePageState extends State<MaintenancePage> {
                                     PopupMenuButton<String>(
                                       enabled: !busy,
                                       icon: const Icon(Icons.more_vert, size: 18),
-                                      onSelected: (v) => _exec('$v · ${p.name}', _flutter(p, v), cwd: p.path),
+                                      onSelected: (v) => v == 'override'
+                                          ? _overrideLocal(p)
+                                          : _exec('$v · ${p.name}', _flutter(p, v), cwd: p.path),
                                       itemBuilder: (_) => const [
+                                        PopupMenuItem(
+                                          value: 'override',
+                                          child: Text('Override package with local path…'),
+                                        ),
+                                        PopupMenuDivider(),
                                         PopupMenuItem(value: 'pub upgrade', child: Text('pub upgrade (all)')),
                                         PopupMenuItem(value: 'pub outdated', child: Text('pub outdated')),
                                         PopupMenuItem(value: 'clean', child: Text('flutter clean')),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/source_links.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../core/apps.dart';
 import '../../../../core/local_builds.dart';
 import '../../services/flutter_session.dart';
 
@@ -125,7 +127,7 @@ class _FlutterTabState extends State<FlutterTab> {
                           DropdownMenuItem(
                             value: p,
                             child: Text(
-                              isOurApp(p.package) ? '${appName(p.package)}  ·  ${p.name}' : p.name,
+                              p.name,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -254,8 +256,9 @@ class _FlutterTabState extends State<FlutterTab> {
                       itemCount: lines.length,
                       itemBuilder: (_, i) => Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
-                        child: Text(
+                        child: SourceLinkText(
                           lines[i].text,
+                          root: _project?.path,
                           style: TextStyle(
                             fontFamily: 'Consolas',
                             fontSize: 12.5,

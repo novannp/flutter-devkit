@@ -23,11 +23,11 @@ class BackgroundRunner with WindowListener, TrayListener {
 
     try {
       await trayManager.setIcon('assets/tray.ico');
-      await trayManager.setToolTip('Ravo DevKit');
+      await trayManager.setToolTip('DevKit');
       await trayManager.setContextMenu(
         Menu(
           items: [
-            MenuItem(key: 'open', label: 'Open Ravo DevKit'),
+            MenuItem(key: 'open', label: 'Open DevKit'),
             MenuItem.separator(),
             MenuItem(key: 'quit', label: 'Quit'),
           ],

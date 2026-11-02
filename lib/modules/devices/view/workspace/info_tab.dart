@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../services/device_adb.dart';
-import '../../../stores/store_codes_cubit.dart';
-import '../../../stores/view/code_picker_dialog.dart';
 
 const _sections = {
   'manufacturer': 'getprop ro.product.manufacturer',
@@ -35,7 +32,6 @@ class InfoTab extends StatefulWidget {
 class _InfoTabState extends State<InfoTab> {
   Map<String, String>? _raw;
   Map<String, String> _apps = const {};
-  Map<String, String?> _codes = const {};
   var _loading = false;
 
   @override
@@ -63,12 +59,10 @@ class _InfoTabState extends State<InfoTab> {
     }
     if (key != null) raw[key] = buf.toString().trim();
     final apps = await widget.dev.ourApps();
-    final codes = {for (final p in apps.keys) p: await widget.dev.activationCodeOf(p)};
     if (!mounted) return;
     setState(() {
       _raw = raw;
       _apps = apps;
-      _codes = codes;
       _loading = false;
     });
   }
@@ -148,22 +142,17 @@ class _InfoTabState extends State<InfoTab> {
           children: [for (final e in items.entries) _InfoCard(label: e.key, value: e.value)],
         ),
         const SizedBox(height: 24),
-        Text('Our apps', style: Theme.of(context).textTheme.titleMedium),
+        Text('My apps', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         if (_apps.isEmpty)
-          const Text('None of our apps are installed.')
+          const Text('None of your apps are installed. Add them in Settings → My apps.')
         else
           Wrap(
             spacing: 12,
             runSpacing: 12,
             children: [
               for (final e in _apps.entries)
-                _InfoCard(
-                  label: appName(e.key),
-                  value: _codes[e.key] == null
-                      ? '${e.value}\nCode: unreadable (not a debug build / not activated)'
-                      : '${e.value}\nCode: ${describeCode(context.read<StoreCodesCubit>().byActivationCode(_codes[e.key]!), _codes[e.key]!)}',
-                ),
+                _InfoCard(label: appName(e.key), value: e.value),
             ],
           ),
         const SizedBox(height: 24),

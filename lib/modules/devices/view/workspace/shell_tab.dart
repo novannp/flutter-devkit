@@ -3,13 +3,13 @@ import 'package:flutter/services.dart';
 
 import '../../services/device_adb.dart';
 
-const _quickCommands = {
+Map<String, String> get _quickCommands => {
   'Battery': 'dumpsys battery',
   'Wi-Fi IP': 'ip -f inet addr show wlan0',
   'Storage': 'df -h /data /sdcard',
   'Top processes': 'top -n 1 -m 10',
   'Active activity': 'dumpsys activity activities | grep -m3 -E "mResumedActivity|topResumedActivity"',
-  'Our installed apps': 'pm list packages --user 0 $ourPackagePrefix',
+  'My installed apps': ourPackagesShell(),
 };
 
 Map<String, String> _appCommands(String pkg) => {

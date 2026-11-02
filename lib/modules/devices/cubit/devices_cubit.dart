@@ -311,9 +311,11 @@ class DevicesCubit extends Cubit<DevicesState> {
     if (state.demo) return '(demo) scan skipped';
     emit(state.copyWith(scanning: true, scanProgress: 0));
     var found = 0;
+    final near = _devices.values.map((d) => d.ip).nonNulls.toList();
     try {
       await for (final ip in scanner.scan(
         5555,
+        near: near,
         onProgress: (done, total) => emit(state.copyWith(scanProgress: done / total)),
       )) {
         found++;
@@ -340,9 +342,7 @@ class DevicesCubit extends Cubit<DevicesState> {
     await refreshNow();
     final wireless = (await adb.mdnsServices()).where((s) => s.isConnect).length;
     final unpaired = state.devices.where((d) => d.adb == AdbState.unpaired).length;
-    final subnets = (await scanner.localAddresses())
-        .map((a) => '${a.address.substring(0, a.address.lastIndexOf('.'))}.x')
-        .toSet();
+    final subnets = await scanner.subnetLabels(near: near);
     if (subnets.isEmpty) return 'No local network found — connect to Wi-Fi/LAN first';
     if (found == 0 && wireless == 0) return 'Scanned ${subnets.join(', ')}: ${pick(noDeviceLines)}';
     return 'Scanned ${subnets.join(', ')}: $found on port 5555 · $wireless with wireless debugging'

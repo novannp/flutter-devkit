@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../../core/files.dart';
+import '../../../../core/source_links.dart';
 import '../../services/device_adb.dart';
 import '../../services/logcat_controller.dart';
 
@@ -151,7 +152,7 @@ class _LogcatTabState extends State<LogcatTab> {
                 onSelectionChanged: (s) => setState(() => _minLevel = s.first),
               ),
               FilterChip(
-                label: Text(focus == null ? 'Our apps only' : '${appShort(focus)} only'),
+                label: Text(focus == null ? 'My apps only' : '${appShort(focus)} only'),
                 tooltip: 'Change app via the app picker above',
                 selected: _onlyOurs,
                 onSelected: (v) => setState(() => _onlyOurs = v),
@@ -215,8 +216,9 @@ class _LogcatTabState extends State<LogcatTab> {
                         return Container(
                           color: l.crash ? Colors.red.withValues(alpha: 0.15) : null,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(
+                          child: SourceLinkText(
                             l.time == null ? l.raw : '${l.time}  ${l.level}  $prefix${l.tag}: ${l.message}',
+                            appId: app,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontFamily: 'Consolas', fontSize: 12.5, color: _color(l, scheme)),
@@ -248,8 +250,8 @@ class _Empty extends StatelessWidget {
         : focus != null
         ? '${appName(focus!)} is not running on this device.'
         : anyRunning
-        ? 'No logs from our apps match the filter yet.'
-        : 'None of our apps are running on this device.';
+        ? 'No logs from your apps match the filter yet.'
+        : 'None of your apps are running on this device.';
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,

@@ -1,5 +1,6 @@
-import '../../../core/apps.dart';
 import '../models/device.dart';
+
+const _demoApps = ['com.example.shop', 'com.example.kiosk', 'com.example.signage'];
 
 final demoDevices = List.generate(28, (i) {
   final n = i + 1;
@@ -15,9 +16,9 @@ final demoDevices = List.generate(28, (i) {
     apps: isSunbay
         ? const {}
         : {
-            knownApps[0].package: n % 5 == 0 ? '3.0.19' : '3.0.20',
-            if (n % 3 == 0) knownApps[1].package: '2.4.1',
-            if (n % 4 == 1) knownApps[n % knownApps.length].package: '1.${n % 6}.0',
+            _demoApps[0]: n % 5 == 0 ? '3.0.19' : '3.0.20',
+            if (n % 3 == 0) _demoApps[1]: '2.4.1',
+            if (n % 4 == 1) _demoApps[n % _demoApps.length]: '1.${n % 6}.0',
           },
     env: isSunbay ? null : (n % 4 == 0 ? 'prod' : 'qa'),
     adb: !online

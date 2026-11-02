@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.ravo" "\0"
-            VALUE "FileDescription", "Ravo DevKit" "\0"
+            VALUE "CompanyName", "DevKit" "\0"
+            VALUE "FileDescription", "DevKit" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "ravo_devkit" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.ravo. All rights reserved." "\0"
-            VALUE "OriginalFilename", "ravo_devkit.exe" "\0"
-            VALUE "ProductName", "Ravo DevKit" "\0"
+            VALUE "InternalName", "devkit" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 DevKit contributors." "\0"
+            VALUE "OriginalFilename", "devkit.exe" "\0"
+            VALUE "ProductName", "DevKit" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
