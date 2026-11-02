@@ -247,6 +247,10 @@ class CodePaneState extends State<CodePane> {
   Timer? _loadingTimer;
   var _loadingToken = 0;
   var _loadingForHover = false;
+  var _loadingIsNote = false;
+
+  /// The loading token of a Ctrl+Space still waiting for its answer.
+  int? _completionLoading;
 
   // Usages overlay.
   List<SearchHit>? _usages;
@@ -453,24 +457,60 @@ class CodePaneState extends State<CodePane> {
     _requestCompletion(sel.extentIndex, sel.extentOffset, start);
   }
 
-  void _requestCompletion(int line, int column, int start) {
+  /// [manual] is Ctrl+Space, which always answers: a loading card while the analyzer gets ready, then
+  /// the suggestions or a note that there are none.
+  void _requestCompletion(int line, int column, int start, {bool manual = false}) {
     _completionTimer?.cancel();
     final token = ++_completionToken;
+    if (_completionLoading != null) _endLoading();
+    final loading = manual ? _beginLoading('Loading suggestions…', line, column) : null;
+    _completionLoading = loading;
+    bool stale() => !mounted || token != _completionToken || (loading != null && loading != _loadingToken);
+    void finish() {
+      if (loading != null && loading == _loadingToken) _endLoading();
+      if (_completionLoading == loading) _completionLoading = null;
+    }
+
     _completionTimer = Timer(const Duration(milliseconds: 60), () async {
       try {
-        final items = await widget.workspace.completion(_doc, line, column);
-        if (!mounted || token != _completionToken) return;
+        var items = await widget.workspace.completion(_doc, line, column);
+        // The first answers can be empty while the file's analysis is still under way.
+        for (var i = 0; manual && items.isEmpty && !stale() && i < 20; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+          if (stale()) break;
+          items = await widget.workspace.completion(_doc, line, column);
+        }
+        if (stale()) return finish();
         _items = items;
         _incomplete = false;
         _popupLine = line;
         _wordStart = start;
         final sel = _ctrl.selection;
-        if (!sel.isCollapsed || sel.extentIndex != line) return _closePopup();
+        if (!sel.isCollapsed || sel.extentIndex != line) {
+          finish();
+          return _closePopup();
+        }
         final text = _ctrl.codeLines[line].text;
+        finish();
         _filter(text.substring(start.clamp(0, text.length), sel.extentOffset.clamp(start, text.length)));
+        if (manual && _shown.isEmpty) _showCompletionNote('No suggestions', line, column);
       } on Exception {
         // The server restarting or a timeout only means no suggestions this time.
+        finish();
       }
+    });
+  }
+
+  void _showCompletionNote(String text, int line, int column) {
+    final token = ++_loadingToken;
+    _loadingTimer?.cancel();
+    setState(() {
+      _loading = text;
+      _loadingIsNote = true;
+      _loadingAt = _caretOffset(line, column);
+    });
+    _loadingTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (token == _loadingToken) _endLoading();
     });
   }
 
@@ -539,6 +579,10 @@ class CodePaneState extends State<CodePane> {
   void _closePopup() {
     _completionTimer?.cancel();
     _completionToken++;
+    if (_completionLoading != null) {
+      _completionLoading = null;
+      _endLoading();
+    }
     _docsTimer?.cancel();
     _docsToken++;
     if (_popup && mounted) {
@@ -620,7 +664,7 @@ class CodePaneState extends State<CodePane> {
       return _handled(() {
         final text = _ctrl.codeLines[line].text;
         final before = text.substring(0, col.clamp(0, text.length));
-        _requestCompletion(line, col, before.length - _wordBefore.firstMatch(before)![0]!.length);
+        _requestCompletion(line, col, before.length - _wordBefore.firstMatch(before)![0]!.length, manual: true);
       });
     }
     if (key == LogicalKeyboardKey.f12) {
@@ -766,6 +810,7 @@ class CodePaneState extends State<CodePane> {
       if (!mounted || token != _loadingToken) return;
       setState(() {
         _loading = label;
+        _loadingIsNote = false;
         _loadingAt = _caretOffset(line, column);
       });
     });
@@ -792,8 +837,10 @@ class CodePaneState extends State<CodePane> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
-            const SizedBox(width: 8),
+            if (!_loadingIsNote) ...[
+              SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
+              const SizedBox(width: 8),
+            ],
             Flexible(child: Text(_loading!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5))),
           ],
         ),
