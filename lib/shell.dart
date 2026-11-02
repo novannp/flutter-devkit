@@ -34,6 +34,23 @@ final _modules = [
   for (final e in builtinExtensions) ...e.modules,
 ];
 
+const _undoActions = [
+  ('Undo', Icons.undo, UndoTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyZ, false, 'Ctrl+Z'),
+  ('Redo', Icons.redo, RedoTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyZ, true, 'Ctrl+Shift+Z'),
+];
+
+const _clipboardActions = [
+  ('Cut', Icons.content_cut, CopySelectionTextIntent.cut(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyX, false, 'Ctrl+X'),
+  ('Copy', Icons.content_copy, CopySelectionTextIntent.copy, LogicalKeyboardKey.keyC, false, 'Ctrl+C'),
+  ('Paste', Icons.content_paste, PasteTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyV, false, 'Ctrl+V'),
+  ('Select All', Icons.select_all, SelectAllTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyA, false, 'Ctrl+A'),
+];
+
+void invokeOnFocused(Intent intent) {
+  final focused = FocusManager.instance.primaryFocus?.context;
+  if (focused != null) Actions.maybeInvoke(focused, intent);
+}
+
 class Shell extends StatefulWidget {
   const Shell({super.key});
 
@@ -78,9 +95,10 @@ class _ShellState extends State<Shell> {
       if (mounted) unawaited(showGettingStartedOnce(context));
     });
     EditorCommands.openExtensions = () => _go(_modules.indexOf(_extensions));
+    EditorCommands.openSettings = () => _go(_modules.indexOf(_settings));
     EditorCommands.windowCommands = () => [
       for (final m in _modules)
-        if (m != _editor) PaletteItem('Open ${m.label}', () => _go(_modules.indexOf(m)), keys: m == _extensions ? 'Ctrl+Shift+X' : null, icon: m.icon),
+        if (m != _editor) PaletteItem('Open ${m.label}', () => _go(_modules.indexOf(m)), keys: m == _extensions ? 'Ctrl+Shift+X' : (m == _settings ? 'Ctrl+,' : null), icon: m.icon),
       PaletteItem('Getting Started', () => showGettingStarted(context), icon: Icons.school_outlined),
       PaletteItem('Connection Guide', () => showConnectionGuide(context), icon: Icons.help_outline),
     ];
@@ -95,6 +113,7 @@ class _ShellState extends State<Shell> {
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKey);
     EditorCommands.openExtensions = null;
+    EditorCommands.openSettings = null;
     EditorCommands.windowCommands = null;
     ExtensionManager.instance.removeListener(_onExtensions);
     _tools.removeListener(_rebuild);
@@ -298,7 +317,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
       _item('Go to Symbol in File', Icons.data_object, () => EditorCommands.goToSymbol?.call(), keys: 'Ctrl+Shift+O'),
       const Divider(height: 1),
       _item('Extensions', Icons.extension_outlined, () => _openModule(_extensions), keys: 'Ctrl+Shift+X'),
-      _item('Settings', Icons.settings_outlined, () => _openModule(_settings)),
+      _item('Settings', Icons.settings_outlined, () => _openModule(_settings), keys: 'Ctrl+,'),
       SubmenuButton(
         style: _itemStyle,
         leadingIcon: const Icon(Icons.palette_outlined, size: 17),
@@ -330,6 +349,16 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
       _item('Quit Flutter DevKit (the bugs will wait)', Icons.power_settings_new, BackgroundRunner.instance.quit),
     ],
     child: const Text('File'),
+  );
+
+  Widget _editMenu() => SubmenuButton(
+    style: _itemStyle,
+    menuChildren: [
+      for (final (label, icon, intent, _, _, keys) in _undoActions) _item(label, icon, () => invokeOnFocused(intent), keys: keys),
+      const Divider(height: 1),
+      for (final (label, icon, intent, _, _, keys) in _clipboardActions) _item(label, icon, () => invokeOnFocused(intent), keys: keys),
+    ],
+    child: const Text('Edit'),
   );
 
   Widget? _menu(String title, List<AppModule> modules, {List<Widget> first = const []}) {
@@ -381,10 +410,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
   PlatformMenuItem _editItem(String label, Intent intent, LogicalKeyboardKey key, {bool shift = false}) => PlatformMenuItem(
     label: label,
     shortcut: SingleActivator(key, meta: true, shift: shift),
-    onSelected: () {
-      final focused = FocusManager.instance.primaryFocus?.context;
-      if (focused != null) Actions.maybeInvoke(focused, intent);
-    },
+    onSelected: () => invokeOnFocused(intent),
   );
 
   List<PlatformMenuItem> _nativeMenus() => [
@@ -438,13 +464,9 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
     ]),
     PlatformMenu(label: 'Edit', menus: [
       PlatformMenuItemGroup(members: [
-        _editItem('Undo', const UndoTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyZ),
-        _editItem('Redo', const RedoTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyZ, shift: true),
+        for (final (label, _, intent, key, shift, _) in _undoActions) _editItem(label, intent, key, shift: shift),
       ]),
-      _editItem('Cut', const CopySelectionTextIntent.cut(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyX),
-      _editItem('Copy', CopySelectionTextIntent.copy, LogicalKeyboardKey.keyC),
-      _editItem('Paste', const PasteTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyV),
-      _editItem('Select All', const SelectAllTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyA),
+      for (final (label, _, intent, key, shift, _) in _clipboardActions) _editItem(label, intent, key, shift: shift),
     ]),
     for (final name in ['Device', 'Tools', 'Team'])
       if (name == 'Tools' || _enabledIn(name).isNotEmpty)
@@ -512,6 +534,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
                   children: () {
                     final menus = [
                       _fileMenu(scheme),
+                      _editMenu(),
                       ?_menu('Device', _enabledIn('Device')),
                       ?_menu(
                         'Tools',

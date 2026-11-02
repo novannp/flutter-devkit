@@ -46,7 +46,7 @@ const _desktopDevice = 'windows';
 
 /// What the title bar's menus ask of the Editor, and how the Editor reaches the shell.
 class EditorCommands {
-  static VoidCallback? openFolder, openFile, quickOpen, saveAll, openExtensions, openTerminal, openDartSettings, commandPalette, goToSymbol;
+  static VoidCallback? openFolder, openFile, quickOpen, saveAll, openExtensions, openSettings, openTerminal, openDartSettings, commandPalette, goToSymbol;
 
   /// Commands of the window around the Editor, listed in the palette too.
   static List<PaletteItem> Function()? windowCommands;
@@ -413,6 +413,8 @@ class _EditorPageState extends State<EditorPage> {
       action = () => _showPanel(_Panel.output);
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyX) {
       action = EditorCommands.openExtensions;
+    } else if (hw.isPrimaryPressed && key == LogicalKeyboardKey.comma) {
+      action = EditorCommands.openSettings;
     } else if (hw.isControlPressed && (key == LogicalKeyboardKey.tab || key == LogicalKeyboardKey.pageDown || key == LogicalKeyboardKey.pageUp)) {
       final back = key == LogicalKeyboardKey.pageUp || (key == LogicalKeyboardKey.tab && hw.isShiftPressed);
       action = () => _cycleTab(back ? -1 : 1);
