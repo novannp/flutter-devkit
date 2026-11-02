@@ -285,6 +285,31 @@ void main() {
       await tester.pump();
       expect(find.text('Loading suggestions…'), findsNothing);
 
+      // The palette finds commands, and the symbol list opens over the current file.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Go to File'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).last, 'format doc');
+      await tester.pump();
+      expect(find.text('Format Document'), findsOneWidget);
+      expect(find.text('Go to File'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyO);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.widgetWithText(TextField, 'Go to symbol in main.dart'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump(const Duration(milliseconds: 300));
+
       // The declaration isn't one of its own usages; the other file's use is listed too, once it's indexed.
       for (var i = 0; i < 40 && find.text('3 usages of helper').evaluate().isEmpty; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);

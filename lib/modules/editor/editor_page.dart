@@ -9,6 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/theme.dart';
 import '../../core/local_builds.dart';
 import '../console/console_session.dart';
 import '../console/console_view.dart';
@@ -30,6 +31,7 @@ import 'file_tree.dart';
 import 'fuzzy_files.dart';
 import 'log_style.dart';
 import 'notices.dart';
+import 'palette.dart';
 import 'source_control.dart';
 import 'source_control_view.dart';
 import 'tool_tabs.dart';
@@ -43,7 +45,10 @@ const _desktopDevice = 'windows';
 
 /// What the title bar's menus ask of the Editor, and how the Editor reaches the shell.
 class EditorCommands {
-  static VoidCallback? openFolder, openFile, quickOpen, saveAll, openExtensions, openTerminal, openDartSettings;
+  static VoidCallback? openFolder, openFile, quickOpen, saveAll, openExtensions, openTerminal, openDartSettings, commandPalette, goToSymbol;
+
+  /// Commands of the window around the Editor, listed in the palette too.
+  static List<PaletteItem> Function()? windowCommands;
   static ValueChanged<String>? openRecent;
 }
 
@@ -144,6 +149,8 @@ class _EditorPageState extends State<EditorPage> {
     };
     EditorCommands.openRecent = _openRecent;
     EditorCommands.quickOpen = _quickOpen;
+    EditorCommands.commandPalette = _commandPalette;
+    EditorCommands.goToSymbol = _goToSymbol;
     EditorCommands.saveAll = () => _ws?.saveAll();
     _git.addListener(_rebuild);
     // A pull or a teammate's change can touch pubspec.yaml, with nothing in the Editor being saved.
@@ -162,7 +169,7 @@ class _EditorPageState extends State<EditorPage> {
   void dispose() {
     editorSaveAllOnQuit = null;
     EditorCommands.openFolder = EditorCommands.openFile = EditorCommands.openTerminal = EditorCommands.quickOpen = EditorCommands.saveAll = null;
-    EditorCommands.openRecent = EditorCommands.openDartSettings = null;
+    EditorCommands.openRecent = EditorCommands.openDartSettings = EditorCommands.commandPalette = EditorCommands.goToSymbol = null;
     _revealSub?.cancel();
     _ws?.removeListener(_rebuild);
     _ws?.dispose();
@@ -369,6 +376,10 @@ class _EditorPageState extends State<EditorPage> {
     void Function()? action;
     if (key == LogicalKeyboardKey.f5 && !hw.isPrimaryPressed) {
       action = hw.isShiftPressed ? () => _flutter?.stop() : (_debugger.paused ? _debugger.resume : _run);
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyP) {
+      action = _commandPalette;
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyO) {
+      action = _goToSymbol;
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyG) {
       action = () => _showSide(_Side.git);
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyE) {
@@ -474,6 +485,88 @@ class _EditorPageState extends State<EditorPage> {
       builder: (_) => _QuickOpen(root: ws.root, files: files, recent: [for (final d in ws.documents) d.path]),
     );
     if (picked != null) await _openFile(picked.$1, line: picked.$2, column: picked.$2 == null ? null : 0);
+  }
+
+  Future<void> _commandPalette() {
+    final ws = _ws;
+    return showPalette(
+      context,
+      hint: 'Type a command',
+      empty: 'No commands match',
+      items: [
+        PaletteItem('Go to File', _quickOpen, keys: 'Ctrl+P', icon: Icons.search),
+        PaletteItem('Go to Line', _goToLine, keys: 'Ctrl+G', icon: Icons.format_list_numbered),
+        PaletteItem('Go to Symbol in File', _goToSymbol, keys: 'Ctrl+Shift+O', icon: Icons.data_object),
+        PaletteItem('Save', _save, keys: 'Ctrl+S', icon: Icons.save_outlined),
+        PaletteItem('Save All', () => _ws?.saveAll(), keys: 'Ctrl+Shift+S', icon: Icons.save_outlined),
+        PaletteItem('Format Document', _format, keys: 'Shift+Alt+F', icon: Icons.format_align_left),
+        PaletteItem('Close Tab', () {
+          if (_ws?.active case final doc?) _closeTab(doc);
+        }, keys: 'Ctrl+W', icon: Icons.close),
+        PaletteItem('Split Editor', _splitActive, keys: 'Ctrl+\\', icon: Icons.vertical_split_outlined),
+        PaletteItem('Toggle Word Wrap', EditorView.toggleWordWrap, keys: 'Alt+Z', icon: Icons.wrap_text),
+        PaletteItem('Zoom In', () => EditorView.zoom(1), keys: 'Ctrl+=', icon: Icons.zoom_in),
+        PaletteItem('Zoom Out', () => EditorView.zoom(-1), keys: 'Ctrl+-', icon: Icons.zoom_out),
+        PaletteItem('Reset Zoom', EditorView.resetZoom, keys: 'Ctrl+0', icon: Icons.zoom_out_map),
+        PaletteItem('Show Files', () => _showSide(_Side.files), keys: 'Ctrl+Shift+E', icon: Icons.description_outlined),
+        PaletteItem('Show Source Control', () => _showSide(_Side.git), keys: 'Ctrl+Shift+G', icon: Icons.account_tree_outlined),
+        PaletteItem('Show Search', () => _showSide(_Side.search), keys: 'Ctrl+Shift+F', icon: Icons.search),
+        PaletteItem('Show Run and Debug', () => _showSide(_Side.debug), keys: 'Ctrl+Shift+D', icon: Icons.bug_report_outlined),
+        PaletteItem('Toggle Side Panel', _toggleSide, keys: 'Ctrl+B', icon: Icons.view_sidebar_outlined),
+        PaletteItem('Show Problems', () => _showPanel(_Panel.problems), keys: 'Ctrl+Shift+M', icon: Icons.error_outline),
+        PaletteItem('Show Output', () => _showPanel(_Panel.output), keys: 'Ctrl+Shift+U', icon: Icons.notes),
+        PaletteItem('Show Terminal', () => _showPanel(_Panel.terminal), keys: 'Ctrl+`', icon: Icons.terminal),
+        PaletteItem('Toggle Bottom Panel', () => setState(() => _panelOpen = !_panelOpen), keys: 'Ctrl+J', icon: Icons.web_asset),
+        PaletteItem('Next Problem', () => _nextProblem(1), keys: 'F8', icon: Icons.arrow_downward),
+        PaletteItem('Previous Problem', () => _nextProblem(-1), keys: 'Shift+F8', icon: Icons.arrow_upward),
+        PaletteItem('Run', _run, keys: 'F5', icon: Icons.play_arrow),
+        PaletteItem('Stop', () => _flutter?.stop(), keys: 'Shift+F5', icon: Icons.stop),
+        PaletteItem('Hot Reload', () => _flutter?.reload(full: false), keys: 'Ctrl+F5', icon: Icons.bolt),
+        PaletteItem('Hot Restart', () => _flutter?.reload(full: true), keys: 'Ctrl+Shift+F5', icon: Icons.restart_alt),
+        PaletteItem('Toggle Device Screen', () => setState(() => _mirrorOpen = !_mirrorOpen), keys: 'Ctrl+Alt+M', icon: Icons.phone_android),
+        PaletteItem('Toggle Breakpoint', () => _pane?.toggleBreakpointAtCursor(), keys: 'F9', icon: Icons.circle_outlined),
+        PaletteItem('Debug: Continue', _debugger.resume, icon: Icons.play_circle_outline),
+        PaletteItem('Debug: Pause', _debugger.pause, keys: 'F6', icon: Icons.pause_circle_outline),
+        PaletteItem('Debug: Step Over', _debugger.stepOver, keys: 'F10', icon: Icons.redo),
+        PaletteItem('Debug: Step Into', _debugger.stepInto, keys: 'F11', icon: Icons.south_east),
+        PaletteItem('Debug: Step Out', _debugger.stepOut, keys: 'Shift+F11', icon: Icons.north_east),
+        PaletteItem('Flutter: Pub Get', () => unawaited(_runTool('pub get')), icon: Icons.download_outlined),
+        PaletteItem('Flutter: Pub Upgrade', () => unawaited(_runTool('pub upgrade')), icon: Icons.upgrade),
+        PaletteItem('Flutter: Clean', () => unawaited(_runTool('clean')), icon: Icons.cleaning_services_outlined),
+        if (ws != null) PaletteItem('Dart Settings', () => unawaited(_dartSettings(ws)), icon: Icons.tune),
+        PaletteItem('Open Folder', _pickFolder, icon: Icons.folder_open),
+        PaletteItem('Open File', _pickFile, keys: 'Ctrl+O', icon: Icons.file_open_outlined),
+        ...?EditorCommands.windowCommands?.call(),
+        for (final t in appThemes) PaletteItem('Theme: ${t.name}', () => setAppTheme(t), icon: Icons.palette_outlined),
+      ],
+    );
+  }
+
+  Future<void> _goToSymbol() async {
+    final ws = _ws;
+    final doc = ws?.active;
+    if (doc == null) return _toast('Open a file first');
+    final path = doc.path;
+    PaletteItem row(DocSymbol s, String? parent) => PaletteItem(
+      s.name,
+      () => unawaited(_jump(EditTarget(path, s.line, s.column))),
+      detail: parent,
+      keys: ':${s.line + 1}',
+      icon: symbolIcon(s.kind),
+    );
+    Iterable<PaletteItem> flatten(List<DocSymbol> symbols, String? parent) sync* {
+      for (final s in symbols) {
+        yield row(s, parent);
+        yield* flatten(s.children, s.name);
+      }
+    }
+
+    return showPalette(
+      context,
+      hint: 'Go to symbol in ${p.basename(path)}',
+      empty: doc.symbols.isEmpty ? 'No symbols yet. The analyzer may still be reading this file.' : 'No symbols match',
+      items: flatten(doc.symbols, null).toList(),
+    );
   }
 
   Future<void> _goToLine() async {
