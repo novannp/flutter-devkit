@@ -244,6 +244,11 @@ class SourceControl extends ChangeNotifier {
     return error == null;
   }
 
+  /// Puts the repo back at the last commit. Through the stash, so a slip can still be recovered.
+  Future<bool> discardAll() => _run([
+    ['stash', 'push', '--include-untracked', '-m', 'Flutter DevKit: before Discard All Changes'],
+  ]);
+
   Future<bool> commit(String message) => _run([
     ['commit', '-m', message],
   ]);

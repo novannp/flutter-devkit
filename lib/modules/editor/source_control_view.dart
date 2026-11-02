@@ -137,7 +137,13 @@ class _SourceControlViewState extends State<SourceControlView> {
                     _heading('Staged', staged.length, scheme, Icons.remove, 'Unstage all', () => _git.unstage(staged)),
                     for (final c in staged) _row(c, true, scheme),
                   ],
-                  _heading('Changes', unstaged.length, scheme, Icons.add, 'Stage all', unstaged.isEmpty ? null : () => _git.stage(unstaged)),
+                  _heading('Changes', unstaged.length, scheme, Icons.add, 'Stage all', unstaged.isEmpty ? null : () => _git.stage(unstaged), extra: IconButton(
+                    tooltip: 'Discard all changes',
+                    iconSize: 15,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _git.busy || _git.changes.isEmpty ? null : () => confirmDiscardAll(context, _git),
+                    icon: const Icon(Icons.undo),
+                  )),
                   for (final c in unstaged) _row(c, false, scheme),
                 ],
               ),
@@ -203,13 +209,14 @@ class _SourceControlViewState extends State<SourceControlView> {
     ),
   );
 
-  Widget _heading(String title, int count, ColorScheme scheme, IconData icon, String tip, VoidCallback? onPressed) => Padding(
+  Widget _heading(String title, int count, ColorScheme scheme, IconData icon, String tip, VoidCallback? onPressed, {Widget? extra}) => Padding(
     padding: const EdgeInsets.only(left: 8, top: 4),
     child: Row(
       children: [
         Expanded(
           child: Text('$title ($count)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.outline)),
         ),
+        ?extra,
         IconButton(tooltip: tip, iconSize: 15, visualDensity: VisualDensity.compact, onPressed: _git.busy ? null : onPressed, icon: Icon(icon)),
       ],
     ),
@@ -256,6 +263,26 @@ class _SourceControlViewState extends State<SourceControlView> {
       ),
     );
   }
+}
+
+Future<void> confirmDiscardAll(BuildContext context, SourceControl git) async {
+  final count = git.changes.length;
+  if (count == 0) return;
+  final sure = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text('Discard all $count ${count == 1 ? 'change' : 'changes'}?'),
+      content: const SizedBox(
+        width: 420,
+        child: Text('Staged and unstaged edits are undone, and new files are removed. A copy stays in git stash, so `git stash pop` brings it all back.'),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Discard All')),
+      ],
+    ),
+  );
+  if (sure == true) await git.discardAll();
 }
 
 /// Before and after next to each other, in one scroll so their lines stay level.

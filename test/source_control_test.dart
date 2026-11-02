@@ -120,6 +120,23 @@ diff --git a/a b/a
     expect(extra.existsSync(), isFalse);
     expect(sc.changes, isEmpty);
 
+    await file.writeAsString('edited\n');
+    final added = File(p.join(dir.path, 'new one.txt'))..writeAsStringSync('new');
+    final stagedNew = File(p.join(dir.path, 'staged new.txt'))..writeAsStringSync('new');
+    await sc.refresh();
+    await sc.stage(sc.changes.where((c) => c.path == 'staged new.txt').toList());
+    expect(sc.changes, hasLength(3));
+    expect(await sc.discardAll(), isTrue);
+    expect(sc.changes, isEmpty);
+    expect(await file.readAsString(), 'one\nTWO\nthree\n');
+    expect(added.existsSync() || stagedNew.existsSync(), isFalse);
+    final pop = await Process.run('git', ['stash', 'pop'], workingDirectory: dir.path);
+    expect(pop.exitCode, 0, reason: 'a slip can be undone');
+    expect(added.existsSync(), isTrue);
+    expect(await file.readAsString(), 'edited\n');
+    await sc.discardAll();
+    await Process.run('git', ['stash', 'drop'], workingDirectory: dir.path);
+
     expect(await sc.commit('nothing to commit'), isFalse);
     expect(sc.error, isNotNull);
   });
