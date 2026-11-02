@@ -18,6 +18,59 @@ class GitChange {
   bool get unstaged => worktree != ' ';
 }
 
+class BlameLine {
+  const BlameLine(this.hash, this.author, this.time, this.summary);
+
+  final String hash, author, summary;
+  final DateTime time;
+
+  /// Git uses an all-zero hash for lines that only exist in the working copy.
+  bool get committed => hash.replaceAll('0', '').isNotEmpty;
+
+  String describe(DateTime now) => committed ? '$author, ${ageOf(time, now)} • $summary' : 'Not committed yet';
+}
+
+String ageOf(DateTime time, DateTime now) {
+  final d = now.difference(time);
+  String ago(int n, String unit) => '$n $unit${n == 1 ? '' : 's'} ago';
+  if (d.inDays >= 365) return ago(d.inDays ~/ 365, 'year');
+  if (d.inDays >= 30) return ago(d.inDays ~/ 30, 'month');
+  if (d.inDays >= 7) return ago(d.inDays ~/ 7, 'week');
+  if (d.inDays >= 1) return ago(d.inDays, 'day');
+  if (d.inHours >= 1) return ago(d.inHours, 'hour');
+  if (d.inMinutes >= 1) return ago(d.inMinutes, 'minute');
+  return 'just now';
+}
+
+/// Parses `git blame --line-porcelain`, into who last touched each line, from 0.
+Map<int, BlameLine> parseBlame(String output) {
+  final result = <int, BlameLine>{};
+  final header = RegExp(r'^([0-9a-f]{40}) \d+ (\d+)');
+  String? hash, author, summary;
+  int? line;
+  var time = 0;
+  for (final raw in const LineSplitter().convert(output)) {
+    if (raw.startsWith('\t')) {
+      if (hash != null && line != null) {
+        result[line - 1] = BlameLine(hash, author ?? '', DateTime.fromMillisecondsSinceEpoch(time * 1000), summary ?? '');
+      }
+      continue;
+    }
+    final m = header.firstMatch(raw);
+    if (m != null) {
+      hash = m[1];
+      line = int.parse(m[2]!);
+    } else if (raw.startsWith('author ')) {
+      author = raw.substring(7);
+    } else if (raw.startsWith('author-time ')) {
+      time = int.tryParse(raw.substring(12)) ?? 0;
+    } else if (raw.startsWith('summary ')) {
+      summary = raw.substring(8);
+    }
+  }
+  return result;
+}
+
 /// Parses `git status --porcelain=v1 -z`: no quoting, and a rename's old path follows as its own field.
 List<GitChange> parseStatus(String output) {
   final fields = output.split('\u0000');
@@ -278,6 +331,13 @@ class SourceControl extends ChangeNotifier {
     }
     final r = await _git(['diff', '-U1000000', '--no-color', '--no-ext-diff', if (staged) '--cached', '--', c.path]);
     return parseSideBySide(r.text);
+  }
+
+  /// Who last touched each line of a saved file; empty when git doesn't track it.
+  Future<Map<int, BlameLine>> blameOf(String path) async {
+    if (top == null || !p.isWithin(top!, path)) return const {};
+    final r = await _git(['blame', '--line-porcelain', '--', path]);
+    return r.ok ? parseBlame(r.text) : const {};
   }
 
   /// How a saved file differs from HEAD, for the gutter.
