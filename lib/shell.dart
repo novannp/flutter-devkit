@@ -181,6 +181,7 @@ class _TitleBar extends StatefulWidget {
 
 class _TitleBarState extends State<_TitleBar> with WindowListener {
   var _maximized = false;
+  var _fullScreen = false;
 
   static final _itemStyle = ButtonStyle(
     textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 13)),
@@ -196,6 +197,11 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
     windowManager.isMaximized().then((v) {
       if (mounted) setState(() => _maximized = v);
     });
+    if (Platform.isMacOS) {
+      windowManager.isFullScreen().then((v) {
+        if (mounted) setState(() => _fullScreen = v);
+      });
+    }
   }
 
   @override
@@ -209,6 +215,12 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
 
   @override
   void onWindowUnmaximize() => setState(() => _maximized = false);
+
+  @override
+  void onWindowEnterFullScreen() => setState(() => _fullScreen = true);
+
+  @override
+  void onWindowLeaveFullScreen() => setState(() => _fullScreen = false);
 
   void _openModule(AppModule m) => widget.onSelect(_modules.indexOf(m));
 
@@ -360,6 +372,104 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
     child: const Text('Help'),
   );
 
+  PlatformMenuItem _nativeItem(String label, VoidCallback callback, {LogicalKeyboardKey? key, bool shift = false, bool control = false}) => PlatformMenuItem(
+    label: label,
+    onSelected: callback,
+    shortcut: key == null ? null : SingleActivator(key, meta: !control, control: control, shift: shift),
+  );
+
+  PlatformMenuItem _editItem(String label, Intent intent, LogicalKeyboardKey key, {bool shift = false}) => PlatformMenuItem(
+    label: label,
+    shortcut: SingleActivator(key, meta: true, shift: shift),
+    onSelected: () {
+      final focused = FocusManager.instance.primaryFocus?.context;
+      if (focused != null) Actions.maybeInvoke(focused, intent);
+    },
+  );
+
+  List<PlatformMenuItem> _nativeMenus() => [
+    PlatformMenu(label: 'Flutter DevKit', menus: [
+      _nativeItem('About Flutter DevKit', _about),
+      PlatformMenuItemGroup(members: [
+        _nativeItem('Settings…', () => _openModule(_settings), key: LogicalKeyboardKey.comma),
+        PlatformMenu(label: 'Theme', menus: [
+          for (final theme in appThemes)
+            _nativeItem('${appTheme.value == theme ? '✓ ' : ''}${theme.name}', () => setAppTheme(theme)),
+        ]),
+      ]),
+      const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.servicesSubmenu),
+      const PlatformMenuItemGroup(members: [
+        PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hide),
+        PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hideOtherApplications),
+        PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.showAllApplications),
+      ]),
+      // Keep the save/cleanup path used by the in-app Quit command.
+      _nativeItem('Quit Flutter DevKit', BackgroundRunner.instance.quit, key: LogicalKeyboardKey.keyQ),
+    ]),
+    PlatformMenu(label: 'File', menus: [
+      _nativeItem('Open File…', () {
+        _openModule(_editor);
+        EditorCommands.openFile?.call();
+      }, key: LogicalKeyboardKey.keyO),
+      _nativeItem('Open Folder…', () {
+        _openModule(_editor);
+        EditorCommands.openFolder?.call();
+      }),
+      PlatformMenu(label: 'Open Recent', menus: [
+        if (RecentPaths.paths.value.isEmpty) const PlatformMenuItem(label: 'Nothing yet'),
+        for (final path in RecentPaths.paths.value)
+          _nativeItem(path, () {
+            _openModule(_editor);
+            EditorCommands.openRecent?.call(path);
+          }),
+        if (RecentPaths.paths.value.isNotEmpty)
+          PlatformMenuItemGroup(members: [_nativeItem('Clear Recently Opened', RecentPaths.clear)]),
+      ]),
+      PlatformMenuItemGroup(members: [
+        _nativeItem('Go to File…', () {
+          _openModule(_editor);
+          EditorCommands.quickOpen?.call();
+        }, key: LogicalKeyboardKey.keyP),
+        _nativeItem('Save All', () => EditorCommands.saveAll?.call(), key: LogicalKeyboardKey.keyS, shift: true),
+        _nativeItem('Command Palette', () => EditorCommands.commandPalette?.call(), key: LogicalKeyboardKey.keyP, shift: true),
+        _nativeItem('Go to Symbol in File', () => EditorCommands.goToSymbol?.call(), key: LogicalKeyboardKey.keyO, shift: true),
+        _nativeItem('Extensions', () => _openModule(_extensions), key: LogicalKeyboardKey.keyX, shift: true),
+      ]),
+    ]),
+    PlatformMenu(label: 'Edit', menus: [
+      PlatformMenuItemGroup(members: [
+        _editItem('Undo', const UndoTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyZ),
+        _editItem('Redo', const RedoTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyZ, shift: true),
+      ]),
+      _editItem('Cut', const CopySelectionTextIntent.cut(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyX),
+      _editItem('Copy', CopySelectionTextIntent.copy, LogicalKeyboardKey.keyC),
+      _editItem('Paste', const PasteTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyV),
+      _editItem('Select All', const SelectAllTextIntent(SelectionChangedCause.keyboard), LogicalKeyboardKey.keyA),
+    ]),
+    for (final name in ['Device', 'Tools', 'Team'])
+      if (name == 'Tools' || _enabledIn(name).isNotEmpty)
+        PlatformMenu(label: name, menus: [
+          if (name == 'Tools')
+            _nativeItem('Terminal', () => EditorCommands.openTerminal?.call(), key: LogicalKeyboardKey.backquote, control: true),
+          for (final module in _enabledIn(name)) _nativeItem(module.label, () => _openModule(module)),
+        ]),
+    const PlatformMenu(label: 'Window', menus: [
+      PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.minimizeWindow),
+      PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.zoomWindow),
+      PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.toggleFullScreen),
+      PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.arrangeWindowsInFront),
+    ]),
+    PlatformMenu(label: 'Help', menus: [
+      _nativeItem('Getting started', () => showGettingStarted(context)),
+      _nativeItem('Connection guide', () => showConnectionGuide(context)),
+      _nativeItem('Show error log', () {
+        final file = errorLogFile;
+        if (file != null && file.existsSync()) unawaited(revealInExplorer(file.path));
+      }),
+      _nativeItem('Take a break 🎮', () => _takeABreak(context)),
+    ]),
+  ];
+
   // The native frame's top edge is gone along with its title bar; the other three sides still resize.
   Widget _resizeEdge(ResizeEdge edge, MouseCursor cursor) => MouseRegion(
     cursor: cursor,
@@ -373,15 +483,15 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
+    final titleBar = Container(
       height: _barHeight,
       color: scheme.surfaceContainerLow,
       child: Stack(
         children: [
           Row(
             children: [
-              // macOS draws its window buttons here.
-              SizedBox(width: Platform.isMacOS ? 78 : 10),
+              // Reserve space for macOS window buttons only outside fullscreen.
+              SizedBox(width: Platform.isMacOS && !_fullScreen ? 78 : 10),
               Tooltip(
                 message: _tagline,
                 child: _Logo(
@@ -390,7 +500,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
                 ),
               ),
               const SizedBox(width: 6),
-              ListenableBuilder(
+              if (!Platform.isMacOS) ListenableBuilder(
                 listenable: ExtensionManager.instance,
                 builder: (_, _) => MenuBar(
                   style: MenuStyle(
@@ -451,6 +561,12 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
           ],
         ],
       ),
+    );
+    if (!Platform.isMacOS) return titleBar;
+    return ListenableBuilder(
+      listenable: Listenable.merge([ExtensionManager.instance, RecentPaths.paths, appTheme]),
+      builder: (_, child) => PlatformMenuBar(menus: _nativeMenus(), child: child),
+      child: titleBar,
     );
   }
 }

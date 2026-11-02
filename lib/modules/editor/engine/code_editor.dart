@@ -1313,18 +1313,34 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
               children: [
                 if (widget.indicatorBuilder != null) widget.indicatorBuilder!(context, _ctrl, _chunks, _indicator),
                 Expanded(
-                  child: Focus(
-                    focusNode: _focus,
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.text,
-                      child: Listener(
-                        behavior: HitTestBehavior.opaque,
-                        onPointerDown: _onPointerDown,
-                        onPointerMove: _onPointerMove,
-                        onPointerUp: _onPointerUp,
-                        onPointerCancel: _onPointerUp,
-                        onPointerSignal: _onPointerSignal,
-                        child: _CodeField(state: this),
+                  child: Actions(
+                    actions: <Type, Action<Intent>>{
+                      SelectAllTextIntent: CallbackAction<SelectAllTextIntent>(onInvoke: (_) { _ctrl.selectAll(); return null; }),
+                      CopySelectionTextIntent: CallbackAction<CopySelectionTextIntent>(onInvoke: (intent) {
+                        if (!intent.collapseSelection) {
+                          unawaited(_ctrl.copy());
+                        } else if (!widget.readOnly) {
+                          unawaited(_ctrl.cut());
+                        }
+                        return null;
+                      }),
+                      PasteTextIntent: CallbackAction<PasteTextIntent>(onInvoke: (_) { if (!widget.readOnly) unawaited(_ctrl.paste()); return null; }),
+                      UndoTextIntent: CallbackAction<UndoTextIntent>(onInvoke: (_) { if (!widget.readOnly) _ctrl.undo(); return null; }),
+                      RedoTextIntent: CallbackAction<RedoTextIntent>(onInvoke: (_) { if (!widget.readOnly) _ctrl.redo(); return null; }),
+                    },
+                    child: Focus(
+                      focusNode: _focus,
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.text,
+                        child: Listener(
+                          behavior: HitTestBehavior.opaque,
+                          onPointerDown: _onPointerDown,
+                          onPointerMove: _onPointerMove,
+                          onPointerUp: _onPointerUp,
+                          onPointerCancel: _onPointerUp,
+                          onPointerSignal: _onPointerSignal,
+                          child: _CodeField(state: this),
+                        ),
                       ),
                     ),
                   ),
