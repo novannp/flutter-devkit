@@ -16,6 +16,7 @@ import 'extensions/registry.dart';
 import 'modules/editor/editor_page.dart';
 import 'modules/editor/editor_view.dart';
 import 'modules/editor/tool_tabs.dart';
+import 'modules/editor/palette.dart';
 import 'modules/help/connection_guide.dart';
 import 'modules/help/getting_started.dart';
 import 'modules/settings/settings_page.dart';
@@ -77,6 +78,12 @@ class _ShellState extends State<Shell> {
       if (mounted) unawaited(showGettingStartedOnce(context));
     });
     EditorCommands.openExtensions = () => _go(_modules.indexOf(_extensions));
+    EditorCommands.windowCommands = () => [
+      for (final m in _modules)
+        if (m != _editor) PaletteItem('Open ${m.label}', () => _go(_modules.indexOf(m)), keys: m == _extensions ? 'Ctrl+Shift+X' : null, icon: m.icon),
+      PaletteItem('Getting Started', () => showGettingStarted(context), icon: Icons.school_outlined),
+      PaletteItem('Connection Guide', () => showConnectionGuide(context), icon: Icons.help_outline),
+    ];
     ExtensionManager.instance.addListener(_onExtensions);
     _tools.addListener(_rebuild);
     BackgroundRunner.instance.onQuit = () async {
@@ -88,6 +95,7 @@ class _ShellState extends State<Shell> {
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKey);
     EditorCommands.openExtensions = null;
+    EditorCommands.windowCommands = null;
     ExtensionManager.instance.removeListener(_onExtensions);
     _tools.removeListener(_rebuild);
     super.dispose();
@@ -271,6 +279,8 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
         EditorCommands.quickOpen?.call();
       }, keys: 'Ctrl+P'),
       _item('Save All', Icons.save_outlined, () => EditorCommands.saveAll?.call(), keys: 'Ctrl+Shift+S'),
+      _item('Command Palette', Icons.keyboard_command_key, () => EditorCommands.commandPalette?.call(), keys: 'Ctrl+Shift+P'),
+      _item('Go to Symbol in File', Icons.data_object, () => EditorCommands.goToSymbol?.call(), keys: 'Ctrl+Shift+O'),
       const Divider(height: 1),
       _item('Extensions', Icons.extension_outlined, () => _openModule(_extensions), keys: 'Ctrl+Shift+X'),
       _item('Settings', Icons.settings_outlined, () => _openModule(_settings)),
