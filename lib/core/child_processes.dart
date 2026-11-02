@@ -29,9 +29,20 @@ const _killOnJobClose = 0x2000;
 const _processSetQuota = 0x0100;
 const _processTerminate = 0x0001;
 
+/// (scrcpy pid, pid of the DevKit that started it) from `ps -axo pid=,command=`.
+Iterable<(int, int)> embeddedScrcpyIn(String ps) sync* {
+  final line = RegExp(r'^\s*(\d+)\s+.*scrcpy\b.*devkit-embed-(\d+)-', multiLine: true);
+  for (final m in line.allMatches(ps)) {
+    yield (int.parse(m[1]!), int.parse(m[2]!));
+  }
+}
+
 /// Child processes that must die with DevKit (embedded scrcpy windows would otherwise float orphaned).
 class ChildProcesses {
   static int? _job;
+
+  // macOS has no job objects, so children are ended by hand on the way out.
+  static final _bound = <int>{};
 
   static int? _jobHandle() {
     if (!Platform.isWindows) return null;
@@ -53,7 +64,28 @@ class ChildProcesses {
 
   static void bind(Process p) => bindPid(p.pid);
 
+  static void killBound() {
+    for (final pid in _bound) {
+      Process.killPid(pid);
+    }
+    _bound.clear();
+  }
+
+  /// A process and whatever it started.
+  static Future<void> killTree(Process p) async {
+    if (Platform.isWindows) {
+      await Process.run('taskkill', ['/T', '/F', '/PID', '${p.pid}']);
+    } else {
+      await Process.run('pkill', ['-TERM', '-P', '${p.pid}']);
+      p.kill();
+    }
+  }
+
   static void bindPid(int pid) {
+    if (Platform.isMacOS) {
+      _bound.add(pid);
+      return;
+    }
     final job = _jobHandle();
     if (job == null) return;
     final h = _openProcess(_processSetQuota | _processTerminate, 0, pid);
@@ -64,6 +96,14 @@ class ChildProcesses {
 
   /// Kills embedded scrcpy left by DevKit runs that are gone (title `devkit-embed-<pid>-n`).
   static Future<void> killOrphans() async {
+    if (Platform.isMacOS) {
+      final listed = await Tools.run('ps', ['-axo', 'pid=,command=']);
+      for (final (pid, owner) in embeddedScrcpyIn(listed.stdout)) {
+        final alive = await Tools.run('kill', ['-0', '$owner']);
+        if (!alive.ok) Process.killPid(pid);
+      }
+      return;
+    }
     if (!Platform.isWindows) return;
     await Tools.run('powershell', [
       '-NoProfile',

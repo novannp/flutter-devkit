@@ -34,6 +34,8 @@ import 'shell_tab.dart';
 import 'terminal_tab.dart';
 import '../../../../core/history.dart';
 import '../../../../core/compact_dropdown.dart';
+import '../../../../core/mono_font.dart';
+import '../../../../core/platform_keys.dart';
 
 class DeviceWorkspacePage extends StatefulWidget {
   const DeviceWorkspacePage({super.key, required this.device, this.standalone = false, this.panelOnly = false});
@@ -333,7 +335,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
     History.activity('screenshot', 'Screenshot ${widget.device.displayName}', {'file': path});
     final copied = await copyImageToClipboard(path);
     _toast(
-      copied ? 'Screenshot copied — just Ctrl+V. File: ${_name(path)}' : 'Screenshot saved: $path',
+      copied ? platformKeys('Screenshot copied — just Ctrl+V. File: ${_name(path)}') : 'Screenshot saved: $path',
       action: SnackBarAction(label: 'Open folder', onPressed: () => revealInExplorer(path)),
     );
   }
@@ -433,11 +435,11 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
                 leading: SizedBox(
                   width: 140,
                   child: Text(
-                    key,
-                    style: const TextStyle(fontFamily: 'Consolas', fontWeight: FontWeight.bold),
+                    platformKeys(key),
+                    style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontWeight: FontWeight.bold),
                   ),
                 ),
-                title: Text(desc),
+                title: Text(platformKeys(desc)),
               ),
           ],
         ),
@@ -448,18 +450,18 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
 
   Map<ShortcutActivator, VoidCallback> get _bindings => {
     for (var i = 0; i < _tabs.length; i++)
-      SingleActivator(LogicalKeyboardKey(LogicalKeyboardKey.digit1.keyId + i), control: true): () => _setTab(i),
-    const SingleActivator(LogicalKeyboardKey.keyS, control: true): _screenshot,
-    const SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true): () => _screenshot(saveAs: true),
-    const SingleActivator(LogicalKeyboardKey.keyB, control: true): _bugReport,
-    const SingleActivator(LogicalKeyboardKey.keyI, control: true): _installLatest,
-    const SingleActivator(LogicalKeyboardKey.keyR, control: true): _restartFocusApp,
-    const SingleActivator(LogicalKeyboardKey.keyL, control: true): _log.clear,
-    const SingleActivator(LogicalKeyboardKey.keyM, control: true): _openScrcpy,
-    const SingleActivator(LogicalKeyboardKey.slash, control: true): _showShortcuts,
+      SingleActivator(LogicalKeyboardKey(LogicalKeyboardKey.digit1.keyId + i), control: !Platform.isMacOS, meta: Platform.isMacOS): () => _setTab(i),
+    primaryActivator(LogicalKeyboardKey.keyS): _screenshot,
+    primaryActivator(LogicalKeyboardKey.keyS, shift: true): () => _screenshot(saveAs: true),
+    primaryActivator(LogicalKeyboardKey.keyB): _bugReport,
+    primaryActivator(LogicalKeyboardKey.keyI): _installLatest,
+    primaryActivator(LogicalKeyboardKey.keyR): _restartFocusApp,
+    primaryActivator(LogicalKeyboardKey.keyL): _log.clear,
+    primaryActivator(LogicalKeyboardKey.keyM): _openScrcpy,
+    primaryActivator(LogicalKeyboardKey.slash): _showShortcuts,
     const SingleActivator(LogicalKeyboardKey.f5): _flutterRun,
-    const SingleActivator(LogicalKeyboardKey.f5, control: true): () => _flutter.reload(),
-    const SingleActivator(LogicalKeyboardKey.f5, control: true, shift: true): () => _flutter.reload(full: true),
+    primaryActivator(LogicalKeyboardKey.f5): () => _flutter.reload(),
+    primaryActivator(LogicalKeyboardKey.f5, shift: true): () => _flutter.reload(full: true),
     const SingleActivator(LogicalKeyboardKey.f5, shift: true): _flutter.stop,
   };
 
@@ -617,7 +619,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
           const SizedBox(width: 12),
           _FocusAppPicker(focus: _focus, installed: _installed),
           IconButton(
-            tooltip: 'Restart app (Ctrl+R)',
+            tooltip: platformKeys('Restart app (Ctrl+R)'),
             onPressed: _restartFocusApp,
             icon: const Icon(Icons.replay, size: 20),
           ),
@@ -652,25 +654,25 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
               icon: const Icon(Icons.play_arrow, color: Colors.green),
             ),
           IconButton(
-            tooltip: 'Hot reload (Ctrl+F5)',
+            tooltip: platformKeys('Hot reload (Ctrl+F5)'),
             onPressed: f.canReload ? () => f.reload() : null,
             icon: Icon(Icons.bolt, color: f.canReload ? Colors.amber : null),
           ),
           IconButton(
-            tooltip: 'Hot restart (Ctrl+Shift+F5)',
+            tooltip: platformKeys('Hot restart (Ctrl+Shift+F5)'),
             onPressed: f.canReload ? () => f.reload(full: true) : null,
             icon: const Icon(Icons.restart_alt),
           ),
           if (f.devToolsUri != null)
             IconButton(
               tooltip: 'Open DevTools',
-              onPressed: () => Process.run('explorer', [f.devToolsUri!]),
+              onPressed: () => openExternal(f.devToolsUri!),
               icon: const Icon(Icons.insights),
             ),
           const VerticalDivider(indent: 14, endIndent: 14),
           _ScreenshotButton(onShot: _screenshot),
           IconButton(
-            tooltip: 'Bug report (Ctrl+B)',
+            tooltip: platformKeys('Bug report (Ctrl+B)'),
             onPressed: _bugReport,
             icon: const Icon(Icons.bug_report_outlined),
           ),
@@ -683,7 +685,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
             onSetRoot: _pickProjectsRoot,
           ),
           IconButton(
-            tooltip: 'Shortcut (Ctrl+/)',
+            tooltip: platformKeys('Shortcut (Ctrl+/)'),
             onPressed: _showShortcuts,
             icon: const Icon(Icons.keyboard_outlined),
           ),
@@ -771,7 +773,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _FocusAppPicker(focus: _focus, installed: _installed),
-              icon(Icons.replay, 'Restart app (Ctrl+R)', _restartFocusApp),
+              icon(Icons.replay, platformKeys('Restart app (Ctrl+R)'), _restartFocusApp),
               Container(
                 padding: const EdgeInsets.only(left: 8),
                 decoration: BoxDecoration(
@@ -789,20 +791,20 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
                         : icon(Icons.play_arrow, 'Run / Attach (F5)', _flutterRun, color: Colors.green),
                     icon(
                       Icons.bolt,
-                      'Hot reload (Ctrl+F5)',
+                      platformKeys('Hot reload (Ctrl+F5)'),
                       f.canReload ? () => f.reload() : null,
                       color: Colors.amber,
                     ),
                     icon(
                       Icons.restart_alt,
-                      'Hot restart (Ctrl+Shift+F5)',
+                      platformKeys('Hot restart (Ctrl+Shift+F5)'),
                       f.canReload ? () => f.reload(full: true) : null,
                     ),
                   ],
                 ),
               ),
               _ScreenshotButton(onShot: _screenshot),
-              icon(Icons.bug_report_outlined, 'Bug report (Ctrl+B)', _bugReport),
+              icon(Icons.bug_report_outlined, platformKeys('Bug report (Ctrl+B)'), _bugReport),
               _InstallButton(
                 builds: _builds,
                 installed: _installed,
@@ -835,7 +837,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
                     1 when _log.crashes.isNotEmpty => '${_log.crashes.length}',
                     _ => null,
                   },
-                  tooltip: 'Ctrl+${i + 1}',
+                  tooltip: platformKeys('Ctrl+${i + 1}'),
                   onTap: () => _setTab(i),
                 ),
             ],
@@ -937,21 +939,21 @@ class _ScreenshotButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PopupMenuButton<bool>(
-    tooltip: 'Screenshot (Ctrl+S)',
+    tooltip: platformKeys('Screenshot (Ctrl+S)'),
     icon: const Icon(Icons.photo_camera_outlined),
     onSelected: (saveAs) => onShot(saveAs: saveAs),
-    itemBuilder: (_) => const [
+    itemBuilder: (_) => [
       PopupMenuItem(height: 30, 
         value: false,
         child: ListTile(
-          leading: Icon(Icons.content_paste),
-          title: Text('Screenshot + copy image'),
-          subtitle: Text('Ctrl+S · then Ctrl+V in Slack/Jira'),
+          leading: const Icon(Icons.content_paste),
+          title: const Text('Screenshot + copy image'),
+          subtitle: Text(platformKeys('Ctrl+S · then Ctrl+V in Slack/Jira')),
         ),
       ),
       PopupMenuItem(height: 30, 
         value: true,
-        child: ListTile(leading: Icon(Icons.save_as_outlined), title: Text('Save as…'), subtitle: Text('Ctrl+Shift+S')),
+        child: ListTile(leading: const Icon(Icons.save_as_outlined), title: const Text('Save as…'), subtitle: Text(platformKeys('Ctrl+Shift+S'))),
       ),
     ],
   );
@@ -983,7 +985,7 @@ class _InstallButton extends StatelessWidget {
       onOpened: onOpen,
       onSelected: (action) => action(),
       itemBuilder: (_) => [
-        const PopupMenuItem(enabled: false, height: 32, child: Text('Latest project builds (Ctrl+I)')),
+        PopupMenuItem(enabled: false, height: 32, child: Text(platformKeys('Latest project builds (Ctrl+I)'))),
         if (builds.isEmpty) const PopupMenuItem(height: 30, enabled: false, child: Text('No APKs in build/app/outputs yet')),
         for (final b in builds)
           PopupMenuItem(height: 30, 

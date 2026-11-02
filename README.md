@@ -31,6 +31,14 @@ To upgrade, run the newer setup over the old one. Flutter DevKit is closed for y
 > [!NOTE]
 > The installer isn't code-signed yet, so Windows may show **"Windows protected your PC"**. Click **More info → Run anyway**. Copying it from a shared folder instead of downloading usually avoids the prompt.
 
+### macOS
+
+Build it on a Mac with Flutter and Xcode installed: `sh tool/build_macos.sh` makes `dist/FlutterDevKit.dmg`, and downloads the `scrcpy` and `adb` that go inside the app.
+
+- Shortcuts use <kbd>Cmd</kbd> where this page says <kbd>Ctrl</kbd>, and the menus show them that way. <kbd>Ctrl</kbd>+<kbd>Space</kbd>, <kbd>Ctrl</kbd>+<kbd>Tab</kbd> and <kbd>Ctrl</kbd>+<kbd>`</kbd> stay as they are, because macOS keeps the Cmd versions for itself. Back and forward are <kbd>Ctrl</kbd>+<kbd>-</kbd> and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>-</kbd>, and <kbd>Option</kbd>+<kbd>←→</kbd> moves by word.
+- The embedded device screen needs one permission: **System Settings → Privacy & Security → Accessibility**. macOS can't put another app's window inside this one, so the screen floats exactly over its area and follows the window. While a tooltip or snackbar covers it, it hides for a moment instead of cutting a hole.
+- The first time it's unsigned: right-click the app and choose **Open**.
+
 ## 💡 Why you'll love it
 
 Testing Flutter apps on real devices used to mean: check the IP in Settings, `adb connect`, open scrcpy, another terminal for logcat, another for `flutter run`, then hunt for a real printer. Flutter DevKit does all of it in one window:
@@ -279,7 +287,7 @@ Flutter DevKit already covers editing, running on devices, and package managemen
 - [ ] **Projects** as a top-level page: open a project, then see its devices, builds and git state
 - [ ] **Widget inspector** in the debugger, over the VM service
 - [ ] **More git in the editor**: blame, merge conflicts
-- [ ] **Beyond Android and Windows**: iOS, macOS and Linux targets
+- [ ] **Beyond Android, Windows and macOS**: iOS and Linux targets
 
 ---
 

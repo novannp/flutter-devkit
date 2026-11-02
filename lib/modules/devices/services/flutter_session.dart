@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/local_builds.dart';
 import '../../../core/history.dart';
+import '../../../core/child_processes.dart';
 
 enum FlutterLineKind { build, log, error, info, success }
 
@@ -237,11 +238,7 @@ class FlutterSession extends ChangeNotifier {
   }
 
   Future<void> _killTree(Process p) async {
-    if (Platform.isWindows) {
-      await Process.run('taskkill', ['/T', '/F', '/PID', '${p.pid}']);
-    } else {
-      p.kill();
-    }
+    await ChildProcesses.killTree(p);
   }
 
   void note(String text, {bool error = false}) {

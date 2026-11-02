@@ -70,6 +70,7 @@ flutter:
 
   assets:
     - assets/tray.ico
+    - assets/tray_mac.png
     - assets/logo.png
 
   fonts:

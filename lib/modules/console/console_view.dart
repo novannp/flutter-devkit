@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
 
 import 'console_session.dart';
+import '../../core/mono_font.dart';
+import '../../core/platform_keys.dart';
 
 const _theme = TerminalTheme(
   cursor: Color(0xFF34D399),
@@ -54,15 +58,15 @@ class ConsoleView extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(8, 6, 2, 2),
     child: CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyC, control: true, shift: true): _copyOrPaste,
-        const SingleActivator(LogicalKeyboardKey.keyV, control: true, shift: true): _copyOrPaste,
+        primaryActivator(LogicalKeyboardKey.keyC, shift: !Platform.isMacOS): _copyOrPaste,
+        primaryActivator(LogicalKeyboardKey.keyV, shift: !Platform.isMacOS): _copyOrPaste,
       },
       child: TerminalView(
         session.terminal,
         controller: session.controller,
         theme: _theme,
         autofocus: autofocus,
-        textStyle: const TerminalStyle(fontSize: 13, fontFamily: 'Cascadia Mono', fontFamilyFallback: ['Consolas']),
+        textStyle: const TerminalStyle(fontSize: 13, fontFamily: 'Cascadia Mono', fontFamilyFallback: ['Consolas', ...monoFallback]),
         onSecondaryTapDown: (_, _) => _copyOrPaste(),
       ),
     ),

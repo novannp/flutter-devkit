@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme.dart';
 import 'engine/syntax.dart';
 import '../../extensions/work/work_service.dart' show openUrl;
+import '../../core/mono_font.dart';
 
 enum MdKind { paragraph, heading, code, bullet, rule }
 
@@ -60,7 +61,7 @@ final _inline = RegExp(r'`([^`]+)`|\*\*(.+?)\*\*|\*([^*\s][^*]*?)\*|\[([^\]]+)\]
 TextSpan markdownInline(String text, {required Color accent, GestureRecognizer Function(String url)? onLink}) {
   final spans = <InlineSpan>[];
   var at = 0;
-  const mono = TextStyle(fontFamily: 'Consolas', fontSize: 12.5);
+  const mono = TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5);
   for (final m in _inline.allMatches(text)) {
     if (m.start > at) spans.add(TextSpan(text: text.substring(at, m.start)));
     if (m[1] != null) {
@@ -108,7 +109,7 @@ class _MarkdownViewState extends State<MarkdownView> {
   }
 
   Widget _code(String code, ThemeData theme) {
-    const base = TextStyle(fontFamily: 'Consolas', fontSize: 12.5, height: 1.35);
+    const base = TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5, height: 1.35);
     return Text.rich(highlightSnippet(code, '.dart', appTheme.value.syntax, base.copyWith(color: theme.colorScheme.onSurface)));
   }
 

@@ -21,11 +21,17 @@ class ShellKind {
   static const _gitBash = r'C:\Program Files\Git\bin\bash.exe';
 
   /// Shells installed on this PC, preferred first.
-  static List<ShellKind> available() => [
+  static List<ShellKind> available() => Platform.isMacOS ? _macShells() : [
     if (File(_gitBash).existsSync()) const ShellKind('Git Bash', _gitBash, ['--login', '-i']),
     const ShellKind('PowerShell', 'powershell.exe', ['-NoLogo']),
     const ShellKind('Command Prompt', 'cmd.exe'),
   ];
+
+  static List<ShellKind> _macShells() {
+    final preferred = Platform.environment['SHELL'];
+    final paths = {?preferred, '/bin/zsh', '/bin/bash'}.where((path) => File(path).existsSync());
+    return [for (final path in paths) ShellKind(path.split('/').last, path, const ['-l'])];
+  }
 
   static ShellKind deviceShell(String adb, String target) => ShellKind('Device shell', adb, ['-s', target, 'shell']);
 }

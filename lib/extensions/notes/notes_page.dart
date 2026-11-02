@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'notes_store.dart';
+import '../../core/platform_keys.dart';
 
 // Paper colors stay light in dark mode too, like real sticky notes; text is always dark.
 const noteColors = [
@@ -57,7 +58,7 @@ class _NotesPageState extends State<NotesPage> {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     return CallbackShortcuts(
-      bindings: {const SingleActivator(LogicalKeyboardKey.keyN, control: true): _add},
+      bindings: {primaryActivator(LogicalKeyboardKey.keyN): _add},
       child: Focus(
         autofocus: true,
         child: ListenableBuilder(
@@ -92,7 +93,7 @@ class _NotesPageState extends State<NotesPage> {
                       FilledButton.icon(
                         onPressed: _add,
                         icon: const Icon(Icons.add),
-                        label: const Text('New note (Ctrl+N)'),
+                        label: Text(platformKeys('New note (Ctrl+N)')),
                       ),
                     ],
                   ),

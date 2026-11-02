@@ -4,6 +4,7 @@ import 'package:vm_service/vm_service.dart' show ExceptionPauseMode;
 
 import 'debugger.dart';
 import '../../core/compact_dropdown.dart';
+import '../../core/mono_font.dart';
 
 class DebugPanel extends StatefulWidget {
   const DebugPanel({super.key, required this.debugger, required this.root, required this.onOpen});
@@ -112,7 +113,7 @@ class _DebugPanelState extends State<DebugPanel> {
             controller: _expression,
             enabled: d.paused,
             onSubmitted: _evaluate,
-            style: const TextStyle(fontFamily: 'Consolas', fontSize: 12.5),
+            style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5),
             decoration: const InputDecoration(hintText: 'Evaluate in this frame', contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
           ),
           if (_result != null)
@@ -124,7 +125,7 @@ class _DebugPanelState extends State<DebugPanel> {
                   '= $_result',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontFamily: 'Consolas', fontSize: 12.5, color: scheme.primary),
+                  style: TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5, color: scheme.primary),
                 ),
               ),
             ),
@@ -284,12 +285,12 @@ class _VariableRowState extends State<_VariableRow> {
                     '${v.name}: ',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontFamily: 'Consolas', fontSize: 12.5, color: scheme.primary),
+                    style: TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5, color: scheme.primary),
                   ),
                 ),
                 Expanded(
                   flex: 2,
-                  child: Text(v.value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Consolas', fontSize: 12.5)),
+                  child: Text(v.value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5)),
                 ),
               ],
             ),

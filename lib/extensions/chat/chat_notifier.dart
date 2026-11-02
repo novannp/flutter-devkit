@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:local_notifier/local_notifier.dart';
@@ -11,7 +12,20 @@ final _flashWindowEx = _user32.lookupFunction<Int32 Function(Pointer<Uint8>), in
   'FlashWindowEx',
 );
 
-/// Windows toast + taskbar flash for incoming chat messages.
+/// [NSApp requestUserAttention:NSInformationalRequest], through the Objective-C runtime.
+void _bounceDock() {
+  final objc = DynamicLibrary.process();
+  final getClass = objc.lookupFunction<Pointer<Void> Function(Pointer<Utf8>), Pointer<Void> Function(Pointer<Utf8>)>('objc_getClass');
+  final selector = objc.lookupFunction<Pointer<Void> Function(Pointer<Utf8>), Pointer<Void> Function(Pointer<Utf8>)>('sel_registerName');
+  final send = objc.lookup<NativeFunction<Pointer<Void> Function(Pointer<Void>, Pointer<Void>)>>('objc_msgSend').asFunction<Pointer<Void> Function(Pointer<Void>, Pointer<Void>)>();
+  final sendLong = objc.lookup<NativeFunction<Long Function(Pointer<Void>, Pointer<Void>, UnsignedLong)>>('objc_msgSend').asFunction<int Function(Pointer<Void>, Pointer<Void>, int)>();
+  final names = ['NSApplication'.toNativeUtf8(), 'sharedApplication'.toNativeUtf8(), 'requestUserAttention:'.toNativeUtf8()];
+  final app = send(getClass(names[0]), selector(names[1]));
+  sendLong(app, selector(names[2]), 10);
+  names.forEach(calloc.free);
+}
+
+/// Toast + taskbar flash (a Dock bounce on macOS) for incoming chat messages.
 class ChatNotifier {
   static var _ready = false;
 
@@ -36,6 +50,7 @@ class ChatNotifier {
 
   /// Flashes the taskbar button until the window is focused (FLASHW_ALL | FLASHW_TIMERNOFG).
   static void flashTaskbar() {
+    if (Platform.isMacOS) return _bounceDock();
     final hwnd = EmbedWindow.ownWindow();
     if (hwnd == null) return;
     const size = 32; // sizeof(FLASHWINFO) on x64

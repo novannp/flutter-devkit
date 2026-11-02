@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'atlassian.dart';
+import '../../core/files.dart';
 
 class WorkService extends ChangeNotifier {
   WorkService._();
@@ -52,6 +53,6 @@ Future<void> openInVsCode(String path) async {
   try {
     await Process.start('code', [path], runInShell: true, mode: ProcessStartMode.detached);
   } on ProcessException {
-    await Process.run('explorer', [path]);
+    await openExternal(path);
   }
 }

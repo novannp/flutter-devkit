@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
+import 'child_processes.dart';
 
 const _prefKeepRunning = 'keep_running_on_close';
 
@@ -17,14 +18,14 @@ class BackgroundRunner with WindowListener, TrayListener {
 
   Future<void> init() async {
     await windowManager.ensureInitialized();
-    await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: false);
+    await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: Platform.isMacOS);
     await windowManager.setMinimumSize(const Size(560, 400));
     keepRunningOnClose.value = (await SharedPreferences.getInstance()).getBool(_prefKeepRunning) ?? true;
     await windowManager.setPreventClose(true);
     windowManager.addListener(this);
 
     try {
-      await trayManager.setIcon('assets/tray.ico');
+      await trayManager.setIcon(Platform.isMacOS ? 'assets/tray_mac.png' : 'assets/tray.ico', isTemplate: Platform.isMacOS);
       await trayManager.setToolTip('Flutter DevKit');
       await trayManager.setContextMenu(
         Menu(
@@ -57,6 +58,7 @@ class BackgroundRunner with WindowListener, TrayListener {
 
   Future<void> quit() async {
     await onQuit?.call();
+    ChildProcesses.killBound();
     await trayManager.destroy();
     await windowManager.setPreventClose(false);
     await windowManager.destroy();

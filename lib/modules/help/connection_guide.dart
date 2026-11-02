@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../devices/view/pair_dialog.dart';
+import '../../core/mono_font.dart';
 
 enum GuideTopic { usb, wireless, legacy, printer }
 
@@ -217,7 +218,7 @@ class _Steps extends StatelessWidget {
                 Expanded(
                   child: Text(
                     code!,
-                    style: const TextStyle(fontFamily: 'Consolas', color: Colors.white),
+                    style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, color: Colors.white),
                   ),
                 ),
                 IconButton(

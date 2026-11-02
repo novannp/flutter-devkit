@@ -10,6 +10,8 @@ import '../../core/files.dart';
 import '../../modules/help/connection_guide.dart';
 import 'printer_server.dart';
 import 'receipt_view.dart';
+import '../../core/mono_font.dart';
+import '../../core/platform_keys.dart';
 
 /// Single instance for the main window; the server keeps running across pages.
 final printerServer = PrinterServer();
@@ -55,7 +57,7 @@ class _PrinterPageState extends State<PrinterPage> {
     if (path == null) return;
     final ok = await copyImageToClipboard(path);
     _toast(
-      ok ? 'Receipt image copied — just Ctrl+V' : 'Saved: $path',
+      ok ? platformKeys('Receipt image copied — just Ctrl+V') : 'Saved: $path',
       action: SnackBarAction(label: 'Open folder', onPressed: () => revealInExplorer(path)),
     );
   }
@@ -249,7 +251,7 @@ class _PrinterPageState extends State<PrinterPage> {
                                             padding: const EdgeInsets.all(16),
                                             child: SelectableText(
                                               _hex(selected.raw),
-                                              style: const TextStyle(fontFamily: 'Consolas', fontSize: 12.5),
+                                              style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5),
                                             ),
                                           )
                                         : SingleChildScrollView(
@@ -377,7 +379,7 @@ class _ConnectCard extends StatelessWidget {
         decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(6)),
         child: Text(
           s,
-          style: const TextStyle(fontFamily: 'Consolas', fontWeight: FontWeight.w600),
+          style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontWeight: FontWeight.w600),
         ),
       ),
     );

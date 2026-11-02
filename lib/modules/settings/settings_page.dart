@@ -14,6 +14,7 @@ import '../devices/services/mdns_service.dart';
 import '../devices/services/network_scanner.dart';
 import '../editor/editor_page.dart' show EditorCommands;
 import '../editor/editor_view.dart';
+import '../../core/platform_keys.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -128,7 +129,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _Section('Editor', Icons.code, [
         _Setting(
           'Font size',
-          'Also Ctrl and + or - in the editor.',
+          platformKeys('Also Ctrl+plus or Ctrl+minus in the editor.'),
           trailing: ValueListenableBuilder(
             valueListenable: EditorView.fontSize,
             builder: (_, size, _) => Row(
@@ -143,7 +144,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         _Setting(
           'Word wrap',
-          'Long lines continue on the next row. Also Alt+Z.',
+          platformKeys('Long lines continue on the next row. Also Alt+Z.'),
           trailing: ValueListenableBuilder(
             valueListenable: EditorView.wordWrap,
             builder: (_, on, _) => Switch(value: on, onChanged: (_) => EditorView.toggleWordWrap()),
@@ -221,7 +222,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ]),
       _Section('Tools', Icons.build_outlined, [
-        _tool('adb', tools.adb, 'Install Android SDK Platform-Tools and add it to PATH.'),
+        _tool('adb', tools.adb, 'It comes with the app, so reinstalling brings it back.'),
         _tool('scrcpy', tools.scrcpy, 'It comes with the app, so reinstalling brings it back.'),
       ]),
     ];

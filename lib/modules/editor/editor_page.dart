@@ -33,6 +33,8 @@ import 'notices.dart';
 import 'source_control.dart';
 import 'source_control_view.dart';
 import 'tool_tabs.dart';
+import '../../core/mono_font.dart';
+import '../../core/platform_keys.dart';
 
 const _prefRoot = 'editor_root';
 const _prefFiles = 'editor_open_files';
@@ -365,32 +367,37 @@ class _EditorPageState extends State<EditorPage> {
     final hw = HardwareKeyboard.instance;
     final key = e.logicalKey;
     void Function()? action;
-    if (key == LogicalKeyboardKey.f5 && !hw.isControlPressed) {
+    if (key == LogicalKeyboardKey.f5 && !hw.isPrimaryPressed) {
       action = hw.isShiftPressed ? () => _flutter?.stop() : (_debugger.paused ? _debugger.resume : _run);
-    } else if (hw.isControlPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyG) {
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyG) {
       action = () => _showSide(_Side.git);
-    } else if (hw.isControlPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyE) {
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyE) {
       action = () => _showSide(_Side.files);
-    } else if (hw.isControlPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyD) {
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyD) {
       action = () => _showSide(_Side.debug);
-    } else if (hw.isControlPressed && key == LogicalKeyboardKey.backslash) {
+    } else if (hw.isPrimaryPressed && key == LogicalKeyboardKey.backslash) {
       action = _splitActive;
-    } else if (hw.isControlPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyM) {
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyM) {
       action = () => _showPanel(_Panel.problems);
-    } else if (hw.isControlPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyU) {
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyU) {
       action = () => _showPanel(_Panel.output);
-    } else if (hw.isControlPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyX) {
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyX) {
       action = EditorCommands.openExtensions;
     } else if (hw.isControlPressed && (key == LogicalKeyboardKey.tab || key == LogicalKeyboardKey.pageDown || key == LogicalKeyboardKey.pageUp)) {
       final back = key == LogicalKeyboardKey.pageUp || (key == LogicalKeyboardKey.tab && hw.isShiftPressed);
       action = () => _cycleTab(back ? -1 : 1);
-    } else if (hw.isControlPressed && hw.isAltPressed && key == LogicalKeyboardKey.keyM) {
+    } else if (hw.isPrimaryPressed && hw.isAltPressed && key == LogicalKeyboardKey.keyM) {
       action = () => setState(() => _mirrorOpen = !_mirrorOpen);
     } else if (hw.isAltPressed && key == LogicalKeyboardKey.keyZ) {
       action = EditorView.toggleWordWrap;
-    } else if (hw.isAltPressed && key == LogicalKeyboardKey.arrowLeft) {
+    } else if (Platform.isMacOS && hw.isControlPressed && key == LogicalKeyboardKey.backquote) {
+      action = () => _showPanel(_Panel.terminal);
+    } else if (Platform.isMacOS && hw.isControlPressed && key == LogicalKeyboardKey.minus) {
+      // Option+arrows move by word there, so back and forward live where VS Code puts them on a Mac.
+      action = hw.isShiftPressed ? () => _navigate(_forward, _back) : () => _navigate(_back, _forward);
+    } else if (!Platform.isMacOS && hw.isAltPressed && key == LogicalKeyboardKey.arrowLeft) {
       action = () => _navigate(_back, _forward);
-    } else if (hw.isAltPressed && key == LogicalKeyboardKey.arrowRight) {
+    } else if (!Platform.isMacOS && hw.isAltPressed && key == LogicalKeyboardKey.arrowRight) {
       action = () => _navigate(_forward, _back);
     } else if (key == LogicalKeyboardKey.f8) {
       action = () => _nextProblem(hw.isShiftPressed ? -1 : 1);
@@ -402,7 +409,7 @@ class _EditorPageState extends State<EditorPage> {
       action = _debugger.stepOver;
     } else if (key == LogicalKeyboardKey.f11) {
       action = hw.isShiftPressed ? _debugger.stepOut : _debugger.stepInto;
-    } else if (hw.isControlPressed) {
+    } else if (hw.isPrimaryPressed) {
       if (key == LogicalKeyboardKey.keyS) action = hw.isShiftPressed ? () => _ws?.saveAll() : _save;
       if (key == LogicalKeyboardKey.keyW) action = _ws?.active == null ? null : () => _closeTab(_ws!.active!);
       if (key == LogicalKeyboardKey.keyP) action = _quickOpen;
@@ -926,24 +933,24 @@ class _EditorPageState extends State<EditorPage> {
         width: 38,
         child: Column(
         children: [
-          item('Files (Ctrl+Shift+E)', Icons.description_outlined, _sideOpen && _side == _Side.files, () => side(_Side.files)),
+          item(platformKeys('Files (Ctrl+Shift+E)'), Icons.description_outlined, _sideOpen && _side == _Side.files, () => side(_Side.files)),
           item(
-            'Source Control (Ctrl+Shift+G)',
+            platformKeys('Source Control (Ctrl+Shift+G)'),
             Icons.call_split,
             _sideOpen && _side == _Side.git,
             () => side(_Side.git),
             badge: changes == 0 ? null : '$changes',
           ),
-          item('Search (Ctrl+Shift+F)', Icons.search, _sideOpen && _side == _Side.search, () => side(_Side.search)),
+          item(platformKeys('Search (Ctrl+Shift+F)'), Icons.search, _sideOpen && _side == _Side.search, () => side(_Side.search)),
           item(
-            'Run and Debug (Ctrl+Shift+D)',
+            platformKeys('Run and Debug (Ctrl+Shift+D)'),
             Icons.bug_report_outlined,
             _sideOpen && _side == _Side.debug,
             () => side(_Side.debug),
             badge: _debugger.paused ? '!' : null,
           ),
           const Spacer(),
-          item('Extensions (Ctrl+Shift+X)', Icons.extension_outlined, false, () => EditorCommands.openExtensions?.call()),
+          item(platformKeys('Extensions (Ctrl+Shift+X)'), Icons.extension_outlined, false, () => EditorCommands.openExtensions?.call()),
         ],
       ),
       ),
@@ -1072,7 +1079,7 @@ class _EditorPageState extends State<EditorPage> {
             ),
           ),
           IconButton(
-            tooltip: 'Device screen beside the code (Ctrl+Alt+M)',
+            tooltip: platformKeys('Device screen beside the code (Ctrl+Alt+M)'),
             color: _mirrorOpen ? scheme.primary : null,
             onPressed: () => setState(() => _mirrorOpen = !_mirrorOpen),
             icon: const Icon(Icons.phone_android),
@@ -1087,13 +1094,13 @@ class _EditorPageState extends State<EditorPage> {
               icon: Icon(Icons.play_arrow, color: scheme.primary),
             ),
           IconButton(
-            tooltip: 'Hot reload (Ctrl+F5)',
+            tooltip: platformKeys('Hot reload (Ctrl+F5)'),
             onPressed: f?.canReload == true ? f!.reload : null,
             icon: const Icon(Icons.bolt),
           ),
           if (!narrow)
             IconButton(
-              tooltip: 'Hot restart (Ctrl+Shift+F5)',
+              tooltip: platformKeys('Hot restart (Ctrl+Shift+F5)'),
               onPressed: f?.canReload == true ? () => f!.reload(full: true) : null,
               icon: const Icon(Icons.restart_alt),
             ),
@@ -1450,7 +1457,7 @@ class _EditorPageState extends State<EditorPage> {
                             ),
                           ),
                           IconButton(
-                            tooltip: d.dirty ? 'Unsaved. Close (Ctrl+W)' : 'Close (Ctrl+W)',
+                            tooltip: d.dirty ? platformKeys('Unsaved. Close (Ctrl+W)') : platformKeys('Close (Ctrl+W)'),
                             iconSize: d.dirty ? 9 : 13,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints.tightFor(width: 22, height: 22),
@@ -1467,7 +1474,7 @@ class _EditorPageState extends State<EditorPage> {
           ),
         ),
         IconButton(
-          tooltip: 'Split Editor (Ctrl+\\)',
+          tooltip: platformKeys('Split Editor (Ctrl+\\)'),
           iconSize: 15,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints.tightFor(width: 26, height: 26),
@@ -1625,7 +1632,7 @@ class _EditorPageState extends State<EditorPage> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Hide (Ctrl+J)',
+                  tooltip: platformKeys('Hide (Ctrl+J)'),
                   iconSize: 16,
                   visualDensity: VisualDensity.compact,
                   onPressed: () => setState(() => _panelOpen = false),
@@ -1710,7 +1717,7 @@ class _EditorPageState extends State<EditorPage> {
             _ => scheme.onSurface,
           };
           final ref = _sourceRef.firstMatch(text);
-          final line = Text.rich(ansiSpan(text, TextStyle(fontFamily: 'Consolas', fontSize: 12.5, color: color)));
+          final line = Text.rich(ansiSpan(text, TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5, color: color)));
           if (ref == null) return line;
           return InkWell(
             onTap: () {
@@ -1785,7 +1792,7 @@ class _EditorPageState extends State<EditorPage> {
                       h.text.trim(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontFamily: 'Consolas', fontSize: 12.5),
+                      style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5),
                     ),
                     Text(
                       '${p.isWithin(ws.root, h.path) ? p.relative(h.path, from: ws.root) : p.basename(h.path)}:${h.line + 1}',
@@ -1972,7 +1979,7 @@ class _EmptyEditor extends StatelessWidget {
           Icon(Icons.code, size: 40, color: color),
           const SizedBox(height: 8),
           Text('Pick a file on the left', style: TextStyle(color: color)),
-          TextButton(onPressed: onQuickOpen, child: const Text('Quick open (Ctrl+P)')),
+          TextButton(onPressed: onQuickOpen, child: Text(platformKeys('Quick open (Ctrl+P)'))),
         ],
       ),
     );

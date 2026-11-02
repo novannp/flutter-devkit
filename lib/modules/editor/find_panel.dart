@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'engine/code_editor.dart';
+import '../../core/mono_font.dart';
 
 /// Find (Ctrl+F) and replace (Ctrl+H) above the code.
 class CodeFindPanel extends StatelessWidget implements PreferredSizeWidget {
@@ -48,7 +49,7 @@ class CodeFindPanel extends StatelessWidget implements PreferredSizeWidget {
             color: on ? scheme.primary.withValues(alpha: .2) : null,
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Text(label, style: const TextStyle(fontFamily: 'Consolas', fontSize: 12)),
+          child: Text(label, style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12)),
         ),
       ),
     );

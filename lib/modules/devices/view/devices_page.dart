@@ -9,6 +9,7 @@ import '../../../core/windows.dart';
 import '../../../extensions/chat/chat_service.dart';
 import 'network_access_banner.dart';
 import 'pair_dialog.dart';
+import '../../../core/mono_font.dart';
 
 class DevicesPage extends StatelessWidget {
   const DevicesPage({super.key});
@@ -367,7 +368,7 @@ class _DeviceRow extends StatelessWidget {
               flex: _cols[2],
               child: d.ip == null
                   ? Text('USB', style: muted)
-                  : SelectableText(d.ip!, style: const TextStyle(fontFamily: 'Consolas', fontSize: 13)),
+                  : SelectableText(d.ip!, style: const TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 13)),
             ),
             Expanded(
               flex: _cols[3],

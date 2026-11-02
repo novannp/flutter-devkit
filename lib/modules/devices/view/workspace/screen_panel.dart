@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../services/device_adb.dart';
 import '../../services/screen_input.dart';
+import '../../../../core/platform_keys.dart';
 
 /// Lightweight screencap-based mirror. For a smooth screen use scrcpy (Remote button).
 class ScreenPanel extends StatefulWidget {
@@ -146,7 +147,7 @@ class _ScreenPanelState extends State<ScreenPanel> {
   KeyEventResult _onKey(FocusNode _, KeyEvent e) {
     if (e is KeyUpEvent) return KeyEventResult.ignored;
     final hw = HardwareKeyboard.instance;
-    if (hw.isControlPressed && e.logicalKey == LogicalKeyboardKey.keyV) {
+    if (hw.isPrimaryPressed && e.logicalKey == LogicalKeyboardKey.keyV) {
       Clipboard.getData(Clipboard.kTextPlain).then((d) {
         final t = d?.text;
         if (t != null && t.isNotEmpty) _send(TypeInput(t));
@@ -222,7 +223,7 @@ class _ScreenPanelState extends State<ScreenPanel> {
                 const Spacer(),
                 Text(
                   _keys.hasFocus
-                      ? '⌨ keyboard → device · Esc = Back · Ctrl+V = paste'
+                      ? platformKeys('⌨ keyboard → device · Esc = Back · Ctrl+V = paste')
                       : 'click screen to type from keyboard',
                   style: _keys.hasFocus ? muted.copyWith(color: scheme.primary) : muted,
                 ),
@@ -376,7 +377,7 @@ class DeviceToolbar extends StatelessWidget {
             btn(Icons.circle_outlined, 'Home', () => dev.key('KEYCODE_HOME')),
             btn(Icons.crop_square, 'Recent apps', () => dev.key('KEYCODE_APP_SWITCH')),
             gap,
-            btn(Icons.photo_camera_outlined, 'Screenshot + copy (Ctrl+S)', onScreenshot),
+            btn(Icons.photo_camera_outlined, platformKeys('Screenshot + copy (Ctrl+S)'), onScreenshot),
             btn(
               recording ? Icons.stop_circle_outlined : Icons.fiber_manual_record,
               recording ? 'Records when Remote opens' : 'Record screen (via Remote)',
