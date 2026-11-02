@@ -271,6 +271,7 @@ tool/
   make_installer_art.py   regenerates the installer wizard images
 windows/installer/        Inno Setup script and wizard images
 windows/third_party/scrcpy/   bundled scrcpy + adb (Apache-2.0)
+windows/runner/native_bridge.cpp, macos/Runner/MainFlutterWindow.swift   notifications and file drops
 third_party/flutter_pty/      flutter_pty with Windows fixes for starting shells
 ```
 

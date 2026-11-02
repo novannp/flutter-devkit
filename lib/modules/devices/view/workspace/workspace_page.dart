@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,6 +35,7 @@ import '../../../../core/history.dart';
 import '../../../../core/compact_dropdown.dart';
 import '../../../../core/mono_font.dart';
 import '../../../../core/platform_keys.dart';
+import '../../../../core/native_bridge.dart';
 
 class DeviceWorkspacePage extends StatefulWidget {
   const DeviceWorkspacePage({super.key, required this.device, this.standalone = false, this.panelOnly = false});
@@ -265,11 +265,10 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
     _toast('${_builds.length} builds found in $path');
   }
 
-  Future<void> _handleDrop(DropDoneDetails details) async {
+  Future<void> _handleDrop(List<String> paths) async {
     setState(() => _dragging = false);
     final dir = _tab == _filesTab ? _filesDir.value : '/sdcard/Download';
-    for (final file in details.files) {
-      final path = file.path;
+    for (final path in paths) {
       if (await FileSystemEntity.isDirectory(path) == false && path.toLowerCase().endsWith('.apk')) {
         _install(path);
       } else {
@@ -477,10 +476,10 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
         // Multi Screen shows many panels at once; don't fight over focus.
         autofocus: !widget.panelOnly,
         child: Scaffold(
-          body: DropTarget(
-            onDragEntered: (_) => setState(() => _dragging = true),
-            onDragExited: (_) => setState(() => _dragging = false),
-            onDragDone: _handleDrop,
+          body: FileDropArea(
+            onEnter: () => setState(() => _dragging = true),
+            onExit: () => setState(() => _dragging = false),
+            onDrop: _handleDrop,
             child: Stack(
               children: [
                 if (widget.panelOnly)

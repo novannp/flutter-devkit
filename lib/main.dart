@@ -10,7 +10,6 @@ import 'core/apps.dart';
 import 'core/child_processes.dart';
 import 'core/error_log.dart';
 import 'core/legacy.dart';
-import 'extensions/chat/chat_notifier.dart';
 import 'extensions/chat/chat_service.dart';
 import 'core/theme.dart';
 import 'core/tools.dart';
@@ -53,7 +52,6 @@ Future<void> main(List<String> args) async {
     await ExtensionManager.instance.load();
     if (ExtensionManager.instance.isEnabled('printer')) unawaited(printerServer.init());
     await BackgroundRunner.instance.init();
-    await ChatNotifier.setup();
     if (ExtensionManager.instance.isEnabled('chat')) await ChatService.instance.start();
   }
   runApp(DevKitApp(tools: tools, workspace: device));
