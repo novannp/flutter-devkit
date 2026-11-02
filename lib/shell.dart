@@ -19,6 +19,7 @@ import 'modules/emulators/emulators_page.dart';
 import 'modules/help/connection_guide.dart';
 import 'modules/history/history_page.dart';
 import 'modules/maintenance/maintenance_page.dart';
+import 'modules/notes/notes_page.dart';
 import 'modules/printer/printer_page.dart';
 import 'modules/settings/settings_page.dart';
 import 'modules/work/work_page.dart';
@@ -48,6 +49,7 @@ const _groups = [
   _Group('Tools', [
     _Module('Terminal', Icons.terminal, ConsolePage()),
     _Module('Printer', Icons.receipt_long_outlined, PrinterPage()),
+    _Module('Notes', Icons.sticky_note_2_outlined, NotesPage()),
     _Module('Maintenance', Icons.cleaning_services_outlined, MaintenancePage()),
   ]),
   _Group('Team', [_Module('Work', Icons.task_alt, WorkPage()), _Module('Chat', Icons.forum_outlined, ChatPage())]),
