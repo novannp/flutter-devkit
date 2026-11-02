@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/background.dart';
 import 'core/apps.dart';
 import 'core/child_processes.dart';
+import 'core/error_log.dart';
 import 'core/legacy.dart';
 import 'extensions/chat/chat_notifier.dart';
 import 'extensions/chat/chat_service.dart';
@@ -30,6 +31,7 @@ const workspaceArg = '--workspace=';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  await installErrorLog();
   // Before anything opens the preferences file.
   await migrateFromLegacyName();
   final tools = await Tools.resolve();
@@ -89,7 +91,7 @@ class DevKitApp extends StatelessWidget {
           child: ValueListenableBuilder(
             valueListenable: appTheme,
             builder: (_, theme, _) => MaterialApp(
-              title: ws == null ? 'DevKit' : ws.displayName,
+              title: ws == null ? 'Flutter DevKit' : ws.displayName,
               debugShowCheckedModeBanner: false,
               theme: buildTheme(theme),
               home: ws == null ? const Shell() : DeviceWorkspacePage(device: ws, standalone: true),

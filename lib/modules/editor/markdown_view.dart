@@ -1,10 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:re_highlight/languages/dart.dart';
-import 'package:re_highlight/re_highlight.dart';
-import 'package:re_highlight/styles/atom-one-dark.dart';
-import 'package:re_highlight/styles/atom-one-light.dart';
 
+import '../../core/theme.dart';
+import 'engine/syntax.dart';
 import '../../extensions/work/work_service.dart' show openUrl;
 
 enum MdKind { paragraph, heading, code, bullet, rule }
@@ -83,8 +81,6 @@ TextSpan markdownInline(String text, {required Color accent, GestureRecognizer F
   return TextSpan(children: spans);
 }
 
-final _highlighter = Highlight()..registerLanguage('dart', langDart);
-
 class MarkdownView extends StatefulWidget {
   const MarkdownView(this.source, {super.key});
 
@@ -113,12 +109,7 @@ class _MarkdownViewState extends State<MarkdownView> {
 
   Widget _code(String code, ThemeData theme) {
     const base = TextStyle(fontFamily: 'Consolas', fontSize: 12.5, height: 1.35);
-    final renderer = TextSpanRenderer(
-      base.copyWith(color: theme.colorScheme.onSurface),
-      theme.brightness == Brightness.dark ? atomOneDarkTheme : atomOneLightTheme,
-    );
-    _highlighter.highlight(code: code, language: 'dart').render(renderer);
-    return Text.rich(renderer.span ?? TextSpan(text: code, style: base));
+    return Text.rich(highlightSnippet(code, '.dart', appTheme.value.syntax, base.copyWith(color: theme.colorScheme.onSurface)));
   }
 
   @override

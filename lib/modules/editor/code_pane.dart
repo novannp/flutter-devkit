@@ -6,64 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
-import 'package:re_editor/re_editor.dart';
-import 'package:re_highlight/languages/bash.dart';
-import 'package:re_highlight/languages/cpp.dart';
-import 'package:re_highlight/languages/css.dart';
-import 'package:re_highlight/languages/dart.dart';
-import 'package:re_highlight/languages/gradle.dart';
-import 'package:re_highlight/languages/ini.dart';
-import 'package:re_highlight/languages/java.dart';
-import 'package:re_highlight/languages/javascript.dart';
-import 'package:re_highlight/languages/json.dart';
-import 'package:re_highlight/languages/kotlin.dart';
-import 'package:re_highlight/languages/markdown.dart';
-import 'package:re_highlight/languages/powershell.dart';
-import 'package:re_highlight/languages/properties.dart';
-import 'package:re_highlight/languages/swift.dart';
-import 'package:re_highlight/languages/xml.dart';
-import 'package:re_highlight/languages/yaml.dart';
-import 'package:re_highlight/re_highlight.dart' show Mode;
-import 'package:re_highlight/styles/atom-one-dark.dart';
-import 'package:re_highlight/styles/atom-one-light.dart';
 
 import '../../core/theme.dart';
 import 'brackets.dart';
 import 'debug_panel.dart' show breakpointColor;
 import 'debugger.dart';
 import 'editor_view.dart';
+import 'engine/code_editor.dart';
+import 'engine/snippet.dart';
+import 'engine/syntax.dart';
 import 'editor_workspace.dart';
+import 'file_tree.dart' show fileIconOf;
 import 'find_panel.dart';
 import 'markdown_view.dart';
 import 'source_control.dart';
-
-final _modes = <String, Mode>{
-  '.dart': langDart,
-  '.yaml': langYaml,
-  '.yml': langYaml,
-  '.json': langJson,
-  '.arb': langJson,
-  '.xml': langXml,
-  '.html': langXml,
-  '.plist': langXml,
-  '.gradle': langGradle,
-  '.kt': langKotlin,
-  '.kts': langKotlin,
-  '.java': langJava,
-  '.swift': langSwift,
-  '.c': langCpp,
-  '.h': langCpp,
-  '.cc': langCpp,
-  '.cpp': langCpp,
-  '.md': langMarkdown,
-  '.sh': langBash,
-  '.ps1': langPowershell,
-  '.properties': langProperties,
-  '.ini': langIni,
-  '.toml': langIni,
-  '.js': langJavascript,
-  '.css': langCss,
-};
 
 Color diagnosticColor(int severity) => switch (severity) {
   1 => const Color(0xFFEF4444),
@@ -123,39 +79,16 @@ SemanticToken? clickableTokenAt(List<SemanticToken>? tokens, int column) {
   return null;
 }
 
-/// Where [query] next appears after a position, wrapping past the end of the file. Null when it's nowhere.
-(int, int)? nextOccurrence(List<String> lines, String query, int fromLine, int fromColumn) {
-  if (query.isEmpty || lines.isEmpty) return null;
-  for (var i = 0; i <= lines.length; i++) {
-    final index = (fromLine + i) % lines.length;
-    final at = lines[index].indexOf(query, i == 0 ? fromColumn.clamp(0, lines[index].length) : 0);
-    if (at >= 0) return (index, at);
-  }
-  return null;
-}
-
-/// The VS Code keys re_editor binds differently. Ctrl+D matters most: its default deletes the line.
-class _VsCodeShortcuts extends DefaultCodeShortcutsActivatorsBuilder {
-  const _VsCodeShortcuts();
-
-  @override
-  List<ShortcutActivator>? build(CodeShortcutType type) => switch (type) {
-    CodeShortcutType.lineDelete => const [SingleActivator(LogicalKeyboardKey.keyK, control: true, shift: true)],
-    CodeShortcutType.lineDeleteForward || CodeShortcutType.lineDeleteBackward => const [],
-    CodeShortcutType.wordDeleteForward => const [SingleActivator(LogicalKeyboardKey.delete, control: true)],
-    CodeShortcutType.wordDeleteBackward => const [SingleActivator(LogicalKeyboardKey.backspace, control: true)],
-    CodeShortcutType.cursorMovePageStart => const [SingleActivator(LogicalKeyboardKey.home, control: true)],
-    CodeShortcutType.cursorMovePageEnd => const [SingleActivator(LogicalKeyboardKey.end, control: true)],
-    CodeShortcutType.replace => const [SingleActivator(LogicalKeyboardKey.keyH, control: true)],
-    CodeShortcutType.multiLineComment => const [SingleActivator(LogicalKeyboardKey.keyA, shift: true, alt: true)],
-    _ => super.build(type),
-  };
-}
-
 const _lineComments = {
   '.dart': '//', '.kt': '//', '.kts': '//', '.java': '//', '.swift': '//', '.gradle': '//', '.js': '//',
   '.c': '//', '.h': '//', '.cc': '//', '.cpp': '//', '.yaml': '#', '.yml': '#', '.sh': '#', '.ps1': '#', '.toml': '#', '.properties': '#',
 };
+
+/// References without the one at a position, which is the word they were asked about.
+List<EditTarget> usagesApartFrom(List<EditTarget> refs, String path, int line, int column, String lineText) => [
+  for (final r in refs)
+    if (!isDeclarationAt(r, path, line, column, lineText)) r,
+];
 
 /// Whether a definition lands on the very word at [column], meaning that word is the declaration.
 bool isDeclarationAt(EditTarget target, String path, int line, int column, String lineText) {
@@ -274,6 +207,7 @@ class CodePaneState extends State<CodePane> {
   // Completion popup.
   List<CompletionEntry> _items = const [];
   List<CompletionEntry> _shown = const [];
+  SnippetSession? _snippet;
   var _selected = 0;
   bool _popup = false;
   int _popupLine = 0;
@@ -303,6 +237,22 @@ class CodePaneState extends State<CodePane> {
   Map<(int, int), (int, int)> _pairs = const {};
   CodeLines? _pairsOf;
   ((int, int), (int, int))? _bracket;
+
+  // Shown while the server is slow to answer. Fast answers never get this far, so nothing flickers.
+  String? _loading;
+  Offset? _loadingAt;
+  Timer? _loadingTimer;
+  var _loadingToken = 0;
+  var _loadingForHover = false;
+
+  // Usages overlay.
+  List<SearchHit>? _usages;
+  List<EditTarget> _usageTargets = const [];
+  var _usageIndex = 0;
+  Offset? _usagesAt;
+  var _usagesOf = '';
+  final _usagesScroll = ScrollController();
+  static const _usageRow = 24.0;
 
   // Ctrl+hover: the word that Ctrl+click would follow.
   (int, SemanticToken)? _link;
@@ -353,6 +303,7 @@ class CodePaneState extends State<CodePane> {
     _completionTimer?.cancel();
     _hoverTimer?.cancel();
     _hoverHide?.cancel();
+    _loadingTimer?.cancel();
     _docsTimer?.cancel();
     _signatureTimer?.cancel();
     _ctrl.removeListener(_onEdit);
@@ -364,6 +315,7 @@ class CodePaneState extends State<CodePane> {
     _find.dispose();
     _focus.dispose();
     _popupScroll.dispose();
+    _usagesScroll.dispose();
     super.dispose();
   }
 
@@ -379,17 +331,8 @@ class CodePaneState extends State<CodePane> {
     if (mounted && identical(doc, _doc) && !mapEquals(marks, _marks)) setState(() => _marks = marks);
   }
 
-  // Counts folded lines too: folding changes the list's length but not the file.
-  static int _lineCount(CodeLines lines) {
-    var n = 0;
-    for (var i = 0; i < lines.length; i++) {
-      n += lines[i].lineCount;
-    }
-    return n;
-  }
-
   void _shiftBreakpoints(CodeLines before, CodeLines after, int cursor) {
-    final delta = _lineCount(after) - _lineCount(before);
+    final delta = after.length - before.length;
     if (delta == 0) return;
     // A line whose text went blank was pushed down whole, so its breakpoint goes with it.
     final at = cursor - delta;
@@ -412,6 +355,7 @@ class CodePaneState extends State<CodePane> {
     if (identical(oldWidget.doc, widget.doc)) return;
     oldWidget.doc.controller.removeListener(_onEdit);
     oldWidget.doc.removeListener(_onDoc);
+    _snippet = null;
     _ctrl.addListener(_onEdit);
     _doc.addListener(_onDoc);
     final previousFind = _find;
@@ -431,6 +375,10 @@ class CodePaneState extends State<CodePane> {
     _wasDirty = _doc.dirty;
     _pairsOf = null;
     _bracket = null;
+    _usages = null;
+    _loadingTimer?.cancel();
+    _loadingToken++;
+    _loading = null;
     _popup = false;
     _itemDocs = null;
     _signature = null;
@@ -604,7 +552,7 @@ class CodePaneState extends State<CodePane> {
     final resolved = await widget.workspace.resolveCompletion(_doc, entry);
     if (!mounted) return;
     _applying = true;
-    widget.workspace.applyCompletion(_doc, resolved, line: line, start: start, end: _ctrl.selection.extentOffset);
+    _snippet = widget.workspace.applyCompletion(_doc, resolved, line: line, start: start, end: _ctrl.selection.extentOffset);
     _lastLines = _ctrl.codeLines;
     _applying = false;
     _ctrl.makeCursorVisible();
@@ -631,12 +579,31 @@ class CodePaneState extends State<CodePane> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
     final hw = HardwareKeyboard.instance;
+    if (_loading != null && key == LogicalKeyboardKey.escape) return _handled(_endLoading);
+    if (_usages != null) {
+      if (key == LogicalKeyboardKey.escape) return _handled(_closeUsages);
+      if (key == LogicalKeyboardKey.arrowDown) return _handled(() => _moveUsage(1));
+      if (key == LogicalKeyboardKey.arrowUp) return _handled(() => _moveUsage(-1));
+      if (key == LogicalKeyboardKey.enter) return _handled(() => _openUsage(_usageIndex));
+    }
     if (_popup) {
       if (key == LogicalKeyboardKey.arrowDown) return _handled(() => _moveSelection(1));
       if (key == LogicalKeyboardKey.arrowUp) return _handled(() => _moveSelection(-1));
       if (key == LogicalKeyboardKey.escape) return _handled(_closePopup);
       if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.tab) {
         return _handled(() => _accept(_shown[_selected]));
+      }
+    }
+    final snippet = _snippet;
+    if (snippet != null) {
+      if (key == LogicalKeyboardKey.escape) {
+        _snippet = null;
+      } else if (key == LogicalKeyboardKey.tab) {
+        if (snippet.move(hw.isShiftPressed ? -1 : 1)) {
+          if (!snippet.active) _snippet = null;
+          return KeyEventResult.handled;
+        }
+        _snippet = null;
       }
     }
     if (_hover != null && key == LogicalKeyboardKey.escape) return _handled(_clearHover);
@@ -664,7 +631,7 @@ class CodePaneState extends State<CodePane> {
 
   VoidCallback? _vsCodeKey(LogicalKeyboardKey key, HardwareKeyboard hw, {required bool readOnly}) {
     final ctrl = hw.isControlPressed, shift = hw.isShiftPressed, alt = hw.isAltPressed;
-    if (ctrl && !shift && key == LogicalKeyboardKey.keyD) return _selectNextOccurrence;
+    if (ctrl && !shift && key == LogicalKeyboardKey.keyD) return _ctrl.selectNextOccurrence;
     if (!readOnly) {
       if (ctrl && key == LogicalKeyboardKey.enter) return shift ? _insertLineAbove : _insertLineBelow;
       if (shift && alt && key == LogicalKeyboardKey.arrowDown) return () => _copyLines(down: true);
@@ -682,27 +649,6 @@ class CodePaneState extends State<CodePane> {
     }
     if (key == LogicalKeyboardKey.f3) return shift ? _find.previousMatch : _find.nextMatch;
     return null;
-  }
-
-  /// One selection at a time: re_editor has no multiple cursors, so Ctrl+D moves on to the next match.
-  void _selectNextOccurrence() {
-    final sel = _ctrl.selection;
-    if (sel.isCollapsed) {
-      final text = _ctrl.codeLines[sel.extentIndex].text;
-      final at = sel.extentOffset.clamp(0, text.length);
-      final start = at - _wordBefore.firstMatch(text.substring(0, at))![0]!.length;
-      final end = at + RegExp(r'^[A-Za-z0-9_$]*').firstMatch(text.substring(at))![0]!.length;
-      if (start == end) return;
-      _ctrl.selection = CodeLineSelection(baseIndex: sel.extentIndex, baseOffset: start, extentIndex: sel.extentIndex, extentOffset: end);
-      return;
-    }
-    final query = _ctrl.selectedText;
-    if (query.contains('\n')) return;
-    final lines = [for (var i = 0; i < _ctrl.codeLines.length; i++) _ctrl.codeLines[i].text];
-    final hit = nextOccurrence(lines, query, sel.endIndex, sel.endOffset);
-    if (hit == null) return;
-    _ctrl.selection = CodeLineSelection(baseIndex: hit.$1, baseOffset: hit.$2, extentIndex: hit.$1, extentOffset: hit.$2 + query.length);
-    _ctrl.makeCursorCenterIfInvisible();
   }
 
   static String _indentOf(String line) => RegExp(r'^\s*').firstMatch(line)![0]!;
@@ -768,24 +714,234 @@ class CodePaneState extends State<CodePane> {
   }
 
   Future<void> _goToDefinition(int line, int col) => _guard(() async {
-    final target = await widget.workspace.definition(_doc, line, col);
-    if (!mounted) return;
+    final token = _beginLoading('Loading…', line, col);
+    final EditTarget? target;
+    try {
+      target = await widget.workspace.definition(_doc, line, col);
+      if (!mounted || token != _loadingToken) return;
+    } finally {
+      if (token == _loadingToken) _endLoading();
+    }
     if (target == null) return _toast('No definition found here');
     widget.onTarget(target);
   });
 
   Future<void> _findReferences(int line, int col) => _guard(() async {
-    final refs = await widget.workspace.references(_doc, line, col);
-    if (!mounted) return;
-    // The declaration counts as one of the results.
-    if (refs.length <= 1) return _toast('No usages found');
-    widget.onReferences(refs);
+    final text = _ctrl.codeLines[line].text;
+    final at = col.clamp(0, text.length);
+    final word = _wordBefore.firstMatch(text.substring(0, at))![0]! + RegExp(r'^[A-Za-z0-9_$]*').firstMatch(text.substring(at))![0]!;
+    final token = _beginLoading(word.isEmpty ? 'Finding usages…' : 'Finding usages of $word…', line, col);
+    final List<EditTarget> usages;
+    final List<SearchHit> hits;
+    try {
+      final refs = await widget.workspace.references(_doc, line, col);
+      if (!mounted || token != _loadingToken) return;
+      usages = usagesApartFrom(refs, _doc.path, line, col, text);
+      hits = await widget.workspace.referenceHits(usages);
+      if (!mounted || token != _loadingToken) return;
+    } finally {
+      if (token == _loadingToken) _endLoading();
+    }
+    if (usages.isEmpty) return _toast(word.isEmpty ? 'No usages found' : 'No usages of $word found');
+    _clearHover();
+    setState(() {
+      _usages = hits;
+      _usageTargets = usages;
+      _usageIndex = 0;
+      _usagesOf = word;
+      _usagesAt = _caretOffset(line, col);
+    });
+    if (_usagesScroll.hasClients) _usagesScroll.jumpTo(0);
   });
+
+  int _beginLoading(String label, int line, int column, {bool hover = false}) {
+    final token = ++_loadingToken;
+    _loadingForHover = hover;
+    _loadingTimer?.cancel();
+    _loadingTimer = Timer(const Duration(milliseconds: 150), () {
+      if (!mounted || token != _loadingToken) return;
+      setState(() {
+        _loading = label;
+        _loadingAt = _caretOffset(line, column);
+      });
+    });
+    return token;
+  }
+
+  /// Also what cancels: an answer for an older token is dropped.
+  void _endLoading() {
+    _loadingToken++;
+    _loadingTimer?.cancel();
+    if (_loading != null && mounted) setState(() => _loading = null);
+  }
+
+  Widget _buildLoading(ColorScheme scheme) => _Floating(
+    at: _loadingAt ?? Offset.zero,
+    lineHeight: 20,
+    width: 320,
+    height: 34,
+    shrink: true,
+    child: TapRegion(
+      onTapOutside: (_) => _endLoading(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary)),
+            const SizedBox(width: 8),
+            Flexible(child: Text(_loading!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5))),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  void _closeUsages() {
+    if (_usages != null && mounted) setState(() => _usages = null);
+  }
+
+  void _openUsage(int index) {
+    final target = _usageTargets[index];
+    _closeUsages();
+    widget.onTarget(target);
+  }
+
+  void _moveUsage(int delta) {
+    final count = _usageTargets.length;
+    setState(() => _usageIndex = (_usageIndex + delta) % count);
+    if (!_usagesScroll.hasClients) return;
+    // Rows above include the header of each file up to this one.
+    final top = _usageRowsBefore(_usageIndex) * _usageRow;
+    final view = _usagesScroll.position.viewportDimension;
+    if (top < _usagesScroll.offset) {
+      _usagesScroll.jumpTo(top);
+    } else if (top + _usageRow > _usagesScroll.offset + view) {
+      _usagesScroll.jumpTo(top + _usageRow - view);
+    }
+  }
+
+  int _usageRowsBefore(int index) {
+    var rows = index + 1;
+    for (var i = 1; i <= index; i++) {
+      if (_usageTargets[i].path != _usageTargets[i - 1].path) rows++;
+    }
+    return rows;
+  }
+
+  Widget _buildUsages(ColorScheme scheme) {
+    final hits = _usages!;
+    final at = _usagesAt ?? Offset.zero;
+    final root = widget.workspace.root;
+    final rows = <Widget>[];
+    for (final (i, h) in hits.indexed) {
+      if (i == 0 || hits[i - 1].path != h.path) {
+        final count = hits.where((x) => x.path == h.path).length;
+        final (icon, color) = fileIconOf(h.path);
+        rows.add(
+          Container(
+            height: _usageRow,
+            color: scheme.surfaceContainer,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              children: [
+                Icon(icon, size: 14, color: color ?? scheme.outline),
+                const SizedBox(width: 6),
+                Text(p.basename(h.path), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    p.isWithin(root, h.path) ? p.relative(p.dirname(h.path), from: root) : p.dirname(h.path),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11.5, color: scheme.outline),
+                  ),
+                ),
+                Text('$count', style: TextStyle(fontSize: 11.5, color: scheme.outline)),
+              ],
+            ),
+          ),
+        );
+      }
+      rows.add(
+        InkWell(
+          onTap: () => _openUsage(i),
+          child: Container(
+            height: _usageRow,
+            color: i == _usageIndex ? scheme.primary.withValues(alpha: .16) : null,
+            padding: const EdgeInsets.only(left: 12, right: 10),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 42,
+                  child: Text('${h.line + 1}', textAlign: TextAlign.right, style: TextStyle(fontFamily: 'Consolas', fontSize: 12, color: scheme.outline)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(h.text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Consolas', fontSize: 12.5)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    final title = '${hits.length} ${hits.length == 1 ? 'usage' : 'usages'} of $_usagesOf';
+    return _Floating(
+      at: at,
+      lineHeight: 20,
+      width: 640,
+      height: (rows.length * _usageRow + 30).clamp(0, 360).toDouble(),
+      child: TapRegion(
+        onTapOutside: (_) => _closeUsages(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 28,
+              child: Row(
+                children: [
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600))),
+                  TextButton(
+                    style: TextButton.styleFrom(textStyle: const TextStyle(fontSize: 12)),
+                    onPressed: () {
+                      final targets = _usageTargets;
+                      _closeUsages();
+                      widget.onReferences(targets);
+                    },
+                    child: const Text('Open in panel'),
+                  ),
+                  IconButton(
+                    tooltip: 'Close (Esc)',
+                    iconSize: 14,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+                    onPressed: _closeUsages,
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(controller: _usagesScroll, padding: EdgeInsets.zero, itemExtent: _usageRow, children: rows),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   /// As in VS Code: Ctrl+click on a usage goes to its definition, on the declaration itself it lists the usages.
   Future<void> _ctrlClick(int line, int col) => _guard(() async {
-    final target = await widget.workspace.definition(_doc, line, col);
-    if (!mounted) return;
+    final token = _beginLoading('Loading…', line, col);
+    final EditTarget? target;
+    try {
+      target = await widget.workspace.definition(_doc, line, col);
+      if (!mounted || token != _loadingToken) return;
+    } finally {
+      if (token == _loadingToken) _endLoading();
+    }
     if (target != null && !isDeclarationAt(target, _doc.path, line, col, _ctrl.codeLines[line].text)) return widget.onTarget(target);
     await _findReferences(line, col);
   });
@@ -920,6 +1076,8 @@ class CodePaneState extends State<CodePane> {
   // ------------------------------------------------------------- hover
 
   void _clearHover() {
+    if (_loadingForHover) _endLoading();
+    _loadingForHover = false;
     _hoverTimer?.cancel();
     _hoverHide?.cancel();
     _hoverHide = null;
@@ -986,7 +1144,7 @@ class CodePaneState extends State<CodePane> {
       return;
     }
     _clearHover();
-    if (HardwareKeyboard.instance.isControlPressed) return;
+    if (HardwareKeyboard.instance.isControlPressed || _usages != null) return;
     if (_doc.languageId != 'dart' || _popup) return;
     final local = e.localPosition;
     _hoverTimer = Timer(const Duration(milliseconds: 500), () => _showHover(local));
@@ -1015,11 +1173,13 @@ class CodePaneState extends State<CodePane> {
           (d.endLine > line || (d.endLine == line && d.endColumn >= col)),
     );
     String? info;
+    final loading = _beginLoading('Loading…', line, col, hover: true);
     try {
       info = await widget.workspace.hover(_doc, line, col);
     } on Exception {
       info = null;
     }
+    if (loading == _loadingToken) _endLoading();
     if (!mounted || token != _hoverToken) return;
     final parts = [...problems.map((d) => d.message), ?info];
     if (parts.isEmpty) return;
@@ -1177,9 +1337,6 @@ class CodePaneState extends State<CodePane> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final mode = _modes[p.extension(_doc.path).toLowerCase()];
-    final theme = Map<String, TextStyle>.of(dark ? atomOneDarkTheme : atomOneLightTheme);
     return Listener(
       onPointerDown: (e) {
         if (e.buttons != kSecondaryMouseButton || _doc.languageId != 'dart') return;
@@ -1205,21 +1362,15 @@ class CodePaneState extends State<CodePane> {
           key: _stackKey,
           children: [
             CodeEditor(
-              // re_editor never drops its listeners from a controller it's taken off, so each document gets its own.
               key: ObjectKey(_doc),
               controller: _ctrl,
               focusNode: _focus,
               scrollController: _doc.scroll,
               findController: _find,
               readOnly: isLibrarySource(_doc.path),
-              shortcutsActivatorsBuilder: const _VsCodeShortcuts(),
-              commentFormatter: DefaultCodeCommentFormatter(
-                singleLinePrefix: _lineComments[p.extension(_doc.path).toLowerCase()],
-                multiLinePrefix: '/*',
-                multiLineSuffix: '*/',
-              ),
+              language: languageForExtension(p.extension(_doc.path)),
+              lineComment: _lineComments[p.extension(_doc.path).toLowerCase()],
               wordWrap: EditorView.wordWrap.value,
-              autocompleteSymbols: true,
               padding: const EdgeInsets.only(left: 6, top: 4, bottom: 120, right: 16),
               style: CodeEditorStyle(
                 fontFamily: 'Cascadia Mono',
@@ -1231,10 +1382,7 @@ class CodePaneState extends State<CodePane> {
                 cursorColor: scheme.primary,
                 selectionColor: scheme.primary.withValues(alpha: .25),
                 cursorLineColor: scheme.onSurface.withValues(alpha: .04),
-                chunkIndicatorColor: scheme.outline,
-                codeTheme: mode == null
-                    ? null
-                    : CodeHighlightTheme(languages: {'code': CodeHighlightThemeMode(mode: mode)}, theme: theme),
+                syntax: appTheme.value.syntax,
               ),
               indicatorBuilder: (_, editing, chunks, notifier) {
                 _indicator = notifier;
@@ -1256,7 +1404,7 @@ class CodePaneState extends State<CodePane> {
                       textStyle: TextStyle(color: scheme.outline, fontFamily: 'Consolas', fontSize: EditorView.fontSize.value - 1),
                       focusedTextStyle: TextStyle(color: scheme.onSurface, fontFamily: 'Consolas', fontSize: EditorView.fontSize.value - 1),
                     ),
-                    DefaultCodeChunkIndicator(width: 18, controller: chunks, notifier: notifier),
+                    DefaultCodeChunkIndicator(width: 18, controller: chunks, editing: editing, notifier: notifier, color: scheme.outline),
                   ],
                 );
               },
@@ -1267,7 +1415,9 @@ class CodePaneState extends State<CodePane> {
                 child: IgnorePointer(
                   child: CustomPaint(
                     painter: _LinePainter(_indicator!, (size) {
-                      final para = _paragraphAt(_currentLine!);
+                      // These run at paint, which can come after an edit cleared what the last build saw.
+                      final line = _currentLine;
+                      final para = line == null ? null : _paragraphAt(line);
                       final origin = _fieldOrigin();
                       if (para == null || origin == null) return null;
                       return Rect.fromLTWH(origin.dx, origin.dy + para.offset.dy, size.width - origin.dx, para.height);
@@ -1280,7 +1430,9 @@ class CodePaneState extends State<CodePane> {
                 child: IgnorePointer(
                   child: CustomPaint(
                     painter: _BracketPainter(_indicator!, scheme.primary, () {
-                      final (a, b) = _bracket!;
+                      final pair = _bracket;
+                      if (pair == null) return const [];
+                      final (a, b) = pair;
                       return [
                         for (final (line, column) in [a, b])
                           if (_caretOffset(line, column) case final start?)
@@ -1293,6 +1445,8 @@ class CodePaneState extends State<CodePane> {
               ),
             if (_link != null) _buildLink(scheme),
             if (_signature != null && !_popup) _buildSignature(scheme),
+            if (_usages != null) _buildUsages(scheme),
+            if (_loading != null) _buildLoading(scheme),
             if (_popup) _buildPopup(scheme),
             if (_popup && _itemDocs != null) _buildItemDocs(),
             if (_hover != null && _hoverAt != null)
@@ -1333,6 +1487,7 @@ IconData _kindIcon(int kind) => switch (kind) {
   9 => Icons.inventory_2_outlined,
   13 || 20 => Icons.format_list_bulleted,
   14 => Icons.key_outlined,
+  15 => Icons.code,
   _ => Icons.short_text,
 };
 
@@ -1351,7 +1506,7 @@ class _MenuRow extends StatelessWidget {
   );
 }
 
-class _BreakpointGutter extends StatelessWidget {
+class _BreakpointGutter extends StatefulWidget {
   const _BreakpointGutter({required this.notifier, required this.lines, required this.current, required this.marks, required this.onToggle});
 
   final CodeIndicatorValueNotifier notifier;
@@ -1361,34 +1516,57 @@ class _BreakpointGutter extends StatelessWidget {
   final ValueChanged<int>? onToggle;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 18,
-    child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapUp: (d) {
-        for (final para in notifier.value?.paragraphs ?? const <CodeLineRenderParagraph>[]) {
-          if (d.localPosition.dy >= para.offset.dy && d.localPosition.dy < para.offset.dy + para.height) {
-            onToggle?.call(para.index);
-            return;
-          }
-        }
-      },
-      child: CustomPaint(painter: _GutterPainter(notifier, lines, current, marks)),
-    ),
-  );
+  State<_BreakpointGutter> createState() => _BreakpointGutterState();
+}
+
+class _BreakpointGutterState extends State<_BreakpointGutter> {
+  final _hoverY = ValueNotifier<double?>(null);
+
+  @override
+  void dispose() {
+    _hoverY.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canToggle = widget.onToggle != null;
+    return SizedBox(
+      width: 18,
+      child: MouseRegion(
+        cursor: canToggle ? SystemMouseCursors.click : MouseCursor.defer,
+        onHover: canToggle ? (e) => _hoverY.value = e.localPosition.dy : null,
+        onExit: (_) => _hoverY.value = null,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapUp: (d) {
+            for (final para in widget.notifier.value?.paragraphs ?? const <CodeLineRenderParagraph>[]) {
+              if (d.localPosition.dy >= para.offset.dy && d.localPosition.dy < para.offset.dy + para.height) {
+                widget.onToggle?.call(para.index);
+                return;
+              }
+            }
+          },
+          child: CustomPaint(painter: _GutterPainter(widget.notifier, widget.lines, widget.current, widget.marks, _hoverY)),
+        ),
+      ),
+    );
+  }
 }
 
 class _GutterPainter extends CustomPainter {
-  _GutterPainter(this.notifier, this.lines, this.current, this.marks) : super(repaint: notifier);
+  _GutterPainter(this.notifier, this.lines, this.current, this.marks, this.hoverY) : super(repaint: Listenable.merge([notifier, hoverY]));
 
   final CodeIndicatorValueNotifier notifier;
   final Set<int> lines;
   final int? current;
   final Map<int, GitMark> marks;
+  final ValueListenable<double?> hoverY;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.clipRect(Offset.zero & size);
+    final hover = hoverY.value;
     final paint = Paint();
     for (final para in notifier.value?.paragraphs ?? const <CodeLineRenderParagraph>[]) {
       final top = para.offset.dy, height = para.height;
@@ -1406,8 +1584,22 @@ class _GutterPainter extends CustomPainter {
           paint,
         );
       }
+      final hovered = hover != null && hover >= top && hover < top + height;
       if (lines.contains(para.index)) {
         paint.color = breakpointColor;
+        canvas.drawCircle(Offset(10, middle), 5, paint);
+        if (hovered) {
+          canvas.drawCircle(
+            Offset(10, middle),
+            6.5,
+            Paint()
+              ..color = breakpointColor.withValues(alpha: .5)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.5,
+          );
+        }
+      } else if (hovered) {
+        paint.color = breakpointColor.withValues(alpha: .4);
         canvas.drawCircle(Offset(10, middle), 5, paint);
       }
       if (para.index == current) {

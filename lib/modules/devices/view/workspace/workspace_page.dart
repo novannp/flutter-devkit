@@ -591,7 +591,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
           else
             IconButton(onPressed: () => Navigator.maybePop(context), icon: const Icon(Icons.arrow_back)),
           Text(
-            'DevKit',
+            'Flutter DevKit',
             style: TextStyle(color: Colors.green.shade400, fontWeight: FontWeight.bold),
           ),
           const SizedBox(width: 14),
@@ -691,7 +691,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
           Tooltip(
             message: _fast
                 ? 'Fast mode: embedded scrcpy (60 fps). Click for lite mode.'
-                : 'Lite mode: periodic screenshots, type via DevKit. Click for fast mode.',
+                : 'Lite mode: periodic screenshots, type via Flutter DevKit. Click for fast mode.',
             child: TextButton.icon(
               onPressed: () {
                 setState(() => _fast = !_fast);

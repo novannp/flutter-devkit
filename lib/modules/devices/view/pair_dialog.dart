@@ -101,7 +101,7 @@ class _PairDialogState extends State<_PairDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Only needed once per phone. After that DevKit auto-connects whenever Wireless debugging is on. '
+              'Only needed once per phone. After that Flutter DevKit auto-connects whenever Wireless debugging is on. '
               'The phone and laptop must be on the same Wi-Fi.',
               style: muted,
             ),

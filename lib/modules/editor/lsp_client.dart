@@ -90,6 +90,11 @@ class LspClient {
       workingDirectory: root,
       runInShell: cmd.runInShell,
     );
+    // Closed while the process was still launching: nothing else would ever stop it.
+    if (_closed) {
+      process.kill();
+      throw const LspException('Dart analysis server stopped');
+    }
     _process = process;
     ChildProcesses.bind(process);
     process.stdout.listen((chunk) => _parser.add(chunk).forEach(_onMessage));
@@ -116,10 +121,12 @@ class LspClient {
         'textDocument': {
           'synchronization': {'didSave': true},
           'publishDiagnostics': {},
-          // Plain text only: the editor has no snippet placeholders.
           'completion': {
             'completionItem': {
-              'snippetSupport': false,
+              'snippetSupport': true,
+              'insertTextModeSupport': {
+                'valueSet': [1, 2],
+              },
               'deprecatedSupport': true,
               'labelDetailsSupport': true,
               'documentationFormat': ['markdown', 'plaintext'],
@@ -244,6 +251,11 @@ class LspClient {
     }
     _closed = true;
     _process = null;
+    // Closed mid-start, `initialize` is still waiting and will never hear back.
+    for (final pending in _pending.values) {
+      if (!pending.isCompleted) pending.completeError(const LspException('Dart analysis server stopped'));
+    }
+    _pending.clear();
     await diagnostics.close();
     await analyzing.close();
   }

@@ -25,11 +25,11 @@ class BackgroundRunner with WindowListener, TrayListener {
 
     try {
       await trayManager.setIcon('assets/tray.ico');
-      await trayManager.setToolTip('DevKit');
+      await trayManager.setToolTip('Flutter DevKit');
       await trayManager.setContextMenu(
         Menu(
           items: [
-            MenuItem(key: 'open', label: 'Open DevKit'),
+            MenuItem(key: 'open', label: 'Open Flutter DevKit'),
             MenuItem.separator(),
             MenuItem(key: 'quit', label: 'Quit'),
           ],

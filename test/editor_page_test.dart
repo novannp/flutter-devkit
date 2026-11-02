@@ -8,19 +8,22 @@ import 'package:devkit/modules/devices/services/mdns_service.dart';
 import 'package:devkit/modules/devices/services/network_scanner.dart';
 import 'package:devkit/modules/editor/code_pane.dart';
 import 'package:devkit/modules/editor/dart_sdk.dart';
+import 'package:devkit/modules/editor/debug_panel.dart' show breakpointColor;
 import 'package:devkit/modules/editor/editor_page.dart';
 import 'package:devkit/modules/editor/editor_view.dart';
+import 'package:devkit/modules/editor/engine/code_editor.dart';
 import 'package:devkit/modules/editor/file_tree.dart';
 import 'package:devkit/modules/editor/markdown_view.dart';
+import 'package:devkit/modules/editor/notices.dart';
 import 'package:devkit/modules/editor/tool_tabs.dart';
 import 'package:devkit/modules/editor/source_control_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:re_editor/re_editor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -139,6 +142,177 @@ void main() {
       // Tests default to Android, where the editor handles Enter on its own.
     }, variant: TargetPlatformVariant.only(TargetPlatform.windows), timeout: const Timeout(Duration(minutes: 3)));
 
+    testWidgets('switching projects brings back the tabs each one had', (tester) async {
+      // Plain text, so the test is about tabs and starts no analysis server.
+      String project(String name, List<String> files) {
+        final root = Directory(p.join(dir.path, name))..createSync();
+        for (final f in files) {
+          File(p.join(root.path, f)).writeAsStringSync(f);
+        }
+        return root.path;
+      }
+
+      final a = project('project_a', ['one.txt', 'two.txt']);
+      final b = project('project_b', ['three.txt']);
+      await const ProjectTabs([], null).save(b);
+      await tester.runAsync(() => ProjectTabs([p.join(a, 'one.txt'), p.join(a, 'two.txt'), p.join(a, 'gone.txt')], p.join(a, 'one.txt')).save(a));
+      final tools = await tester.runAsync(Tools.resolve);
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      final cubit = DevicesCubit(adb: AdbService(tools!), mdns: MdnsService(), scanner: NetworkScanner(), store: DeviceStore());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BlocProvider.value(
+              value: cubit,
+              child: EditorPage(initialRoot: a),
+            ),
+          ),
+        ),
+      );
+
+      Future<void> settle(bool Function() ok, String what) async {
+        for (var i = 0; i < 300 && !ok(); i++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        expect(ok(), isTrue, reason: 'timed out waiting for $what');
+      }
+
+      Finder tab(String name) => find.descendant(of: find.byType(ReorderableListView), matching: find.text(name));
+      String? shown() => find.byType(CodeEditor).evaluate().isEmpty ? null : tester.widget<CodeEditor>(find.byType(CodeEditor)).controller?.text;
+
+      await settle(() => tab('one.txt').evaluate().isNotEmpty && tab('two.txt').evaluate().isNotEmpty, 'project A tabs');
+      await settle(() => shown() == 'one.txt', 'the tab that was active');
+
+      await tester.tap(tab('two.txt'));
+      await settle(() => shown() == 'two.txt', 'switching tab');
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+
+      EditorCommands.openRecent!(b);
+      await settle(() => shown() == null, 'project B, with no tabs yet');
+      expect(tab('one.txt'), findsNothing);
+
+      EditorCommands.openRecent!(p.join(b, 'three.txt'));
+      await settle(() => shown() == 'three.txt', 'a file in project B');
+
+      EditorCommands.openRecent!(a);
+      await settle(() => tab('one.txt').evaluate().isNotEmpty && tab('two.txt').evaluate().isNotEmpty, 'project A coming back');
+      await settle(() => shown() == 'two.txt', 'the tab last used in A');
+      expect(tab('three.txt'), findsNothing);
+
+      EditorCommands.openRecent!(b);
+      await settle(() => shown() == 'three.txt', 'project B coming back');
+      expect(tab('one.txt'), findsNothing);
+
+      // Search runs as you type, with no Enter, and clearing the field clears the results.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      final field = find.widgetWithText(TextField, 'Search in files');
+      await tester.enterText(field, 'three');
+      await tester.pump(const Duration(milliseconds: 300));
+      await settle(() => find.textContaining('results for "three"').evaluate().isNotEmpty, 'results without Enter');
+      expect(find.text('1 results for "three"'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).first, '');
+      await tester.pump();
+      expect(find.textContaining('results for'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
+      await tester.binding.setSurfaceSize(null);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows), timeout: const Timeout(Duration(minutes: 3)));
+
+    testWidgets('Ctrl+click on a declaration shows its usages in an overlay', (tester) async {
+      File(main).writeAsStringSync('void helper() {}\n\nvoid main() {\n  helper();\n  helper();\n}\n');
+      File(p.join(dir.path, 'lib', 'other.dart')).writeAsStringSync("import 'main.dart';\n\nvoid other() => helper();\n");
+      // What pub get leaves behind: without it the analyzer doesn't index the other files.
+      File(p.join(dir.path, '.dart_tool', 'package_config.json'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('{"configVersion":2,"packages":[{"name":"sample","rootUri":"../","packageUri":"lib/","languageVersion":"3.0"}]}');
+      final tools = await tester.runAsync(Tools.resolve);
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      final cubit = DevicesCubit(adb: AdbService(tools!), mdns: MdnsService(), scanner: NetworkScanner(), store: DeviceStore());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BlocProvider.value(
+              value: cubit,
+              child: EditorPage(initialRoot: dir.path, initialFile: main),
+            ),
+          ),
+        ),
+      );
+
+      Future<void> settle(bool Function() ok, String what) async {
+        for (var i = 0; i < 300 && !ok(); i++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        expect(ok(), isTrue, reason: 'timed out waiting for $what');
+      }
+
+      await settle(() => find.byType(CodeEditor).evaluate().isNotEmpty, 'the editor');
+      final pane = tester.state<CodePaneState>(find.byType(CodePane));
+      Offset? word;
+      await settle(() => (word = pane.globalCenterOf(0, 6)) != null, 'the laid out line');
+
+      // A slow answer shows that something is happening, and Esc gives up on it.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.tapAt(word!);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(find.text('Loading…'), findsNothing, reason: 'a fast answer never shows it');
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('Loading…'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(find.text('Loading…'), findsNothing);
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+      await tester.pump();
+      expect(find.textContaining('usages of helper'), findsNothing, reason: 'the cancelled answer is dropped');
+
+      // The declaration isn't one of its own usages; the other file's use is listed too, once it's indexed.
+      for (var i = 0; i < 40 && find.text('3 usages of helper').evaluate().isEmpty; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.tapAt(word!);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await settle(() => find.textContaining('usages of helper').evaluate().isNotEmpty, 'the usages overlay');
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 250)));
+        await tester.pump();
+      }
+      expect(tester.widget<Text>(find.textContaining('usages of helper')).data, '3 usages of helper');
+      expect(find.text('other.dart'), findsNWidgets(2), reason: 'in the file tree and in the overlay');
+      expect(find.text('helper();'), findsNWidgets(2));
+
+      // Esc closes it, and the arrows and Enter go to the picked line.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(find.textContaining('usages of helper'), findsNothing);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.tapAt(word!);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await settle(() => find.textContaining('usages of helper').evaluate().isNotEmpty, 'the overlay again');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(find.textContaining('usages of helper'), findsNothing);
+      final ctrl = tester.widget<CodeEditor>(find.byType(CodeEditor)).controller!;
+      await settle(() => ctrl.selection.extentIndex == 4, 'the second usage');
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
+      await tester.binding.setSurfaceSize(null);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows), timeout: const Timeout(Duration(minutes: 3)));
+
     testWidgets('Ctrl+click follows a symbol out of the project, into the SDK', (tester) async {
       File(main).writeAsStringSync("void main() {\n  print('x');\n}\n");
       final tools = await tester.runAsync(Tools.resolve);
@@ -245,6 +419,40 @@ void main() {
       await tester.binding.setSurfaceSize(null);
     }, variant: TargetPlatformVariant.only(TargetPlatform.windows), timeout: const Timeout(Duration(minutes: 3)));
 
+    testWidgets('a project without its packages says so, until dismissed', (tester) async {
+      final tools = await tester.runAsync(Tools.resolve);
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      final cubit = DevicesCubit(adb: AdbService(tools!), mdns: MdnsService(), scanner: NetworkScanner(), store: DeviceStore());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BlocProvider.value(
+              value: cubit,
+              child: EditorPage(initialRoot: dir.path, initialFile: main),
+            ),
+          ),
+        ),
+      );
+      for (var i = 0; i < 200 && find.byType(NoticeCard).evaluate().isEmpty; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(find.textContaining('missing or out of sync'), findsOneWidget);
+      expect(find.text('Run pub get'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Dismiss'));
+      await tester.pump();
+      expect(find.byType(NoticeCard), findsNothing);
+      // It stays away until the dependencies change again.
+      await tester.pump(const Duration(seconds: 11));
+      expect(find.byType(NoticeCard), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
+      await tester.binding.setSurfaceSize(null);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows), timeout: const Timeout(Duration(minutes: 3)));
+
     testWidgets('sets breakpoints from the gutter and F9, and commits from Source Control', (tester) async {
       for (final args in [
         ['init', '-b', 'main'],
@@ -305,7 +513,7 @@ void main() {
       await tester.pump();
       expect(pane.matchedBrackets, isNull);
 
-      // VS Code's keys. Ctrl+D selects the word; re_editor's own default would delete the line.
+      // VS Code's keys.
       await key(LogicalKeyboardKey.equal, control: true);
       expect(EditorView.fontSize.value, EditorView.defaultFontSize + 1);
       await key(LogicalKeyboardKey.minus, control: true);
@@ -337,6 +545,17 @@ void main() {
 
       // First line of the gutter: on, then off again.
       final gutter = tester.getTopLeft(find.byType(CodeEditor)) + const Offset(9, 14);
+      RenderObject gutterPaint() => tester.allRenderObjects.whereType<RenderCustomPaint>().firstWhere((r) => r.painter.runtimeType.toString() == '_GutterPainter');
+      expect(gutterPaint(), isNot(paints..circle()));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: gutter);
+      await mouse.moveTo(gutter + const Offset(0, 1));
+      await tester.pump();
+      expect(gutterPaint(), paints..circle(color: breakpointColor.withValues(alpha: .4)), reason: 'a faint dot shows where a click would put one');
+      await mouse.moveTo(Offset.zero);
+      await tester.pump();
+      expect(gutterPaint(), isNot(paints..circle()));
+      await mouse.removePointer();
       await tester.tapAt(gutter);
       await tester.pump();
       expect(find.text('$rel:1'), findsOneWidget);
@@ -367,7 +586,14 @@ void main() {
       final row = find.descendant(of: find.byType(SourceControlView), matching: find.text('main.dart'));
       await settle(() => row.evaluate().isNotEmpty, 'the changed file in the list');
       await tester.tap(row);
-      await settle(() => find.textContaining('@@').evaluate().isNotEmpty, 'the diff');
+      await settle(() => find.text('After (working copy)').evaluate().isNotEmpty, 'the diff tab');
+      await settle(() => find.text('Before (HEAD)').evaluate().isNotEmpty, 'its before side');
+      expect(find.byType(SideBySideDiff), findsOneWidget);
+      expect(find.byType(SourceControlView), findsOneWidget, reason: 'the Editor is still around it');
+      await tester.tap(find.text('Editor').first);
+      await tester.pump();
+      ToolTabs.instance.open.toList().forEach(ToolTabs.instance.close);
+      await tester.pump();
 
       await tester.tap(find.byTooltip('Stage'));
       await settle(() => find.text('Staged (1)').evaluate().isNotEmpty, 'staging');

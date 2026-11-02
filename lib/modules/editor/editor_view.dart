@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _prefFontSize = 'editor_font_size';
@@ -57,5 +60,30 @@ class RecentPaths {
   static Future<void> _save(List<String> next) async {
     paths.value = next;
     await (await SharedPreferences.getInstance()).setStringList(_prefRecents, next);
+  }
+}
+
+const _prefProjectTabs = 'editor_project_tabs';
+
+/// The tabs each project had open, to come back to when it's opened again.
+class ProjectTabs {
+  const ProjectTabs(this.files, this.active);
+
+  final List<String> files;
+  final String? active;
+
+  static Future<ProjectTabs?> load(String root) async {
+    final raw = (await SharedPreferences.getInstance()).getString(_prefProjectTabs);
+    final entry = raw == null ? null : (jsonDecode(raw) as Map)[p.canonicalize(root)] as Map?;
+    if (entry == null) return null;
+    return ProjectTabs((entry['files'] as List).cast<String>(), entry['active'] as String?);
+  }
+
+  Future<void> save(String root) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_prefProjectTabs);
+    final all = raw == null ? <String, dynamic>{} : jsonDecode(raw) as Map<String, dynamic>;
+    all[p.canonicalize(root)] = {'files': files, 'active': active};
+    await prefs.setString(_prefProjectTabs, jsonEncode(all));
   }
 }

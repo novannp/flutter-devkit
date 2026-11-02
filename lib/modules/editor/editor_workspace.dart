@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
-import 'package:re_editor/re_editor.dart';
 
 import 'dart_settings.dart';
+import 'engine/code_editor.dart';
+import 'engine/snippet.dart';
 import 'lsp_client.dart';
 
 const _maxFileBytes = 20 * 1024 * 1024;
@@ -105,7 +107,13 @@ List<CompletionEntry> filterCompletions(List<CompletionEntry> items, String inpu
     }
   }
   int bySort(CompletionEntry a, CompletionEntry b) => a.sortText.compareTo(b.sortText);
-  return [...prefix..sort(bySort), ...fuzzy..sort(bySort)].take(limit).toList();
+  prefix.sort(bySort);
+  // The server sorts snippets last, which a long list would cut off before they're ever seen.
+  final snippets = prefix.where((c) => c.kind == 15).toList();
+  prefix
+    ..removeWhere((c) => c.kind == 15)
+    ..insertAll(min(3, prefix.length), snippets);
+  return [...prefix, ...fuzzy..sort(bySort)].take(limit).toList();
 }
 
 bool _isSubsequence(String q, String s) {
@@ -420,6 +428,11 @@ class EditorWorkspace extends ChangeNotifier {
   Future<void>? _lspStart;
   final _opened = <String>{};
   bool analyzing = false;
+
+  /// From launching the server until it first has answers. It can take a while and says nothing meanwhile.
+  bool startingAnalyzer = false;
+  LspClient? _starting;
+  var _disposed = false;
   String? lspError;
   DartSettings dart = const DartSettings();
   bool get formatOnSave => dart.formatOnSave;
@@ -439,7 +452,9 @@ class EditorWorkspace extends ChangeNotifier {
 
   int countOf(int severity) => diagnostics.values.fold(0, (n, l) => n + l.where((d) => d.severity == severity).length);
 
-  // The server starts with the first Dart file, so browsing other files stays free of its memory use.
+  /// Warms the server up before any Dart file is open, so the first one doesn't wait for it.
+  Future<void> startAnalyzer() => _ensureLsp();
+
   Future<LspClient?> _ensureLsp() async {
     if (_lsp?.running == true) return _lsp;
     _lspStart ??= _startLsp();
@@ -447,7 +462,15 @@ class EditorWorkspace extends ChangeNotifier {
     return _lsp?.running == true ? _lsp : null;
   }
 
+  void _analyzerAnswered() {
+    if (!startingAnalyzer) return;
+    startingAnalyzer = false;
+    notifyListeners();
+  }
+
   Future<void> _startLsp() async {
+    startingAnalyzer = true;
+    notifyListeners();
     final lsp = LspClient(root);
     lsp.onApplyEdit = applyWorkspaceEdit;
     lsp.dartConfig = () => dart.toServerConfig(root);
@@ -459,15 +482,24 @@ class EditorWorkspace extends ChangeNotifier {
     _diagSub = lsp.diagnostics.stream.listen(_onDiagnostics);
     _statusSub = lsp.analyzing.stream.listen((v) {
       analyzing = v;
+      if (!v) startingAnalyzer = false;
       notifyListeners();
       if (!v) documents.forEach(_scheduleSemantics);
     });
+    _starting = lsp;
     try {
       await lsp.start();
+      if (_disposed) return;
       _lsp = lsp;
       lspError = null;
+      // With no Dart file open yet there's nothing to analyze, so the server won't report anything.
+      if (!documents.any((d) => d.languageId == 'dart')) startingAnalyzer = false;
     } catch (e) {
+      if (_disposed) return;
       lspError = 'Dart analysis server failed to start: $e';
+      startingAnalyzer = false;
+    } finally {
+      _starting = null;
     }
     notifyListeners();
   }
@@ -495,6 +527,7 @@ class EditorWorkspace extends ChangeNotifier {
       });
       // Positions from an older text would paint the wrong words; the newer edit has its own request coming.
       if (doc.version != version || result is! Map || !documents.contains(doc)) return;
+      _analyzerAnswered();
       doc.semantics = decodeSemanticTokens(result['data'] as List, lsp.tokenTypes, lsp.tokenModifiers);
       doc.controller.forceRepaint();
       final symbols = await lsp.request('textDocument/documentSymbol', {
@@ -558,6 +591,8 @@ class EditorWorkspace extends ChangeNotifier {
     lsp.notify('textDocument/didOpen', {
       'textDocument': {'uri': doc.uri, 'languageId': doc.languageId, 'version': doc.version, 'text': doc.controller.text},
     });
+    // A file opened once analysis has settled gets no status change to wake its colors up.
+    _scheduleSemantics(doc);
   }
 
   void _sendChange(EditorDocument doc) {
@@ -679,6 +714,27 @@ class EditorWorkspace extends ChangeNotifier {
     return EditTarget(Uri.parse(uri).toFilePath(), start['line'] as int, start['character'] as int);
   }
 
+  /// Locations with the text of their lines. An open tab's text wins, since it may not be saved yet.
+  Future<List<SearchHit>> referenceHits(List<EditTarget> refs) async {
+    final files = <String, List<String>>{};
+    final hits = <SearchHit>[];
+    for (final r in refs) {
+      var lines = files[r.path];
+      if (lines == null) {
+        final open = documentAt(r.path);
+        try {
+          lines = open != null ? open.controller.text.split('\n') : await File(r.path).readAsLines();
+        } on Exception {
+          // A file that can't be read still gets its location listed.
+          lines = const [];
+        }
+        files[r.path] = lines;
+      }
+      hits.add(SearchHit(r.path, r.line, r.column, lines.elementAtOrNull(r.line)?.trim() ?? ''));
+    }
+    return hits;
+  }
+
   Future<List<EditTarget>> references(EditorDocument doc, int line, int column) async {
     final r = await _request(doc, 'textDocument/references', {
       ..._position(doc, line, column),
@@ -758,11 +814,23 @@ class EditorWorkspace extends ChangeNotifier {
     }
   }
 
-  /// Applies a chosen completion: its text edit plus any auto-import.
-  void applyCompletion(EditorDocument doc, CompletionEntry entry, {required int line, required int start, required int end}) {
+  /// Applies a chosen completion: its text edit plus any auto-import. A snippet with stops to fill
+  /// comes back as a session, for Tab to walk.
+  SnippetSession? applyCompletion(EditorDocument doc, CompletionEntry entry, {required int line, required int start, required int end}) {
     final raw = entry.raw;
     final textEdit = raw['textEdit'] as Map?;
-    final newText = (textEdit?['newText'] ?? raw['insertText'] ?? raw['label']) as String;
+    var newText = (textEdit?['newText'] ?? raw['insertText'] ?? raw['label']) as String;
+    ParsedSnippet? snippet;
+    if (raw['insertTextFormat'] == 2) {
+      newText = newText.replaceAll('\r\n', '\n');
+      // Unless the server says it's as is, following lines take this line's indent.
+      if (raw['insertTextMode'] != 1) {
+        final current = doc.controller.codeLines[line].text;
+        newText = newText.replaceAll('\n', '\n${current.substring(0, current.length - current.trimLeft().length)}');
+      }
+      snippet = parseSnippet(newText);
+      newText = snippet.text;
+    }
     final range = (textEdit?['range'] ?? textEdit?['insert']) as Map?;
     final sameLineStart = range == null ? start : ((range['start'] as Map)['character'] as int);
     // The server's range was computed before the last keystrokes, so its end can lag behind the caret.
@@ -778,8 +846,19 @@ class EditorWorkspace extends ChangeNotifier {
     final caretColumn = sameLineStart + newText.length;
     final addedLines = extra.fold<int>(0, (n, e) => n + '\n'.allMatches(e['newText'] as String).length);
     controller.text = applyTextEdits(controller.text, [main, ...extra]);
-    controller.selection = CodeLineSelection.collapsed(index: line + addedLines, offset: caretColumn);
+    SnippetSession? session;
+    if (snippet != null) {
+      final lines = controller.codeLines;
+      var start = sameLineStart;
+      for (var i = 0; i < line + addedLines; i++) {
+        start += lines[i].length + 1;
+      }
+      session = SnippetSession(controller, start, snippet);
+    } else {
+      controller.selection = CodeLineSelection.collapsed(index: line + addedLines, offset: caretColumn);
+    }
     doc.flush();
+    return session?.active ?? false ? session : null;
   }
 
   @override
@@ -787,7 +866,10 @@ class EditorWorkspace extends ChangeNotifier {
     for (final t in _semanticTimers.values) {
       t.cancel();
     }
+    _disposed = true;
     _lsp?.onExit = null;
+    _starting?.onExit = null;
+    unawaited(_starting?.dispose());
     _diskPoll?.cancel();
     _diagSub?.cancel();
     _statusSub?.cancel();

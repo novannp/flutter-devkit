@@ -6,29 +6,30 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:window_manager/window_manager.dart';
 
+import 'core/app_logo.dart';
 import 'core/background.dart';
+import 'core/error_log.dart';
+import 'core/files.dart';
 import 'core/jokes.dart';
 import 'core/theme.dart';
 import 'extensions/chat/chat_notifier.dart';
 import 'extensions/registry.dart';
 import 'extensions/chat/chat_page.dart';
 import 'extensions/chat/chat_service.dart';
-import 'modules/console/console_page.dart';
 import 'modules/editor/editor_page.dart';
 import 'modules/editor/editor_view.dart';
 import 'modules/editor/tool_tabs.dart';
 import 'modules/help/connection_guide.dart';
+import 'modules/help/getting_started.dart';
 import 'modules/settings/settings_page.dart';
 
 const _editor = AppModule('Editor', Icons.code, EditorPage());
-const _terminal = AppModule('Terminal', Icons.terminal, ConsolePage());
 const _settings = AppModule('Settings', Icons.settings_outlined, SettingsPage());
 const _extensions = AppModule('Extensions', Icons.extension_outlined, ExtensionsPage());
 
 /// Each page keeps its place here, so turning an extension off doesn't shift the others.
 final _modules = [
   _editor,
-  _terminal,
   _settings,
   _extensions,
   for (final e in builtinExtensions) ...e.modules,
@@ -76,6 +77,9 @@ class _ShellState extends State<Shell> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKey);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(showGettingStartedOnce(context));
+    });
     EditorCommands.openExtensions = () => _go(_modules.indexOf(_extensions));
     ExtensionManager.instance.addListener(_onExtensions);
     _tools.addListener(_rebuild);
@@ -148,7 +152,7 @@ class _ShellState extends State<Shell> {
     return Scaffold(
       body: Column(
         children: [
-          _TitleBar(selected: _modules.indexOf(_tools.active ?? _editor), onSelect: _go),
+          _TitleBar(active: _tools.active, onSelect: _go),
           const Divider(height: 1),
           const Expanded(child: EditorPage()),
         ],
@@ -189,13 +193,16 @@ class _LogoState extends State<_Logo> {
   );
 }
 
+/// Not every tab is one of the modules: a diff opens as a tab of its own.
+String windowTitleFor(AppModule? active) => active == null || active == _editor ? 'Flutter DevKit' : '${active.label} — Flutter DevKit';
+
 const _barHeight = 30.0;
 const _menusFoldBelow = 640.0;
 
 class _TitleBar extends StatefulWidget {
-  const _TitleBar({required this.selected, required this.onSelect});
+  const _TitleBar({required this.active, required this.onSelect});
 
-  final int selected;
+  final AppModule? active;
   final ValueChanged<int> onSelect;
 
   @override
@@ -349,17 +356,17 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
         child: const Text('Theme'),
       ),
       const Divider(height: 1),
-      _item('Quit DevKit (the bugs will wait)', Icons.power_settings_new, BackgroundRunner.instance.quit),
+      _item('Quit Flutter DevKit (the bugs will wait)', Icons.power_settings_new, BackgroundRunner.instance.quit),
     ],
     child: const Text('File'),
   );
 
-  Widget? _menu(String title, List<AppModule> modules) {
-    if (modules.isEmpty) return null;
+  Widget? _menu(String title, List<AppModule> modules, {List<Widget> first = const []}) {
+    if (modules.isEmpty && first.isEmpty) return null;
     final label = Text(title);
     return SubmenuButton(
       style: _itemStyle,
-      menuChildren: [for (final m in modules) _moduleItem(m)],
+      menuChildren: [...first, for (final m in modules) _moduleItem(m)],
       child: modules.any((m) => m.page is ChatPage) ? _unread(label) : label,
     );
   }
@@ -368,17 +375,9 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
     final scheme = Theme.of(context).colorScheme;
     showAboutDialog(
       context: context,
-      applicationName: 'DevKit',
+      applicationName: 'Flutter DevKit',
       applicationVersion: 'Version $appVersion',
-      applicationIcon: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [scheme.primary, brandColor.withValues(alpha: .7)]),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(Icons.bolt_rounded, color: scheme.onPrimary, size: 28),
-      ),
+      applicationIcon: const AppLogo(size: 48),
       children: [
         const Text('A Flutter IDE for Windows, with the device tools you test on right beside the code.'),
         const SizedBox(height: 10),
@@ -390,10 +389,15 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
   Widget _help() => SubmenuButton(
     style: _itemStyle,
     menuChildren: [
+      _item('Getting started', Icons.school_outlined, () => showGettingStarted(context)),
       _item('Connection guide', Icons.help_outline, () => showConnectionGuide(context)),
+      _item('Show error log', Icons.description_outlined, () {
+        final file = errorLogFile;
+        if (file != null && file.existsSync()) unawaited(revealInExplorer(file.path));
+      }),
       _item('Take a break 🎮', Icons.sports_esports_outlined, () => _takeABreak(context)),
       const Divider(height: 1),
-      _item('About DevKit', Icons.info_outline, _about),
+      _item('About Flutter DevKit', Icons.info_outline, _about),
     ],
     child: const Text('Help'),
   );
@@ -423,15 +427,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
                 message: _tagline,
                 child: _Logo(
                   onTap: () => _openModule(_editor),
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [scheme.primary, brandColor.withValues(alpha: .7)]),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Icon(Icons.bolt_rounded, color: scheme.onPrimary, size: 14),
-                  ),
+                  child: const AppLogo(size: 20),
                 ),
               ),
               const SizedBox(width: 6),
@@ -448,7 +444,11 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
                     final menus = [
                       _fileMenu(scheme),
                       ?_menu('Device', _enabledIn('Device')),
-                      ?_menu('Tools', [_terminal, ..._enabledIn('Tools')]),
+                      ?_menu(
+                        'Tools',
+                        _enabledIn('Tools'),
+                        first: [_item('Terminal', Icons.terminal, () => EditorCommands.openTerminal?.call(), keys: 'Ctrl+`')],
+                      ),
                       ?_menu('Team', _enabledIn('Team')),
                       _help(),
                     ];
@@ -464,7 +464,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
                   child: SizedBox.expand(
                     child: Center(
                       child: Text(
-                        _modules[widget.selected] == _editor ? 'DevKit' : '${_modules[widget.selected].label} — DevKit',
+                        windowTitleFor(widget.active),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 12, color: scheme.outline),
@@ -564,7 +564,7 @@ class _NameDialogState extends State<_NameDialog> {
   Widget build(BuildContext context) => PopScope(
     canPop: false,
     child: AlertDialog(
-      title: const Text('Welcome to DevKit 👋'),
+      title: const Text('Welcome to Flutter DevKit 👋'),
       content: SizedBox(
         width: 380,
         child: Column(

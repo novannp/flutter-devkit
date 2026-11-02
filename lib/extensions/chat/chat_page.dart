@@ -115,7 +115,7 @@ class _ChatPageState extends State<ChatPage> {
                                 label: const Text('Bot pings me every 20s'),
                                 selected: bot.pinging,
                                 onSelected: bot.setPing,
-                                tooltip: 'Minimize DevKit to see the Windows notification',
+                                tooltip: 'Minimize Flutter DevKit to see the Windows notification',
                               ),
                             ),
                           Tooltip(
@@ -172,7 +172,7 @@ class _ChatPageState extends State<ChatPage> {
                                 Padding(
                                   padding: const EdgeInsets.all(12),
                                   child: Text(
-                                    'Waiting for other DevKit users on this network…',
+                                    'Waiting for other Flutter DevKit users on this network…',
                                     style: text.bodySmall?.copyWith(color: scheme.outline),
                                   ),
                                 ),

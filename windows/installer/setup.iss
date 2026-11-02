@@ -3,7 +3,7 @@
 #ifndef AppVersion
   #define AppVersion "1.0.0"
 #endif
-#define AppName "DevKit"
+#define AppName "Flutter DevKit"
 #define AppExe "devkit.exe"
 #define Root "..\.."
 
@@ -49,6 +49,8 @@ Name: "startup"; Description: "Start {#AppName} when Windows starts"; GroupDescr
 [InstallDelete]
 Type: files; Name: "{app}\ravo_devkit.exe"
 Type: filesandordirs; Name: "{autoprograms}\Ravo DevKit"
+Type: filesandordirs; Name: "{autoprograms}\DevKit"
+Type: files; Name: "{autodesktop}\DevKit.lnk"
 Type: files; Name: "{autodesktop}\Ravo DevKit.lnk"
 Type: files; Name: "{userstartup}\Ravo DevKit.lnk"
 

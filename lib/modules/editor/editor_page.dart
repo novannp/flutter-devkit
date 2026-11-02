@@ -29,6 +29,7 @@ import 'editor_workspace.dart';
 import 'file_tree.dart';
 import 'fuzzy_files.dart';
 import 'log_style.dart';
+import 'notices.dart';
 import 'source_control.dart';
 import 'source_control_view.dart';
 import 'tool_tabs.dart';
@@ -40,7 +41,7 @@ const _desktopDevice = 'windows';
 
 /// What the title bar's menus ask of the Editor, and how the Editor reaches the shell.
 class EditorCommands {
-  static VoidCallback? openFolder, openFile, quickOpen, saveAll, openExtensions;
+  static VoidCallback? openFolder, openFile, quickOpen, saveAll, openExtensions, openTerminal;
   static ValueChanged<String>? openRecent;
 }
 
@@ -65,7 +66,7 @@ class EditorPage extends StatefulWidget {
   State<EditorPage> createState() => _EditorPageState();
 }
 
-enum _Panel { problems, output, diff, terminal }
+enum _Panel { problems, output, terminal }
 
 /// What the left panel shows. There's one panel, so opening one view replaces the other.
 enum _Side { files, git, search, debug }
@@ -88,6 +89,10 @@ class _EditorPageState extends State<EditorPage> {
   FlutterSession? _flutter;
   final _debugger = Debugger();
   final _pageFocus = FocusNode(debugLabel: 'editor page');
+  List<EditorNotice> _notices = const [];
+  var _noticesHidden = false;
+  int? _dismissedPackages;
+  Timer? _packagesPoll;
   final _groupsKey = GlobalKey();
   var _mirrorOpen = false;
   double _mirrorWidth = 360;
@@ -96,11 +101,10 @@ class _EditorPageState extends State<EditorPage> {
   final _git = SourceControl();
   Timer? _gitPoll;
   var _side = _Side.files;
+  var _restoringTabs = false;
   List<Avd> _avds = const [];
   var _sideOpen = true;
-  var _diffTitle = '';
-  String? _diffPath;
-  List<DiffLine> _diff = const [];
+  final _diffTabs = <String, AppModule>{};
   String? _debugUri;
   (String, int)? _shownStop;
   String? _device;
@@ -110,6 +114,8 @@ class _EditorPageState extends State<EditorPage> {
   final _outputScroll = ScrollController();
 
   final _searchCtrl = TextEditingController();
+  Timer? _searchDebounce;
+  var _searchToken = 0;
   List<SearchHit> _hits = const [];
   String _hitsTitle = '';
   bool _searching = false;
@@ -117,13 +123,23 @@ class _EditorPageState extends State<EditorPage> {
   @override
   void initState() {
     super.initState();
-    editorSaveAllOnQuit = () async => _ws?.saveAll();
+    editorSaveAllOnQuit = () async {
+      await _ws?.saveAll();
+      await _rememberTabs();
+    };
     EditorCommands.openFolder = _pickFolder;
     EditorCommands.openFile = _pickFile;
+    EditorCommands.openTerminal = () {
+      ToolTabs.instance.showEditor();
+      // It runs in the project, so with none open there's nowhere for it to start.
+      _ws == null ? _toast('Open a folder first') : _showPanel(_Panel.terminal);
+    };
     EditorCommands.openRecent = _openRecent;
     EditorCommands.quickOpen = _quickOpen;
     EditorCommands.saveAll = () => _ws?.saveAll();
     _git.addListener(_rebuild);
+    // A pull or a teammate's change can touch pubspec.yaml, with nothing in the Editor being saved.
+    _packagesPoll = Timer.periodic(const Duration(seconds: 10), (_) => _checkPackages());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_loadAvds());
     });
@@ -137,13 +153,14 @@ class _EditorPageState extends State<EditorPage> {
   @override
   void dispose() {
     editorSaveAllOnQuit = null;
-    EditorCommands.openFolder = EditorCommands.openFile = EditorCommands.quickOpen = EditorCommands.saveAll = null;
+    EditorCommands.openFolder = EditorCommands.openFile = EditorCommands.openTerminal = EditorCommands.quickOpen = EditorCommands.saveAll = null;
     EditorCommands.openRecent = null;
     _revealSub?.cancel();
     _ws?.removeListener(_rebuild);
     _ws?.dispose();
     _terminal?.dispose();
     _pageFocus.dispose();
+    _packagesPoll?.cancel();
     _searchFocus.dispose();
     ToolTabs.instance.removeListener(_rebuild);
     _gitPoll?.cancel();
@@ -155,6 +172,7 @@ class _EditorPageState extends State<EditorPage> {
     _debugger
       ..removeListener(_onDebugger)
       ..dispose();
+    _searchDebounce?.cancel();
     _searchCtrl.dispose();
     _outputScroll.dispose();
     super.dispose();
@@ -172,34 +190,49 @@ class _EditorPageState extends State<EditorPage> {
     await EditorView.load();
     await RecentPaths.load();
     final prefs = await SharedPreferences.getInstance();
-    final projects = await scanFlutterProjects();
     if (!mounted) return;
-    setState(() {
-      _projects = projects;
-      _reloadOnSave = prefs.getBool(_prefReloadOnSave) ?? true;
-    });
+    setState(() => _reloadOnSave = prefs.getBool(_prefReloadOnSave) ?? true);
+    // Walks the project folders, maybe on a slow drive; the open project shouldn't wait for that.
+    unawaited(
+      scanFlutterProjects().then((projects) {
+        if (mounted) setState(() => _projects = projects);
+      }),
+    );
     // DEVKIT_EDITOR=<file> opens straight on that file (README screenshots, demos).
     final envFile = Platform.environment['DEVKIT_EDITOR'];
     final startFile = widget.initialFile ?? envFile;
     final startRoot = widget.initialRoot ?? (envFile == null ? null : _projectRootOf(envFile));
     final root = startRoot ?? prefs.getString(_prefRoot);
     if (root == null || !Directory(root).existsSync()) return;
-    final files = startRoot != null ? [?startFile] : (prefs.getStringList(_prefFiles) ?? const <String>[]);
-    await _openRoot(root, files: files);
+    await _openRoot(root, files: startFile == null ? null : [startFile]);
   }
 
   Future<void> _rememberTabs() async {
     final ws = _ws;
-    if (ws == null) return;
+    // While tabs are coming back one by one, saving would forget the ones still to open.
+    if (ws == null || _restoringTabs) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefRoot, ws.root);
-    await prefs.setStringList(_prefFiles, ws.documents.map((d) => d.path).toList());
+    await ProjectTabs(ws.documents.map((d) => d.path).toList(), ws.active?.path).save(ws.root);
   }
 
-  Future<void> _openRoot(String root, {List<String> files = const []}) async {
+  /// What a project had open last time. Before tabs were per project there was one list, for the last project.
+  Future<ProjectTabs?> _savedTabs(String root) async {
+    final saved = await ProjectTabs.load(root);
+    if (saved != null) return saved;
+    final prefs = await SharedPreferences.getInstance();
+    final oldRoot = prefs.getString(_prefRoot);
+    final oldFiles = prefs.getStringList(_prefFiles);
+    return oldRoot != null && oldFiles != null && p.equals(oldRoot, root) ? ProjectTabs(oldFiles, null) : null;
+  }
+
+  /// Without [files], the project comes back with the tabs it had.
+  Future<void> _openRoot(String root, {List<String>? files}) async {
     final old = _ws;
     if (old != null) {
       if (!await _confirmUnsaved(old.documents.where((d) => d.dirty).toList())) return;
+      // The active tab can have changed since the last save.
+      await _rememberTabs();
       old.removeListener(_rebuild);
       _revealSub?.cancel();
       old.dispose();
@@ -227,12 +260,17 @@ class _EditorPageState extends State<EditorPage> {
     setState(() {
       _ws = ws;
       _hits = const [];
-      _diff = const [];
-      _diffTitle = '';
-      _diffPath = null;
     });
     unawaited(_git.open(root));
+    // A diff belongs to the project it was opened from.
+    for (final tab in _diffTabs.values) {
+      ToolTabs.instance.close(tab);
+    }
+    _diffTabs.clear();
     unawaited(RecentPaths.add(root));
+    _dismissedPackages = null;
+    _notices = const [];
+    _checkPackages();
     _back.clear();
     _forward.clear();
     unawaited(
@@ -240,9 +278,18 @@ class _EditorPageState extends State<EditorPage> {
         if (mounted && _ws == ws) setState(() => _sdk = v);
       }),
     );
-    for (final f in files) {
+    final saved = files == null ? await _savedTabs(root) : null;
+    if (File(p.join(root, 'pubspec.yaml')).existsSync()) unawaited(ws.startAnalyzer());
+    _restoringTabs = true;
+    for (final f in files ?? saved?.files ?? const <String>[]) {
+      // Another project may have been opened meanwhile; its tabs are its own.
+      if (_ws != ws) break;
       if (File(f).existsSync()) await _openFile(f);
     }
+    if (_ws != ws) return;
+    _restoringTabs = false;
+    final active = saved?.active == null ? null : ws.documentAt(saved!.active!);
+    if (active != null) ws.activate(active);
     await _rememberTabs();
   }
 
@@ -300,6 +347,7 @@ class _EditorPageState extends State<EditorPage> {
     } on FileSystemException catch (e) {
       return _toast('Could not save ${doc.name}: ${e.message}');
     }
+    _checkPackages();
     final f = _flutter;
     if (_reloadOnSave && doc.languageId == 'dart' && f != null && f.canReload) unawaited(f.reload());
   }
@@ -528,15 +576,25 @@ class _EditorPageState extends State<EditorPage> {
     _gitPoll = Timer.periodic(const Duration(seconds: 4), (_) => _git.refresh());
   }
 
-  Future<void> _showDiff(GitChange change, bool staged) async {
-    final lines = await _git.diffOf(change, staged: staged);
-    if (!mounted) return;
-    setState(() {
-      _diff = lines;
-      _diffTitle = change.path;
-      _diffPath = _git.absolute(change.path);
-    });
-    _showPanel(_Panel.diff);
+  void _showDiff(GitChange change, bool staged) {
+    final path = _git.absolute(change.path);
+    final tab = _diffTabs.putIfAbsent(
+      '$path:$staged',
+      () => AppModule(
+        '${p.basename(path)} (diff)',
+        Icons.compare_arrows,
+        SideBySideDiff(
+          git: _git,
+          change: change,
+          staged: staged,
+          onLine: (line) {
+            ToolTabs.instance.showEditor();
+            if (File(path).existsSync()) unawaited(_jump(EditTarget(path, line, 0)));
+          },
+        ),
+      ),
+    );
+    ToolTabs.instance.show(tab);
   }
 
   void _onFlutter() {
@@ -570,6 +628,43 @@ class _EditorPageState extends State<EditorPage> {
     unawaited(_openFile(path, line: frame.line, column: frame.column));
   }
 
+  void _checkPackages() {
+    final ws = _ws;
+    if (ws == null || !mounted) return;
+    final since = _toolBusy ? null : packagesOutOfSyncSince(ws.root);
+    final show = since != null && since != _dismissedPackages;
+    final showing = _notices.any((n) => n.id == 'packages');
+    if (show == showing) return;
+    setState(() {
+      _notices = [
+        for (final n in _notices)
+          if (n.id != 'packages') n,
+        if (show)
+          EditorNotice(
+            id: 'packages',
+            icon: Icons.inventory_2_outlined,
+            source: 'Dart',
+            message: 'Some packages are missing or out of sync for ${p.basename(ws.root)}. Run pub get to update them.',
+            actions: [
+              NoticeAction('Run pub get', () {
+                _dismissNotice('packages');
+                unawaited(_runTool('pub get'));
+              }),
+            ],
+          ),
+      ];
+      if (show) _noticesHidden = false;
+    });
+  }
+
+  void _dismissNotice(String id) {
+    if (id == 'packages') _dismissedPackages = _ws == null ? null : packagesOutOfSyncSince(_ws!.root);
+    setState(() => _notices = [
+      for (final n in _notices)
+        if (n.id != id) n,
+    ]);
+  }
+
   Future<void> _runTool(String args) async {
     final ws = _ws;
     if (ws == null || _toolBusy) return;
@@ -599,14 +694,34 @@ class _EditorPageState extends State<EditorPage> {
       if (mounted) setState(() => _tool.add('Failed: $e'));
     }
     if (mounted) setState(() => _toolBusy = false);
+    _checkPackages();
+  }
+
+  // A beat after typing stops, so a whole word doesn't walk the project once per letter.
+  void _onSearchChanged(String query) {
+    _searchDebounce?.cancel();
+    final text = query.trim();
+    if (text.length >= 2) {
+      _searchDebounce = Timer(const Duration(milliseconds: 250), () => _search(text));
+      return;
+    }
+    _searchToken++;
+    setState(() {
+      _hits = const [];
+      _hitsTitle = '';
+      _searching = false;
+    });
   }
 
   Future<void> _search(String query) async {
     final ws = _ws;
+    _searchDebounce?.cancel();
+    final token = ++_searchToken;
     if (ws == null || query.trim().isEmpty) return;
     setState(() => _searching = true);
     final hits = await searchInFiles(ws.root, query.trim());
-    if (!mounted) return;
+    // A slower, older search must not replace what's been typed since.
+    if (!mounted || token != _searchToken) return;
     setState(() {
       _hits = hits;
       _hitsTitle = '${hits.length}${hits.length >= 1000 ? '+' : ''} results for "${query.trim()}"';
@@ -615,16 +730,9 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Future<void> _showReferences(List<EditTarget> refs) async {
-    final hits = <SearchHit>[];
-    for (final r in refs) {
-      var text = '';
-      try {
-        text = (await File(r.path).readAsLines()).elementAtOrNull(r.line)?.trim() ?? '';
-      } on Exception {
-        // A file that can't be read still gets its location listed.
-      }
-      hits.add(SearchHit(r.path, r.line, r.column, text));
-    }
+    _searchDebounce?.cancel();
+    _searchToken++;
+    final hits = await _ws?.referenceHits(refs) ?? const <SearchHit>[];
     if (!mounted) return;
     setState(() {
       _hits = hits;
@@ -650,7 +758,10 @@ class _EditorPageState extends State<EditorPage> {
           _toolbar(ws, scheme),
           const Divider(height: 1),
           Expanded(
-            child: Row(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+            Row(
               children: [
                 _activityBar(scheme),
                 // Kept mounted when closed, so the tree's open folders survive being hidden.
@@ -706,13 +817,32 @@ class _EditorPageState extends State<EditorPage> {
                     children: [
                       if (ws.lspError != null) _errorBanner(ws.lspError!, scheme),
                       Expanded(child: _workArea(_groups(ws, scheme), scheme)),
-                      if (_panelOpen) ...[
-                        _DragHandle(
-                          axis: Axis.vertical,
-                          onDrag: (d) => setState(() => _panelHeight = (_panelHeight - d).clamp(100, 700)),
-                        ),
-                        SizedBox(height: _panelHeight, child: _bottomPanel(ws, scheme)),
-                      ],
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(end: _panelOpen ? 1 : 0),
+                        duration: const Duration(milliseconds: 130),
+                        curve: Curves.easeOutCubic,
+                        builder: (_, t, _) => t == 0
+                            ? const SizedBox.shrink()
+                            : ClipRect(
+                                child: SizedBox(
+                                  height: (_panelHeight + 6) * t,
+                                  child: OverflowBox(
+                                    alignment: Alignment.topCenter,
+                                    minHeight: _panelHeight + 6,
+                                    maxHeight: _panelHeight + 6,
+                                    child: Column(
+                                      children: [
+                                        _DragHandle(
+                                          axis: Axis.vertical,
+                                          onDrag: (d) => setState(() => _panelHeight = (_panelHeight - d).clamp(100, 700)),
+                                        ),
+                                        Expanded(child: _bottomPanel(ws, scheme)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                      ),
                     ],
                   ),
                 ),
@@ -723,6 +853,27 @@ class _EditorPageState extends State<EditorPage> {
                   ),
                   SizedBox(width: _mirrorWidth.clamp(0, windowWidth * .4).toDouble(), child: _mirror(scheme)),
                 ],
+              ],
+            ),
+                if (_notices.isNotEmpty && !_noticesHidden)
+                  Positioned(
+                    right: 12 + (_mirrorOpen ? _mirrorWidth.clamp(0, windowWidth * .4).toDouble() : 0),
+                    bottom: 12,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: (windowWidth - 24).clamp(0, 420).toDouble()),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          for (final n in _notices)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: NoticeCard(key: ValueKey(n.id), notice: n, onDismiss: () => _dismissNotice(n.id)),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1034,10 +1185,17 @@ class _EditorPageState extends State<EditorPage> {
             index: active == null ? 0 : tools.open.indexOf(active) + 1,
             sizing: StackFit.expand,
             children: [
-              TickerMode(enabled: active == null, child: editor),
+              TickerMode(
+                enabled: active == null,
+                child: AnimatedOpacity(opacity: active == null ? 1 : 0, duration: const Duration(milliseconds: 120), child: editor),
+              ),
               for (final m in tools.open)
                 // Disabled TickerMode tells hidden pages to hide native windows (embedded scrcpy) too.
-                TickerMode(key: ObjectKey(m), enabled: m == active, child: m.page),
+                TickerMode(
+                  key: ObjectKey(m),
+                  enabled: m == active,
+                  child: AnimatedOpacity(opacity: m == active ? 1 : 0, duration: const Duration(milliseconds: 120), child: m.page),
+                ),
             ],
           ),
         ),
@@ -1258,7 +1416,10 @@ class _EditorPageState extends State<EditorPage> {
                     if (e.buttons == 2) unawaited(_tabMenu(e.position, ws, group, d));
                   },
                   child: InkWell(
-                    onTap: () => ws.activate(d),
+                    onTap: () {
+                      ws.activate(d);
+                      unawaited(_rememberTabs());
+                    },
                     child: Container(
                       padding: const EdgeInsets.only(left: 10, right: 2),
                       decoration: BoxDecoration(
@@ -1377,8 +1538,27 @@ class _EditorPageState extends State<EditorPage> {
               ],
             ),
           ),
+          const SizedBox(width: 10),
+          Tooltip(
+            message: _notices.isEmpty ? 'No notifications' : (_noticesHidden ? 'Show notifications' : 'Hide notifications'),
+            child: InkWell(
+              onTap: _notices.isEmpty ? null : () => setState(() => _noticesHidden = !_noticesHidden),
+              child: Row(
+                children: [
+                  Icon(_notices.isEmpty ? Icons.notifications_none : Icons.notifications, size: 14, color: _notices.isEmpty ? scheme.outline : scheme.primary),
+                  if (_notices.isNotEmpty) Text(' ${_notices.length}', style: style),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(width: 14),
-          if (ws.analyzing) Text('Analyzing…', style: style),
+          if (ws.analyzing || ws.startingAnalyzer) ...[
+            const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(ws.analyzing ? 'Analyzing…' : 'Starting Dart analyzer…', maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+            ),
+          ],
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -1434,7 +1614,6 @@ class _EditorPageState extends State<EditorPage> {
                     children: [
                       tab(_Panel.problems, 'Problems (${ws.allDiagnostics.length})'),
                       tab(_Panel.output, 'Output'),
-                      tab(_Panel.diff, 'Diff'),
                       tab(_Panel.terminal, 'Terminal'),
                     ],
                   ),
@@ -1454,14 +1633,6 @@ class _EditorPageState extends State<EditorPage> {
             child: switch (_panel) {
               _Panel.problems => _problems(ws, scheme),
               _Panel.output => _output(scheme),
-              _Panel.diff => DiffView(
-                title: _diffTitle,
-                lines: _diff,
-                onLine: (line) {
-                  final path = _diffPath;
-                  if (path != null && File(path).existsSync()) _openFile(path, line: line, column: 0);
-                },
-              ),
               _Panel.terminal => _terminalView(ws),
             },
           ),
@@ -1570,7 +1741,7 @@ class _EditorPageState extends State<EditorPage> {
           focusNode: _searchFocus,
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
-            hintText: 'Search in files (Enter)',
+            hintText: 'Search in files',
             contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             prefixIcon: const Icon(Icons.search, size: 15),
             prefixIconConstraints: const BoxConstraints.tightFor(width: 28, height: 28),
@@ -1581,6 +1752,7 @@ class _EditorPageState extends State<EditorPage> {
                   )
                 : null,
           ),
+          onChanged: _onSearchChanged,
           onSubmitted: _search,
         ),
       ),
