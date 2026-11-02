@@ -643,7 +643,11 @@ void main() {
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 3));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
+      // The refresh after a commit runs git step by step, and each step starts its process under the fake clock.
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+      }
       await tester.binding.setSurfaceSize(null);
     }, variant: TargetPlatformVariant.only(TargetPlatform.windows), timeout: const Timeout(Duration(minutes: 3)));
   });
