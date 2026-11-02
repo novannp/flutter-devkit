@@ -253,6 +253,18 @@ void main() {
     expect(notifier.value!.paragraphs.first.index, 0);
   });
 
+  testWidgets('paragraphs handed out stay usable until the next layout replaces them', (tester) async {
+    await pumpEditor(tester, 'hello');
+    await focus(tester);
+    final before = notifier.value!.paragraphs.first.paragraph;
+    // Typing measures the caret right away, which rebuilds the line's painter before any layout.
+    c.insertTyped('x');
+    expect(before.getOffset(const TextPosition(offset: 1)), isNotNull);
+    expect(before.getOffset(const TextPosition(offset: 99)), isNotNull, reason: 'a column past the old text');
+    await tester.pump();
+    expect(notifier.value!.paragraphs.first.paragraph.getOffset(const TextPosition(offset: 6)), isNotNull);
+  });
+
   testWidgets('moving near the edge glides, and everything comes to rest', (tester) async {
     await pumpEditor(tester, List.generate(500, (i) => 'line $i').join('\n'), size: const Size(800, 300));
     await focus(tester);
