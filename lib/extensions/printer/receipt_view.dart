@@ -1,7 +1,7 @@
+import '../../core/qr.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import 'escpos.dart';
 
@@ -84,11 +84,7 @@ class ReceiptPaper extends StatelessWidget {
         alignment: _align(e.align),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
-          child: QrImageView(
-            data: e.data.isEmpty ? ' ' : e.data,
-            size: max(80, e.moduleSize * 25 * scale),
-            padding: EdgeInsets.zero,
-          ),
+          child: QrView(data: e.data.isEmpty ? ' ' : e.data, size: max(80, e.moduleSize * 25 * scale)),
         ),
       ),
       BarcodeElement() => Align(
