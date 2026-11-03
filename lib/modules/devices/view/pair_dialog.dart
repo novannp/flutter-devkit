@@ -313,7 +313,7 @@ class _PairDialogState extends State<_PairDialog> {
       _status = msg;
     });
     if (!ok) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(width: 520, content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     Navigator.pop(context);
   }
 }

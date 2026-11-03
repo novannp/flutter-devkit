@@ -187,13 +187,13 @@ bool usesBuildRunner(String root) {
 }
 
 Future<List<PubPackage>?> checkOutdated(String root) async {
-  final fvm = projectUsesFvm(root);
+  final flutter = flutterCommand(root);
   try {
     final r = await Process.run(
-      fvm ? 'fvm' : 'flutter',
-      [if (fvm) 'flutter', 'pub', 'outdated', '--json', '--show-all'],
+      flutter.exe,
+      [...flutter.args, 'pub', 'outdated', '--json', '--show-all'],
       workingDirectory: root,
-      runInShell: Platform.isWindows,
+      runInShell: flutter.runInShell,
       stdoutEncoding: const Utf8Codec(allowMalformed: true),
     ).timeout(const Duration(minutes: 2));
     return r.exitCode == 0 ? parsePubOutdated(r.stdout as String) : null;

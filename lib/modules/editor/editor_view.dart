@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/settings.dart';
+
 const _prefFontSize = 'editor_font_size';
 const _prefWordWrap = 'editor_word_wrap';
 
@@ -16,9 +18,13 @@ class EditorView {
   static final fontSize = ValueNotifier(defaultFontSize);
   static final wordWrap = ValueNotifier(false);
   static final lineBlame = ValueNotifier(false);
-  static final listenable = Listenable.merge([fontSize, wordWrap, lineBlame]);
+  static final fontFamily = ValueNotifier('');
+  static final lineHeight = ValueNotifier(1.4);
+  static final listenable = Listenable.merge([fontSize, wordWrap, lineBlame, fontFamily, lineHeight]);
 
   static Future<void> load() async {
+    // Once settings.json is in use, it decides.
+    if (Settings.instance.globalPath != null) return;
     final prefs = await SharedPreferences.getInstance();
     fontSize.value = prefs.getDouble(_prefFontSize) ?? defaultFontSize;
     wordWrap.value = prefs.getBool(_prefWordWrap) ?? false;
@@ -32,16 +38,19 @@ class EditorView {
   static Future<void> _setFontSize(double size) async {
     fontSize.value = size.clamp(minFontSize, maxFontSize);
     await (await SharedPreferences.getInstance()).setDouble(_prefFontSize, fontSize.value);
+    await Settings.instance.update('editor.fontSize', fontSize.value);
   }
 
   static Future<void> toggleLineBlame() async {
     lineBlame.value = !lineBlame.value;
     await (await SharedPreferences.getInstance()).setBool(_prefLineBlame, lineBlame.value);
+    await Settings.instance.update('editor.lineBlame', lineBlame.value);
   }
 
   static Future<void> toggleWordWrap() async {
     wordWrap.value = !wordWrap.value;
     await (await SharedPreferences.getInstance()).setBool(_prefWordWrap, wordWrap.value);
+    await Settings.instance.update('editor.wordWrap', wordWrap.value);
   }
 }
 

@@ -5,6 +5,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'core/settings.dart';
+import 'modules/settings/apply_settings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/background.dart';
 import 'core/apps.dart';
 import 'core/child_processes.dart';
@@ -39,6 +42,8 @@ Future<void> main(List<String> args) async {
   // A slow network drive in the project folders shouldn't hold up launch; the list still fills in when it finishes.
   await loadApps().timeout(const Duration(seconds: 3), onTimeout: () {});
   await loadAppTheme();
+  final prefs = await SharedPreferences.getInstance();
+  await Settings.instance.load(seed: () => legacySettings(prefs));
   await AvdService.loadCustomSdk();
   final ws = args.where((a) => a.startsWith(workspaceArg)).firstOrNull;
   final device = ws == null
@@ -54,6 +59,10 @@ Future<void> main(List<String> args) async {
     if (ExtensionManager.instance.isEnabled('printer')) unawaited(printerServer.init());
     await BackgroundRunner.instance.init();
   }
+  applySettings();
+  Settings.instance
+    ..addListener(applySettings)
+    ..watch();
   runApp(DevKitApp(tools: tools, workspace: device));
 }
 
@@ -94,6 +103,7 @@ class DevKitApp extends StatelessWidget {
               title: ws == null ? 'Flutter DevKit' : ws.displayName,
               debugShowCheckedModeBanner: false,
               theme: buildTheme(theme),
+              builder: snackBarsBottomRight,
               home: ws == null ? const Shell() : DeviceWorkspacePage(device: ws, standalone: true),
             ),
           ),

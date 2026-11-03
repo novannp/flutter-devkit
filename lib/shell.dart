@@ -83,7 +83,7 @@ class _ShellState extends State<Shell> {
     _konamiPos = e.logicalKey == _konami[_konamiPos] ? _konamiPos + 1 : (e.logicalKey == _konami[0] ? 1 : 0);
     if (_konamiPos == _konami.length) {
       _konamiPos = 0;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(width: 460, content: Text(konamiLine)));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(konamiLine)));
     }
     return false;
   }
@@ -173,7 +173,7 @@ class _LogoState extends State<_Logo> {
     if (++_taps % 7 != 0) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(width: 420, content: Text(pick(logoLines))));
+      ..showSnackBar(SnackBar(content: Text(pick(logoLines))));
   }
 
   @override
@@ -643,5 +643,5 @@ Future<void> _takeABreak(BuildContext context) async {
   if (installed) await openExternal('steam://open/main');
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(width: 420, content: Text(installed ? pick(breakLines) : pick(noBreakLines))));
+    ..showSnackBar(SnackBar(content: Text(installed ? pick(breakLines) : pick(noBreakLines))));
 }

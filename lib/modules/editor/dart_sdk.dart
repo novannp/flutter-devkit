@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../core/settings.dart';
+
 bool projectUsesFvm(String project) =>
     File(p.join(project, '.fvmrc')).existsSync() || Directory(p.join(project, '.fvm')).existsSync();
 
@@ -20,6 +22,8 @@ String? _fvmVersion(String project) {
 
 /// The Flutter SDK folder a project pins through fvm, or null when it uses whatever is on PATH.
 String? flutterSdkOf(String project, {Map<String, String>? environment}) {
+  final chosen = Settings.instance.text('flutter.sdkPath').trim();
+  if (chosen.isNotEmpty && Directory(chosen).existsSync()) return chosen;
   final link = p.join(project, '.fvm', 'flutter_sdk');
   if (Directory(link).existsSync()) return link;
   final version = _fvmVersion(project);
@@ -49,6 +53,17 @@ DartCommand dartCommand(String project) {
   return projectUsesFvm(project)
       ? DartCommand('fvm', const ['dart'], runInShell: Platform.isWindows)
       : DartCommand('dart', const [], runInShell: Platform.isWindows);
+}
+
+/// How to run `flutter` for a project: your chosen SDK, then fvm, then PATH.
+DartCommand flutterCommand(String project) {
+  final chosen = Settings.instance.text('flutter.sdkPath').trim();
+  if (chosen.isNotEmpty && Directory(chosen).existsSync()) {
+    return DartCommand(p.join(chosen, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter'), const [], runInShell: Platform.isWindows);
+  }
+  return projectUsesFvm(project)
+      ? DartCommand('fvm', const ['flutter'], runInShell: Platform.isWindows)
+      : DartCommand('flutter', const [], runInShell: Platform.isWindows);
 }
 
 /// Environment for terminals in a project: `flutter` and `dart` resolve to its pinned SDK.

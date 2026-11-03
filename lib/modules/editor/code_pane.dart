@@ -1449,10 +1449,10 @@ class CodePaneState extends State<CodePane> {
               wordWrap: EditorView.wordWrap.value,
               padding: const EdgeInsets.only(left: 6, top: 4, bottom: 120, right: 16),
               style: CodeEditorStyle(
-                fontFamily: 'Cascadia Mono',
-                fontFamilyFallback: const ['Consolas', ...monoFallback],
+                fontFamily: EditorView.fontFamily.value.isEmpty ? 'Cascadia Mono' : EditorView.fontFamily.value,
+                fontFamilyFallback: const ['Cascadia Mono', 'Consolas', ...monoFallback],
                 fontSize: EditorView.fontSize.value,
-                fontHeight: 1.4,
+                fontHeight: EditorView.lineHeight.value,
                 backgroundColor: scheme.surface,
                 textColor: scheme.onSurface,
                 cursorColor: scheme.primary,

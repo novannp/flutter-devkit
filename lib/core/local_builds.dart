@@ -14,12 +14,15 @@ class LocalBuild {
 }
 
 class FlutterProject {
-  const FlutterProject(this.name, this.path, this.package, {required this.usesFvm});
+  const FlutterProject(this.name, this.path, this.package, {required this.usesFvm, this.flutterSdk});
 
   final String name;
   final String path;
   final String package;
   final bool usesFvm;
+
+  /// An SDK chosen in settings, which goes before fvm or PATH.
+  final String? flutterSdk;
 }
 
 /// Project folders are stored per machine since each developer keeps repos in a different place.

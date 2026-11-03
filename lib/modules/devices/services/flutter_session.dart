@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 
 import '../../../core/local_builds.dart';
@@ -95,8 +96,11 @@ class FlutterSession extends ChangeNotifier {
       'args': extraArgs.join(' '),
       'log': _session!.file.path,
     });
-    final (exe, fullArgs) = p.usesFvm ? ('fvm', ['flutter', ...args]) : ('flutter', args);
-    _add('\$ ${p.usesFvm ? 'fvm ' : ''}flutter ${args.join(' ')}   (${p.path})', FlutterLineKind.info);
+    final sdk = p.flutterSdk;
+    final (exe, fullArgs) = sdk != null
+        ? (path.join(sdk, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter'), args)
+        : (p.usesFvm ? ('fvm', ['flutter', ...args]) : ('flutter', args));
+    _add('\$ ${exe == 'fvm' ? 'fvm flutter' : exe} ${args.join(' ')}   (${p.path})', FlutterLineKind.info);
     _set(FlutterStatus.starting, progressText: attach ? 'Waiting for debug app on device…' : 'Building…');
     try {
       // flutter.bat needs a shell on Windows.

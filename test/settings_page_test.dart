@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:devkit/core/settings.dart';
 import 'package:devkit/core/tools.dart';
 import 'package:devkit/extensions/emulators/avd_service.dart';
 import 'package:devkit/modules/devices/services/adb_service.dart';
@@ -6,6 +9,7 @@ import 'package:devkit/modules/settings/settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -35,12 +39,36 @@ void main() {
     expect(find.text('Word wrap'), findsOneWidget);
     expect(find.text('Theme'), findsNothing);
 
-    final size = EditorView.fontSize.value;
-    await tester.tap(find.byTooltip('Larger'));
+    final field = find.descendant(of: find.ancestor(of: find.text('Font size'), matching: find.byType(Row)).first, matching: find.byType(TextField));
+    await tester.enterText(field, '99');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
-    expect(EditorView.fontSize.value, size + 1);
-    await tester.tap(find.byTooltip('Smaller'));
+    expect(Settings.instance.number('editor.fontSize'), 36, reason: 'kept in range');
+    await Settings.instance.set(SettingScope.global, 'editor.fontSize', null);
     await tester.pump();
+  });
+
+  testWidgets('settings can be set for one project, and fall back when reset', (tester) async {
+    final dir = Directory.systemTemp.createTempSync('scope');
+    addTearDown(() {
+      Settings.instance.openProject(null);
+      dir.deleteSync(recursive: true);
+    });
+    Settings.instance.openProject(dir.path);
+    await pumpPage(tester, const Size(1200, 900));
+    await tester.tap(find.text('Dart'));
+    await tester.pump();
+    await tester.tap(find.textContaining('This project'));
+    await tester.pump();
+    final wrap = find.descendant(of: find.ancestor(of: find.text('Show TODOs in Problems'), matching: find.byType(Row)).first, matching: find.byType(Switch));
+    await tester.tap(wrap);
+    await tester.pump();
+    expect(Settings.instance.valueIn(SettingScope.project, 'dart.showTodos'), isTrue);
+    expect(Settings.instance.valueIn(SettingScope.global, 'dart.showTodos'), isNull);
+    expect(File(p.join(dir.path, '.devkit', 'settings.json')).existsSync(), isTrue);
+    await tester.tap(find.text('Use my setting'));
+    await tester.pump();
+    expect(Settings.instance.flag('dart.showTodos'), isFalse);
   });
 
   testWidgets('search finds settings across every category', (tester) async {

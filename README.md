@@ -92,7 +92,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 - **Code generation**: a project with `build_runner` gets a button in the toolbar to generate once, generate on every save, or clear its cache, with a Stop button while it runs
 - **`pub get` on save**: saving `pubspec.yaml` runs it by itself; turn it off in the project's Dart settings
 - **Extensions** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>): Device Manager, Emulators, Printer, Notes, Maintenance, History and Work are built in and can be turned off. They open as tabs beside the code, so the Editor stays where it is
-- **Settings**: grouped into General, Editor, Projects, Devices and Tools, with a search box across all of them. An Android SDK in an unusual folder can be chosen under Tools
+- **Settings**: grouped into General, Editor, Dart, Flutter, Projects, Devices and Tools, with a search box across all of them. An Android SDK in an unusual folder can be chosen under Tools
 - **Your window**: floating panels on a colored canvas, 13 themes under File, Edit menu commands for whichever field has focus, a title bar of Flutter DevKit's own, and a layout that folds its menus into one button on small screens
 
 | Keys | Action |
@@ -122,7 +122,31 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings |
 | <kbd>Ctrl</kbd>+<kbd>J</kbd> / <kbd>Ctrl</kbd>+<kbd>`</kbd> | Toggle panel / terminal |
 
-### 📡 Devices
+### ⚙️ Settings files
+
+Settings live in JSON you can edit by hand or from the Settings page, and changes apply as soon as the file is saved. A project's file wins over your own, and your own wins over the defaults. Comments and trailing commas are fine.
+
+| File | Scope |
+|---|---|
+| `.devkit/settings.json` in a project | That project; commit it to share with your team |
+| `settings.json` in the app's data folder (**Settings → Open settings.json**) | You, in every project |
+
+```jsonc
+{
+  "editor.fontSize": 15,
+  "editor.fontFamily": "JetBrains Mono",
+  "editor.autoSave": "afterDelay",
+  "dart.lineLength": 120,
+  "dart.organizeImportsOnSave": true,
+  "flutter.flavor": "dev",
+  "flutter.target": "lib/main_dev.dart",
+  "flutter.dartDefines": ["API_URL=https://dev.example.com"]
+}
+```
+
+`flutter.sdkPath`, `app.keepRunningOnClose` and `app.reopenLastProject` only work in your own file: a repo you clone shouldn't decide what program runs on your computer. Run arguments with shell characters such as `&` or `|` are left out, and Run tells you when that happens.
+
+## 📡 Devices
 
 - **Auto-discovery** over USB, `adb` Wi-Fi (5555), and Wireless debugging (mDNS)
 - **Pair** by QR, pairing code, or IP; **skip pairing** by plugging in USB once and tapping *Always allow*

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'settings.dart';
+
 const _prefTheme = 'app_theme';
 const _prefLegacyMode = 'theme_mode';
 const brandColor = Color(0xFF10B981);
@@ -374,6 +376,7 @@ Future<void> loadAppTheme() async {
 Future<void> setAppTheme(AppTheme theme) async {
   appTheme.value = theme;
   await (await SharedPreferences.getInstance()).setString(_prefTheme, theme.id);
+  await Settings.instance.update('app.theme', theme.id);
 }
 
 ThemeData buildTheme(AppTheme t) {
@@ -577,5 +580,20 @@ ThemeData buildTheme(AppTheme t) {
       ),
     ),
     badgeTheme: BadgeThemeData(backgroundColor: scheme.primary, textColor: scheme.onPrimary),
+  );
+}
+
+const _snackBarWidth = 420.0;
+
+/// For MaterialApp.builder: floating snackbars sit bottom right, above the status bar.
+/// The theme can only reach that through its insets, and those need the window's width.
+Widget snackBarsBottomRight(BuildContext context, Widget? child) {
+  final theme = Theme.of(context);
+  final left = MediaQuery.sizeOf(context).width - _snackBarWidth - 16;
+  return Theme(
+    data: theme.copyWith(
+      snackBarTheme: theme.snackBarTheme.copyWith(insetPadding: EdgeInsets.fromLTRB(left < 16 ? 16 : left, 8, 16, 32)),
+    ),
+    child: child ?? const SizedBox.shrink(),
   );
 }

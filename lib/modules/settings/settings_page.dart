@@ -1,10 +1,16 @@
+import 'dart:async';
+
+import 'package:path/path.dart' as p;
+
+import '../../core/panels.dart';
+import '../../core/settings.dart';
+import '../editor/tool_tabs.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/apps.dart';
-import '../../core/background.dart';
 import '../../core/compact_dropdown.dart';
 import '../../core/local_builds.dart';
 import '../../core/theme.dart';
@@ -15,8 +21,6 @@ import '../devices/services/adb_service.dart';
 import '../devices/services/mdns_service.dart';
 import '../devices/services/network_scanner.dart';
 import '../editor/editor_page.dart' show EditorCommands;
-import '../editor/editor_view.dart';
-import '../../core/platform_keys.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -49,12 +53,18 @@ class _SettingsPageState extends State<SettingsPage> {
   final _mdnsType = TextEditingController();
   final _search = TextEditingController();
   var _selected = 0;
+  var _scope = SettingScope.global;
 
   @override
   void initState() {
     super.initState();
     _search.addListener(() => setState(() {}));
+    Settings.instance.addListener(_onSettings);
     _load();
+  }
+
+  void _onSettings() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _load() async {
@@ -74,6 +84,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
+    Settings.instance.removeListener(_onSettings);
     _mdnsType.dispose();
     _search.dispose();
     super.dispose();
@@ -85,7 +96,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final valid = MdnsService.isValidType(type);
     if (valid) await (await SharedPreferences.getInstance()).setString(MdnsService.serviceTypeKey, type);
     messenger.showSnackBar(
-      SnackBar(width: 420, content: Text(valid ? 'Saved. Restart Flutter DevKit to apply.' : 'Use a form like _myapp._tcp')),
+      SnackBar(content: Text(valid ? 'Saved. Restart Flutter DevKit to apply.' : 'Use a form like _myapp._tcp')),
     );
   }
 
@@ -99,65 +110,10 @@ class _SettingsPageState extends State<SettingsPage> {
   List<_Section> _sections(BuildContext context) {
     final tools = context.read<AdbService>().tools;
     return [
-      _Section('General', Icons.tune, [
-        _Setting(
-          'Theme',
-          'The colors of the whole app.',
-          trailing: ValueListenableBuilder(
-            valueListenable: appTheme,
-            builder: (_, current, _) => SizedBox(
-              width: 180,
-              child: CompactDropdown<AppTheme>(
-                key: ValueKey(current.id),
-                value: current,
-                isExpanded: true,
-                items: [for (final t in appThemes) DropdownMenuItem(value: t, child: Text(t.name))],
-                onChanged: (t) {
-                  if (t != null) setAppTheme(t);
-                },
-              ),
-            ),
-          ),
-        ),
-        _Setting(
-          'Keep running when closed',
-          'The close button hides the window, so the printer and scans keep going. Quit from the File menu or the tray.',
-          trailing: ValueListenableBuilder(
-            valueListenable: keepRunningOnClose,
-            builder: (_, on, _) => Switch(value: on, onChanged: BackgroundRunner.instance.setKeepRunning),
-          ),
-        ),
-      ]),
-      _Section('Editor', Icons.code, [
-        _Setting(
-          'Font size',
-          platformKeys('Also Ctrl+plus or Ctrl+minus in the editor.'),
-          trailing: ValueListenableBuilder(
-            valueListenable: EditorView.fontSize,
-            builder: (_, size, _) => Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(tooltip: 'Smaller', visualDensity: VisualDensity.compact, onPressed: () => EditorView.zoom(-1), icon: const Icon(Icons.remove, size: 18)),
-                SizedBox(width: 28, child: Text('${size.round()}', textAlign: TextAlign.center)),
-                IconButton(tooltip: 'Larger', visualDensity: VisualDensity.compact, onPressed: () => EditorView.zoom(1), icon: const Icon(Icons.add, size: 18)),
-              ],
-            ),
-          ),
-        ),
-        _Setting(
-          'Word wrap',
-          platformKeys('Long lines continue on the next row. Also Alt+Z.'),
-          trailing: ValueListenableBuilder(
-            valueListenable: EditorView.wordWrap,
-            builder: (_, on, _) => Switch(value: on, onChanged: (_) => EditorView.toggleWordWrap()),
-          ),
-        ),
-        _Setting(
-          'Dart settings',
-          'Line length, format on save and more, for the open project.',
-          trailing: OutlinedButton(onPressed: () => EditorCommands.openDartSettings?.call(), child: const Text('Open')),
-        ),
-      ]),
+      _Section('General', Icons.tune, _generated('app')),
+      _Section('Editor', Icons.code, _generated('editor')),
+      _Section('Dart', Icons.data_object, _generated('dart')),
+      _Section('Flutter', Icons.flutter_dash, _generated('flutter')),
       _Section('Projects', Icons.folder_outlined, [
         _Setting(
           'Project folders',
@@ -229,6 +185,132 @@ class _SettingsPageState extends State<SettingsPage> {
         _androidSdk(tools),
       ]),
     ];
+  }
+
+  List<_Setting> _generated(String section) => [
+    for (final def in settingDefs)
+      if (def.section == section) _settingFor(def),
+  ];
+
+  _Setting _settingFor(SettingDef def) {
+    final store = Settings.instance;
+    // What can't be set per project always goes in your own file.
+    final scope = def.projectable ? _scope : SettingScope.global;
+    void put(Object? value) => unawaited(store.set(scope, def.key, value));
+    final own = store.valueIn(scope, def.key) != null;
+    final source = store.sourceOf(def.key);
+    final note = !def.projectable && _scope == SettingScope.project
+        ? ' Applies to all projects.'
+        : (_scope == SettingScope.global && source == SettingScope.project ? ' This project overrides it.' : '');
+    final reset = own
+        ? TextButton(onPressed: () => put(null), child: Text(scope == SettingScope.project ? 'Use my setting' : 'Reset'))
+        : null;
+    Widget? control;
+    Widget? below;
+    switch (def.type) {
+      case SettingType.boolean:
+        control = Switch(value: store.flag(def.key), onChanged: put);
+      case SettingType.choice:
+        final choices = def.key == 'app.theme' ? {for (final t in appThemes) t.id: t.name} : def.choices;
+        final current = choices.containsKey(store.text(def.key)) ? store.text(def.key) : (def.key == 'app.theme' ? appTheme.value.id : choices.keys.first);
+        control = SizedBox(
+          width: 180,
+          child: CompactDropdown<String>(
+            key: ValueKey('${def.key}/$current'),
+            value: current,
+            isExpanded: true,
+            items: [for (final e in choices.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+            onChanged: (v) {
+              if (v != null) put(v);
+            },
+          ),
+        );
+      case SettingType.integer || SettingType.number:
+        final value = store.value(def.key) as num?;
+        control = _FieldSetting(
+          key: ValueKey('${def.key}/$value'),
+          width: 80,
+          value: value == null ? '' : (def.type == SettingType.integer ? '${value.toInt()}' : '$value'),
+          onSaved: (text) {
+            final parsed = def.type == SettingType.integer ? int.tryParse(text) : double.tryParse(text);
+            final min = def.min, max = def.max;
+            if (parsed == null) return put(null);
+            final limited = parsed.clamp(min ?? parsed, max ?? parsed);
+            put(def.type == SettingType.integer ? limited.toInt() : limited.toDouble());
+          },
+        );
+      case SettingType.text:
+        control = _FieldSetting(key: ValueKey('${def.key}/${store.text(def.key)}'), width: 220, value: store.text(def.key), onSaved: (text) => put(text.trim().isEmpty ? null : text.trim()));
+      case SettingType.list:
+        below = _ListSetting(
+          key: ValueKey('${def.key}/${store.list(def.key).join('|')}'),
+          values: store.list(def.key),
+          hint: 'Add…',
+          error: "Quotes and characters like & | < > can't be used here",
+          isValid: isSafeRunArg,
+          onChanged: put,
+        );
+    }
+    return _Setting(
+      def.title,
+      '${def.description}$note',
+      trailing: (reset == null && control == null) ? null : Row(mainAxisSize: MainAxisSize.min, children: [?reset, ?control]),
+      below: below,
+    );
+  }
+
+  Widget _scopeBar(ColorScheme scheme) {
+    final store = Settings.instance;
+    final root = store.root;
+    final inProject = _scope == SettingScope.project && root != null;
+    final error = inProject ? store.projectError : store.globalError;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                height: 34,
+                child: PillTab(selected: !inProject, onTap: () => setState(() => _scope = SettingScope.global), child: const Text('My settings', style: TextStyle(fontSize: 13))),
+              ),
+              if (root != null)
+                Flexible(
+                  child: SizedBox(
+                    height: 34,
+                    child: PillTab(
+                      selected: inProject,
+                      onTap: () => setState(() => _scope = SettingScope.project),
+                      child: Text('This project: ${p.basename(root)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () async {
+                  final path = await store.ensureFile(inProject ? SettingScope.project : SettingScope.global);
+                  if (path == null) return;
+                  ToolTabs.instance.showEditor();
+                  await EditorCommands.openPath?.call(path);
+                },
+                icon: const Icon(Icons.data_object, size: 16),
+                label: const Text('Open settings.json'),
+              ),
+            ],
+          ),
+          Text(
+            inProject ? 'Saved in .devkit/settings.json, so it can be committed and shared with the team. It wins over your own settings.' : 'Saved on this computer, and used in every project.',
+            style: TextStyle(fontSize: 12, color: scheme.outline),
+          ),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text("settings.json can't be read, so its last good values stay in use: $error", style: TextStyle(fontSize: 12, color: scheme.error)),
+            ),
+        ],
+      ),
+    );
   }
 
   _Setting _tool(String name, String? path, String hint) => _Setting(
@@ -360,6 +442,8 @@ class _SettingsPageState extends State<SettingsPage> {
     final content = ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
+        _scopeBar(scheme),
+        const SizedBox(height: 8),
         if (shown.isEmpty) Padding(padding: const EdgeInsets.only(top: 24), child: Center(child: Text('No settings match', style: TextStyle(color: scheme.outline)))),
         for (final (label, settings) in shown) ...[
           Padding(
@@ -460,9 +544,58 @@ class _SettingRow extends StatelessWidget {
   }
 }
 
+/// Saves when Enter is pressed or focus moves on.
+class _FieldSetting extends StatefulWidget {
+  const _FieldSetting({super.key, required this.width, required this.value, required this.onSaved});
+
+  final double width;
+  final String value;
+  final ValueChanged<String> onSaved;
+
+  @override
+  State<_FieldSetting> createState() => _FieldSettingState();
+}
+
+class _FieldSettingState extends State<_FieldSetting> {
+  late final _controller = TextEditingController(text: widget.value);
+  final _focus = FocusNode();
+
+  void _save() {
+    if (_controller.text != widget.value) widget.onSaved(_controller.text);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (!_focus.hasFocus) _save();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: widget.width,
+    child: TextField(
+      controller: _controller,
+      focusNode: _focus,
+      style: const TextStyle(fontSize: 13),
+      decoration: const InputDecoration(isDense: true),
+      onSubmitted: (_) => _save(),
+    ),
+  );
+}
+
 /// Removable chips plus a field that adds to them.
 class _ListSetting extends StatefulWidget {
   const _ListSetting({
+    super.key,
     required this.values,
     required this.hint,
     required this.error,

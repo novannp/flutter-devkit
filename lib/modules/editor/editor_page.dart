@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/child_processes.dart';
+import '../../core/settings.dart';
 import '../../core/panels.dart';
 import '../../core/theme.dart';
 import '../../core/local_builds.dart';
@@ -45,7 +46,6 @@ import '../../core/platform_keys.dart';
 
 const _prefRoot = 'editor_root';
 const _prefFiles = 'editor_open_files';
-const _prefReloadOnSave = 'editor_reload_on_save';
 const _desktopDevice = 'windows';
 
 /// What the title bar's menus ask of the Editor, and how the Editor reaches the shell.
@@ -55,6 +55,7 @@ class EditorCommands {
   /// Commands of the window around the Editor, listed in the palette too.
   static List<PaletteItem> Function()? windowCommands;
   static ValueChanged<String>? openRecent;
+  static Future<void> Function(String path, {int? line, int? column})? openPath;
 }
 
 /// Saves unsaved tabs when the app quits, so nothing typed is lost.
@@ -78,9 +79,18 @@ class EditorPage extends StatefulWidget {
   State<EditorPage> createState() => _EditorPageState();
 }
 
+const _pickPackageToUpgrade = 'pick';
 const _buildRunnerBuild = 'dart run build_runner build --delete-conflicting-outputs';
 const _buildRunnerWatch = 'dart run build_runner watch --delete-conflicting-outputs';
 const _buildRunnerClean = 'dart run build_runner clean';
+
+/// The Output panel holds the app's log and the last command, in the order they happened:
+/// the command's lines start where the log had got to when it started.
+(bool isTool, int index) outputRow(int row, int anchor, int toolLines) {
+  if (row < anchor) return (false, row);
+  if (row < anchor + toolLines) return (true, row - anchor);
+  return (false, row - toolLines);
+}
 
 enum _Panel { problems, output, terminal, widgets }
 
@@ -126,7 +136,8 @@ class _EditorPageState extends State<EditorPage> {
   String? _debugUri;
   (String, int)? _shownStop;
   String? _device;
-  bool _reloadOnSave = true;
+  bool get _reloadOnSave => Settings.instance.flag('flutter.hotReloadOnSave');
+  int _toolAnchor = 0;
   final _tool = <String>[];
   bool _toolBusy = false;
   String? _toolArgs;
@@ -163,6 +174,8 @@ class _EditorPageState extends State<EditorPage> {
       _toast('Open a folder first');
     };
     EditorCommands.openRecent = _openRecent;
+    EditorCommands.openPath = _openFile;
+    Settings.instance.addListener(_onSettings);
     EditorCommands.quickOpen = _quickOpen;
     EditorCommands.commandPalette = _commandPalette;
     EditorCommands.goToSymbol = _goToSymbol;
@@ -188,6 +201,8 @@ class _EditorPageState extends State<EditorPage> {
     EditorCommands.openRecent = EditorCommands.openDartSettings = EditorCommands.commandPalette = EditorCommands.goToSymbol = null;
     _revealSub?.cancel();
     _stopTool();
+    EditorCommands.openPath = null;
+    Settings.instance.removeListener(_onSettings);
     _ws?.removeListener(_rebuild);
     _ws?.dispose();
     _terminal?.dispose();
@@ -214,16 +229,27 @@ class _EditorPageState extends State<EditorPage> {
     if (mounted) setState(() {});
   }
 
+  // A settings.json edited by hand, or in the settings page, applies at once.
+  Future<void> _onSettings() async {
+    _rebuild();
+    final ws = _ws;
+    if (ws == null) return;
+    final next = await DartSettings.load(ws.root);
+    if (!mounted || !identical(ws, _ws)) return;
+    if (jsonEncode(next.toServerConfig(ws.root)) != jsonEncode(ws.dart.toServerConfig(ws.root)) || next.formatOnSave != ws.dart.formatOnSave || next.pubGetOnSave != ws.dart.pubGetOnSave || next.organizeImportsOnSave != ws.dart.organizeImportsOnSave || next.fixAllOnSave != ws.dart.fixAllOnSave) {
+      ws.useDartSettings(next);
+    }
+  }
+
   void _toast(String text) => ScaffoldMessenger.maybeOf(context)
     ?..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(text), width: 480, behavior: SnackBarBehavior.floating));
+    ..showSnackBar(SnackBar(content: Text(text)));
 
   Future<void> _load() async {
     await EditorView.load();
     await RecentPaths.load();
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    setState(() => _reloadOnSave = prefs.getBool(_prefReloadOnSave) ?? true);
     // Walks the project folders, maybe on a slow drive; the open project shouldn't wait for that.
     unawaited(
       scanFlutterProjects().then((projects) {
@@ -234,7 +260,7 @@ class _EditorPageState extends State<EditorPage> {
     final envFile = Platform.environment['DEVKIT_EDITOR'];
     final startFile = widget.initialFile ?? envFile;
     final startRoot = widget.initialRoot ?? (envFile == null ? null : _projectRootOf(envFile));
-    final root = startRoot ?? prefs.getString(_prefRoot);
+    final root = startRoot ?? (Settings.instance.flag('app.reopenLastProject') ? prefs.getString(_prefRoot) : null);
     if (root == null || !Directory(root).existsSync()) return;
     await _openRoot(root, files: startFile == null ? null : [startFile]);
   }
@@ -284,6 +310,7 @@ class _EditorPageState extends State<EditorPage> {
         semantics: () => _ws?.documentAt(path)?.semantics ?? const {},
       ),
     );
+    Settings.instance.openProject(root);
     ws.dart = await DartSettings.load(root);
     ws.addListener(_rebuild);
     _revealSub = ws.revealRequests.stream.listen((t) {
@@ -577,6 +604,7 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Git: Discard All Changes', () => unawaited(confirmDiscardAll(context, _git)), icon: Icons.undo),
         PaletteItem('Flutter: Pub Get', () => unawaited(_runTool('pub get')), icon: Icons.download_outlined),
         PaletteItem('Flutter: Pub Upgrade', () => unawaited(_runTool('pub upgrade')), icon: Icons.upgrade),
+        PaletteItem('Flutter: Pub Upgrade Package…', () => unawaited(_upgradeOnePackage()), icon: Icons.upgrade),
         PaletteItem('Flutter: Pub Upgrade to Latest Majors', () => unawaited(_runTool('pub upgrade --major-versions')), icon: Icons.upgrade),
         PaletteItem('Flutter: Pub Outdated', () => unawaited(_runTool('pub outdated')), icon: Icons.update),
         if (_buildRunner) ...[
@@ -644,8 +672,10 @@ class _EditorPageState extends State<EditorPage> {
 
   // ---------------------------------------------------------------- flutter
 
-  FlutterProject _project(EditorWorkspace ws) =>
-      FlutterProject(p.basename(ws.root), ws.root, '', usesFvm: projectUsesFvm(ws.root));
+  FlutterProject _project(EditorWorkspace ws) {
+    final sdk = Settings.instance.text('flutter.sdkPath').trim();
+    return FlutterProject(p.basename(ws.root), ws.root, '', usesFvm: projectUsesFvm(ws.root), flutterSdk: sdk.isNotEmpty && Directory(sdk).existsSync() ? sdk : null);
+  }
 
   Future<void> _run() async {
     final ws = _ws, device = _device;
@@ -657,9 +687,12 @@ class _EditorPageState extends State<EditorPage> {
       _flutter?.dispose();
       _flutter = FlutterSession(device)..addListener(_onFlutter);
     }
+    _toolAnchor = _flutter!.lines.length;
+    final blocked = Settings.instance.blockedRunArgs();
+    if (blocked.isNotEmpty) _toast('Left out of Run, because of its special characters: ${blocked.join(' ')}');
     _showPanel(_Panel.output);
     // Pausing at start gets the breakpoints in before main runs; the debugger resumes once they're set.
-    await _flutter!.start(_project(ws), attach: false, extraArgs: _debugger.hasBreakpoints ? const ['--start-paused'] : const []);
+    await _flutter!.start(_project(ws), attach: false, extraArgs: [...Settings.instance.runArgs(), if (_debugger.hasBreakpoints) '--start-paused']);
   }
 
   // A click on a panel can leave nothing focused, and then F9 or F10 reach no one.
@@ -830,8 +863,12 @@ class _EditorPageState extends State<EditorPage> {
     final ws = _ws;
     if (ws == null || _toolBusy) return;
     await ws.saveAll();
-    final fvm = projectUsesFvm(ws.root);
-    final line = '${fvm ? 'fvm ' : ''}${args.startsWith('dart ') ? '' : 'flutter '}$args';
+    final words = args.split(' ');
+    final isDart = words.first == 'dart';
+    final command = isDart ? (projectUsesFvm(ws.root) ? DartCommand('fvm', const ['dart'], runInShell: Platform.isWindows) : dartCommand(ws.root)) : flutterCommand(ws.root);
+    final arguments = [...command.args, ...(isDart ? words.skip(1) : words)];
+    final line = '${command.exe} ${arguments.join(' ')}';
+    _toolAnchor = _flutter?.lines.length ?? 0;
     setState(() {
       _toolBusy = true;
       _toolArgs = args;
@@ -842,8 +879,7 @@ class _EditorPageState extends State<EditorPage> {
     });
     _showPanel(_Panel.output);
     try {
-      final parts = line.split(' ');
-      final process = await Process.start(parts.first, parts.skip(1).toList(), workingDirectory: ws.root, runInShell: Platform.isWindows);
+      final process = await Process.start(command.exe, arguments, workingDirectory: ws.root, runInShell: Platform.isWindows);
       _toolProcess = process;
       void add(String l) {
         if (mounted) setState(() => _tool.add(l));
@@ -876,6 +912,30 @@ class _EditorPageState extends State<EditorPage> {
     if (process == null) return;
     _toolStopped = true;
     unawaited(ChildProcesses.killTree(process));
+  }
+
+  Future<void> _upgradeOnePackage() async {
+    final ws = _ws;
+    if (ws == null || _toolBusy) return;
+    await ws.saveAll();
+    final List<PubPackage> packages;
+    try {
+      final lock = File(p.join(ws.root, 'pubspec.lock'));
+      packages = parseDeclaredPackages(File(p.join(ws.root, 'pubspec.yaml')).readAsStringSync(), lock.existsSync() ? lock.readAsStringSync() : null);
+    } on FileSystemException catch (e) {
+      return _toast('pubspec.yaml: ${e.message}');
+    }
+    if (!mounted) return;
+    final names = packages.where((x) => x.fromPubDev && isValidPubName(x.name)).toList()..sort((a, b) => a.name.compareTo(b.name));
+    await showPalette(
+      context,
+      hint: 'Package to upgrade',
+      empty: 'No packages match',
+      items: [
+        for (final x in names)
+          PaletteItem(x.name, () => unawaited(_runTool('pub upgrade ${x.name}')), detail: x.current, icon: Icons.inventory_2_outlined),
+      ],
+    );
   }
 
   Future<void> _sortPubspec() async {
@@ -1346,10 +1406,11 @@ class _EditorPageState extends State<EditorPage> {
             tooltip: 'Flutter commands',
             icon: const Icon(Icons.flutter_dash),
             enabled: !_toolBusy,
-            onSelected: _runTool,
+            onSelected: (v) => v == _pickPackageToUpgrade ? unawaited(_upgradeOnePackage()) : unawaited(_runTool(v)),
             itemBuilder: (_) => const [
               PopupMenuItem(height: 30, value: 'pub get', child: Text('pub get')),
               PopupMenuItem(height: 30, value: 'pub upgrade', child: Text('pub upgrade')),
+              PopupMenuItem(height: 30, value: _pickPackageToUpgrade, child: Text('pub upgrade [package]…')),
               PopupMenuItem(height: 30, value: 'pub outdated', child: Text('pub outdated')),
               PopupMenuItem(height: 30, value: 'clean', child: Text('clean')),
               PopupMenuItem(height: 30, value: 'analyze', child: Text('analyze')),
@@ -1370,8 +1431,7 @@ class _EditorPageState extends State<EditorPage> {
               if (v == 'dart') await _dartSettings(ws);
               if (v == 'wrap') await EditorView.toggleWordWrap();
               if (v == 'reload') {
-                _reloadOnSave = !_reloadOnSave;
-                await (await SharedPreferences.getInstance()).setBool(_prefReloadOnSave, _reloadOnSave);
+                await Settings.instance.update('flutter.hotReloadOnSave', !_reloadOnSave);
               }
               _rebuild();
             },
@@ -1930,6 +1990,7 @@ class _EditorPageState extends State<EditorPage> {
     final lines = _flutter?.lines ?? const <FlutterLine>[];
     final tool = _tool;
     final total = tool.length + lines.length;
+    final anchor = _toolAnchor.clamp(0, lines.length);
     if (total == 0) {
       return Center(child: Text('Run the app or a Flutter command to see output here.', style: TextStyle(color: scheme.outline)));
     }
@@ -1942,9 +2003,9 @@ class _EditorPageState extends State<EditorPage> {
         padding: const EdgeInsets.all(8),
         itemCount: total,
         itemBuilder: (_, i) {
-          final isTool = i < tool.length;
-          final text = isTool ? tool[i] : lines[i - tool.length].text;
-          final kind = isTool ? FlutterLineKind.log : lines[i - tool.length].kind;
+          final (isTool, index) = outputRow(i, anchor, tool.length);
+          final text = isTool ? tool[index] : lines[index].text;
+          final kind = isTool ? FlutterLineKind.log : lines[index].kind;
           final level = levelOf(text);
           final color = switch ((kind, level)) {
             (FlutterLineKind.error, _) || (_, LogLevel.error) => scheme.error,

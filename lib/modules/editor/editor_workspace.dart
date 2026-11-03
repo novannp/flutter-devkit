@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/settings.dart';
 import 'dart_settings.dart';
 import 'engine/code_editor.dart';
 import 'engine/snippet.dart';
@@ -13,6 +14,13 @@ import 'lsp_client.dart';
 import 'preview_kind.dart';
 
 const _maxFileBytes = 20 * 1024 * 1024;
+
+String tidyOnSave(String text, {required bool trim, required bool finalNewline}) {
+  var out = text;
+  if (trim) out = out.replaceAll(RegExp(r'[ \t]+(?=\r?$)', multiLine: true), '');
+  if (finalNewline && out.isNotEmpty && !out.endsWith('\n')) out += out.contains('\r\n') ? '\r\n' : '\n';
+  return out;
+}
 
 const _languageIds = {'.dart': 'dart', '.yaml': 'yaml', '.yml': 'yaml'};
 
@@ -545,8 +553,12 @@ class EditorWorkspace extends ChangeNotifier {
   }
 
   Future<void> applyDartSettings(DartSettings settings) async {
-    dart = settings;
     await settings.save(root);
+    useDartSettings(settings);
+  }
+
+  void useDartSettings(DartSettings settings) {
+    dart = settings;
     // The server asks for the configuration again after this.
     _lsp?.notify('workspace/didChangeConfiguration', {'settings': const <String, dynamic>{}});
     notifyListeners();
@@ -614,7 +626,10 @@ class EditorWorkspace extends ChangeNotifier {
       focused.docs.add(doc);
       doc.diagnostics = diagnostics[path] ?? const [];
       doc.addListener(notifyListeners);
-      doc._onSync = () => _sendChange(doc!);
+      doc._onSync = () {
+        _sendChange(doc!);
+        _scheduleAutoSave(doc);
+      };
       _diskPoll ??= Timer.periodic(const Duration(seconds: 2), (_) => _checkDisk());
       if (doc.languageId != null) unawaited(_openOnServer(doc));
     }
@@ -633,6 +648,17 @@ class EditorWorkspace extends ChangeNotifier {
     });
     // A file opened once analysis has settled gets no status change to wake its colors up.
     _scheduleSemantics(doc);
+  }
+
+  final _autoSaves = <EditorDocument, Timer>{};
+
+  void _scheduleAutoSave(EditorDocument doc) {
+    if (Settings.instance.text('editor.autoSave') != 'afterDelay' || isLibrarySource(doc.path)) return;
+    _autoSaves[doc]?.cancel();
+    _autoSaves[doc] = Timer(const Duration(seconds: 1), () {
+      _autoSaves.remove(doc);
+      if (documents.contains(doc) && doc.dirty) unawaited(save(doc, auto: true));
+    });
   }
 
   void _sendChange(EditorDocument doc) {
@@ -680,14 +706,46 @@ class EditorWorkspace extends ChangeNotifier {
     Timer(const Duration(milliseconds: 300), doc.dispose);
   }
 
-  Future<void> save(EditorDocument doc) async {
-    if (isLibrarySource(doc.path)) return;
-    if (formatOnSave && doc.languageId == 'dart') {
-      try {
-        await format(doc);
-      } on Exception {
-        // Code that doesn't parse can't be formatted; it still gets saved.
+  /// A source action such as organizing imports, over the whole file.
+  Future<void> _sourceAction(EditorDocument doc, String kind) async {
+    try {
+      doc.flush();
+      final r = await _request(doc, 'textDocument/codeAction', {
+        'textDocument': {'uri': doc.uri},
+        'range': {
+          'start': {'line': 0, 'character': 0},
+          'end': {'line': 0, 'character': 0},
+        },
+        'context': {
+          'diagnostics': const <Object>[],
+          'only': [kind],
+        },
+      });
+      for (final action in ((r as List?) ?? const []).cast<Map>()) {
+        await runCodeAction(action.cast<String, dynamic>());
       }
+    } on Exception {
+      // The file still gets saved, as it is.
+    }
+  }
+
+  /// [auto] is a save nobody asked for, so it doesn't rewrite what's being typed.
+  Future<void> save(EditorDocument doc, {bool auto = false}) async {
+    if (isLibrarySource(doc.path)) return;
+    if (!auto) {
+      if (doc.languageId == 'dart') {
+        if (dart.organizeImportsOnSave) await _sourceAction(doc, 'source.organizeImports');
+        if (dart.fixAllOnSave) await _sourceAction(doc, 'source.fixAll');
+      }
+      if (formatOnSave && doc.languageId == 'dart') {
+        try {
+          await format(doc);
+        } on Exception {
+          // Code that doesn't parse can't be formatted; it still gets saved.
+        }
+      }
+      final s = Settings.instance;
+      doc.replaceAll(tidyOnSave(doc.controller.text, trim: s.flag('editor.trimTrailingWhitespace'), finalNewline: s.flag('editor.insertFinalNewline')));
     }
     doc.flush();
     await doc.save();

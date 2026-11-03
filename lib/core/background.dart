@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 import 'child_processes.dart';
+import 'settings.dart';
 
 const _prefKeepRunning = 'keep_running_on_close';
 
@@ -48,6 +49,7 @@ class BackgroundRunner with WindowListener, TrayListener {
   Future<void> setKeepRunning(bool v) async {
     keepRunningOnClose.value = v;
     await (await SharedPreferences.getInstance()).setBool(_prefKeepRunning, v);
+    await Settings.instance.update('app.keepRunningOnClose', v);
   }
 
   Future<void> show() async {
