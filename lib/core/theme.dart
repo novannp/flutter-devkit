@@ -26,7 +26,32 @@ class SyntaxColors {
   final Color type, function, variable, enumMember, keyword, control, string, number, comment;
 }
 
-const _darkPlus = SyntaxColors(
+// DevKit's own colors, built around the emerald of its logo.
+const _devkitDark = SyntaxColors(
+  type: Color(0xFF5EEAD4),
+  function: Color(0xFF7DD3FC),
+  variable: Color(0xFFE5E7EB),
+  enumMember: Color(0xFFFCA5A5),
+  keyword: Color(0xFF34D399),
+  control: Color(0xFFC4B5FD),
+  string: Color(0xFFFCD34D),
+  number: Color(0xFFFB923C),
+  comment: Color(0xFF7C8594),
+);
+
+const _devkitLight = SyntaxColors(
+  type: Color(0xFF0F766E),
+  function: Color(0xFF0369A1),
+  variable: Color(0xFF1F2937),
+  enumMember: Color(0xFFB91C1C),
+  keyword: Color(0xFF047857),
+  control: Color(0xFF6D28D9),
+  string: Color(0xFFB45309),
+  number: Color(0xFFC2410C),
+  comment: Color(0xFF6B7280),
+);
+
+const _vsCodeDark = SyntaxColors(
   type: Color(0xFF4EC9B0),
   function: Color(0xFFDCDCAA),
   variable: Color(0xFF9CDCFE),
@@ -38,7 +63,7 @@ const _darkPlus = SyntaxColors(
   comment: Color(0xFF6A9955),
 );
 
-const _lightPlus = SyntaxColors(
+const _vsCodeLight = SyntaxColors(
   type: Color(0xFF267F99),
   function: Color(0xFF795E26),
   variable: Color(0xFF001080),
@@ -75,6 +100,7 @@ class AppTheme {
   final SyntaxColors syntax;
 }
 
+// An id never changes, because it's what people's saved choice points at. A name can.
 const appThemes = <AppTheme>[
   AppTheme(
     id: 'devkit-light',
@@ -89,7 +115,7 @@ const appThemes = <AppTheme>[
     high: Color(0xFFEBEEF1),
     outline: Color(0xFF6B7280),
     outlineVariant: Color(0xFFE5E7EB),
-    syntax: _lightPlus,
+    syntax: _devkitLight,
   ),
   AppTheme(
     id: 'devkit-dark',
@@ -104,11 +130,11 @@ const appThemes = <AppTheme>[
     high: Color(0xFF262B33),
     outline: Color(0xFF9CA3AF),
     outlineVariant: Color(0xFF2E333B),
-    syntax: _darkPlus,
+    syntax: _devkitDark,
   ),
   AppTheme(
     id: 'dark-plus',
-    name: 'Dark+',
+    name: 'VS Code Dark',
     brightness: Brightness.dark,
     primary: Color(0xFF3794FF),
     background: Color(0xFF1E1E1E),
@@ -120,11 +146,11 @@ const appThemes = <AppTheme>[
     outline: Color(0xFF9D9D9D),
     outlineVariant: Color(0xFF3C3C3C),
     text: Color(0xFFD4D4D4),
-    syntax: _darkPlus,
+    syntax: _vsCodeDark,
   ),
   AppTheme(
     id: 'light-plus',
-    name: 'Light+',
+    name: 'VS Code Light',
     brightness: Brightness.light,
     primary: Color(0xFF0066B8),
     background: Color(0xFFF3F3F3),
@@ -136,7 +162,7 @@ const appThemes = <AppTheme>[
     outline: Color(0xFF6E6E6E),
     outlineVariant: Color(0xFFE0E0E0),
     text: Color(0xFF1F1F1F),
-    syntax: _lightPlus,
+    syntax: _vsCodeLight,
   ),
   AppTheme(
     id: 'one-dark',
@@ -192,7 +218,7 @@ const appThemes = <AppTheme>[
   ),
   AppTheme(
     id: 'monokai',
-    name: 'Monokai',
+    name: 'Ember',
     brightness: Brightness.dark,
     primary: Color(0xFFA6E22E),
     background: Color(0xFF1E1F1C),
@@ -296,7 +322,7 @@ const appThemes = <AppTheme>[
   ),
   AppTheme(
     id: 'github-dark',
-    name: 'GitHub Dark',
+    name: 'Graphite',
     brightness: Brightness.dark,
     primary: Color(0xFF58A6FF),
     background: Color(0xFF010409),
@@ -322,7 +348,7 @@ const appThemes = <AppTheme>[
   ),
   AppTheme(
     id: 'github-light',
-    name: 'GitHub Light',
+    name: 'Daylight',
     brightness: Brightness.light,
     primary: Color(0xFF0969DA),
     background: Color(0xFFF6F8FA),
@@ -360,7 +386,7 @@ const appThemes = <AppTheme>[
     outline: Color(0xFFC8C8C8),
     outlineVariant: Color(0xFF6FC3DF),
     text: Colors.white,
-    syntax: _darkPlus,
+    syntax: _devkitDark,
   ),
 ];
 
