@@ -72,9 +72,9 @@ void main() {
 
   testWidgets('search finds settings across every category', (tester) async {
     await pumpPage(tester, const Size(1000, 700));
-    await tester.enterText(find.byType(TextField).first, 'subnet');
+    await tester.enterText(find.byType(TextField).first, 'discovery service');
     await tester.pump();
-    expect(find.text('Network scan subnets'), findsOneWidget);
+    expect(find.text('App discovery service'), findsOneWidget);
     expect(find.text('Theme'), findsNothing);
 
     await tester.enterText(find.byType(TextField).first, 'nothing like this');

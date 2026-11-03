@@ -1,3 +1,4 @@
+import 'package:slipway/core/firewall.dart';
 import 'dart:io';
 
 import 'package:slipway/core/apps.dart';
@@ -7,6 +8,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
+  test('the firewall fix touches only its own rules, away from Public networks', () {
+    final script = firewallFixScript('Slipway', [r'C:\Program Files\Slipway\slipway.exe']);
+    expect(script, contains(r'program="C:\Program Files\Slipway\slipway.exe"'));
+    expect(script, contains('profile=private,domain'));
+    for (final risky in ['Bypass', 'Set-NetConnectionProfile', 'profile=any', 'public']) {
+      expect(script, isNot(contains(risky)));
+    }
+  });
+
   group('subnetHosts', () {
     test('accepts the short forms as a /24', () {
       for (final s in ['192.168.5', '192.168.5.*', '192.168.5.0/24', ' 192.168.5.77/24 ']) {

@@ -12,7 +12,6 @@ class NetworkAccessBanner extends StatefulWidget {
 
 class _NetworkAccessBannerState extends State<NetworkAccessBanner> {
   NetworkAccess? _access;
-  var _makePrivate = true;
   var _fixing = false;
   var _dismissed = false;
 
@@ -28,8 +27,33 @@ class _NetworkAccessBannerState extends State<NetworkAccessBanner> {
   }
 
   Future<void> _fix() async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Change Windows Firewall?'),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Windows will ask for admin rights. Then a rule named "${Firewall.ruleName}" lets these programs receive connections on private and domain networks:'),
+              const SizedBox(height: 8),
+              for (final p in Firewall.programs) Text(p, style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 8),
+              const Text('To undo it, delete that rule in Windows Defender Firewall. Nothing else changes.'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Change firewall')),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
     setState(() => _fixing = true);
-    final ok = await Firewall.fix(makePrivate: _makePrivate && (_access?.publicNetworks.isNotEmpty ?? false));
+    final ok = await Firewall.fix();
     await _check();
     if (!mounted) return;
     setState(() => _fixing = false);
@@ -47,7 +71,7 @@ class _NetworkAccessBannerState extends State<NetworkAccessBanner> {
     if (a == null || a.ok || _dismissed) return const SizedBox.shrink();
     final problems = [
       if (a.missingRules.isNotEmpty) 'Windows Firewall blocks Slipway from receiving discovery replies',
-      if (a.publicNetworks.isNotEmpty) '"${a.publicNetworks.join(', ')}" is a Public network (blocks local discovery)',
+      if (a.publicNetworks.isNotEmpty) '"${a.publicNetworks.join(', ')}" is a Public network, which blocks discovery. If you trust it, make it Private in Windows Settings',
     ];
 
     return Padding(
@@ -72,15 +96,7 @@ class _NetworkAccessBannerState extends State<NetworkAccessBanner> {
                 ],
               ),
             ),
-            if (a.publicNetworks.isNotEmpty)
-              Row(
-                children: [
-                  Checkbox(value: _makePrivate, onChanged: (v) => setState(() => _makePrivate = v ?? true)),
-                  const Text('Set network to Private', style: TextStyle(fontSize: 12.5)),
-                  const SizedBox(width: 8),
-                ],
-              ),
-            FilledButton.icon(
+            if (a.missingRules.isNotEmpty) FilledButton.icon(
               onPressed: _fixing ? null : _fix,
               icon: _fixing
                   ? const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2))

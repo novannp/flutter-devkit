@@ -15,6 +15,14 @@ class NetworkAccess {
   bool get ok => missingRules.isEmpty && publicNetworks.isEmpty;
 }
 
+/// A batch file, which runs without touching PowerShell's execution policy. Public networks stay protected.
+String firewallFixScript(String rule, List<String> programs) => [
+  '@echo off',
+  'chcp 65001 >nul',
+  'netsh advfirewall firewall delete rule name="$rule" >nul',
+  for (final p in programs) 'netsh advfirewall firewall add rule name="$rule" dir=in action=allow program="$p" enable=yes profile=private,domain >nul',
+].join('\r\n');
+
 class Firewall {
   static const ruleName = 'Slipway';
 
@@ -53,24 +61,17 @@ class Firewall {
     return NetworkAccess(missingRules: missing, publicNetworks: public);
   }
 
-  /// Adds inbound allow rules (and optionally makes Public networks Private) behind one UAC prompt.
-  static Future<bool> fix({required bool makePrivate}) async {
-    final lines = [
-      'netsh advfirewall firewall delete rule name="$ruleName" | Out-Null',
-      for (final p in programs)
-        'netsh advfirewall firewall add rule name="$ruleName" dir=in action=allow program="$p" enable=yes profile=any | Out-Null',
-      if (makePrivate) "Get-NetConnectionProfile | Where-Object NetworkCategory -eq 'Public' | Set-NetConnectionProfile -NetworkCategory Private",
-    ];
-    final script = File('${Directory.systemTemp.path}${Platform.pathSeparator}slipway_network_fix.ps1');
-    await script.writeAsString(lines.join('\r\n'));
+  /// Adds inbound allow rules behind one UAC prompt, for what the banner asked to confirm.
+  static Future<bool> fix() async {
+    final script = File('${Directory.systemTemp.path}${Platform.pathSeparator}slipway_network_fix.cmd');
+    await script.writeAsString(firewallFixScript(ruleName, programs));
     final r = await Tools.run('powershell', [
       '-NoProfile',
       '-Command',
-      "try { Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden "
-          "-ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${script.path}'; exit 0 } catch { exit 1 }",
+      "try { Start-Process -FilePath '${script.path.replaceAll("'", "''")}' -Verb RunAs -Wait; exit 0 } catch { exit 1 }",
     ], timeout: const Duration(minutes: 2));
     final ok = r.ok && (await check()).missingRules.isEmpty;
-    History.activity('network', 'Fix network access: ${ok ? 'applied' : 'not applied'}', {'makePrivate': makePrivate});
+    History.activity('network', 'Fix network access: ${ok ? 'applied' : 'not applied'}', const {});
     return ok;
   }
 }

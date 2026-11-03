@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
 final _subnetRe = RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?:\.(\d{1,3}|\*))?(?:/(\d{1,2}))?$');
 
 /// Hosts of `192.168.5`, `192.168.5.*`, `10.1.0.0/22` or a single IP. Null when invalid,
@@ -41,36 +39,23 @@ class NetworkScanner {
   bool _isPrivate(String ip) =>
       ip.startsWith('192.168.') || ip.startsWith('10.') || RegExp(r'^172\.(1[6-9]|2\d|3[01])\.').hasMatch(ip);
 
-  static const _extraKey = 'scan_extra_subnets';
-
-  static Future<List<String>> extraSubnets() async =>
-      (await SharedPreferences.getInstance()).getStringList(_extraKey) ?? const [];
-
-  static Future<void> setExtraSubnets(List<String> subnets) async =>
-      (await SharedPreferences.getInstance()).setStringList(_extraKey, subnets);
-
   String _slash24(String ip) => ip.contains('.') ? '${ip.substring(0, ip.lastIndexOf('.'))}.0/24' : ip;
 
-  /// The subnets a scan covers: this PC's, those added in Settings, and those of the [near] IPs.
-  Future<List<String>> subnetLabels({Iterable<String> near = const []}) async => {
+  /// The subnets a scan covers: only the ones this PC is on.
+  Future<List<String>> subnetLabels() async => {
     for (final a in await localAddresses()) _slash24(a.address),
-    ...await extraSubnets(),
-    for (final ip in near)
-      if (_isPrivate(ip) && subnetHosts(ip) != null) _slash24(ip),
   }.toList();
 
-  /// Scans every [subnetLabels] subnet. Own subnets are taken as /24, which covers most networks;
-  /// other subnets can't be detected from here, hence Settings and the IPs of devices seen before.
+  /// Looks for [port] on this PC's own subnets, taken as /24, which covers most networks. Only when asked to.
   Stream<String> scan(
     int port, {
-    Iterable<String> near = const [],
     void Function(int done, int total)? onProgress,
     int concurrency = 64,
     Duration timeout = const Duration(milliseconds: 400),
   }) async* {
     final own = await localAddresses();
     final targets = <String>{
-      for (final s in await subnetLabels(near: near)) ...?subnetHosts(s),
+      for (final s in await subnetLabels()) ...?subnetHosts(s),
     }..removeAll(own.map((a) => a.address));
 
     final list = targets.toList();

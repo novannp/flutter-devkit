@@ -19,7 +19,6 @@ import '../../extensions/emulators/avd_service.dart';
 import '../devices/cubit/devices_cubit.dart';
 import '../devices/services/adb_service.dart';
 import '../devices/services/mdns_service.dart';
-import '../devices/services/network_scanner.dart';
 import '../editor/editor_page.dart' show EditorCommands;
 
 class SettingsPage extends StatefulWidget {
@@ -49,7 +48,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   List<String> _folders = const [];
   List<FlutterProject> _projects = const [];
-  List<String> _subnets = const [];
   final _mdnsType = TextEditingController();
   final _search = TextEditingController();
   var _selected = 0;
@@ -71,13 +69,11 @@ class _SettingsPageState extends State<SettingsPage> {
     final folders = await ProjectFolders.get();
     final projects = await scanFlutterProjects();
     await loadApps();
-    final subnets = await NetworkScanner.extraSubnets();
     _mdnsType.text = await MdnsService.serviceType();
     if (mounted) {
       setState(() {
         _folders = folders;
         _projects = projects;
-        _subnets = subnets;
       });
     }
   }
@@ -149,20 +145,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 await (await SharedPreferences.getInstance()).setBool('auto_port_5555', v);
               },
             ),
-          ),
-        ),
-        _Setting(
-          'Network scan subnets',
-          "Other subnets to scan besides this PC's own and those of devices seen before. This PC needs a route to them, and only devices on port 5555 are found there.",
-          below: _ListSetting(
-            values: _subnets,
-            hint: '192.168.5 or 10.1.0.0/22',
-            error: 'Use 192.168.5, 192.168.5.0/24 or 10.1.0.0/22 (up to /20)',
-            isValid: (v) => subnetHosts(v) != null,
-            onChanged: (v) async {
-              setState(() => _subnets = v);
-              await NetworkScanner.setExtraSubnets(v);
-            },
           ),
         ),
         _Setting(

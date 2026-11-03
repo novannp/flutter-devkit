@@ -19,9 +19,11 @@
 
 ## Install
 
-**Windows:** download and run [`dist/Slipway-Setup.exe`](dist/Slipway-Setup.exe). No admin rights needed, and it upgrades over an older version, keeping your settings. The installer isn't code-signed yet: if Windows warns you, choose **More info → Run anyway**.
+**Windows:** download and run `Slipway-Setup.exe` from the [latest release](https://github.com/novannp/flutter-devkit/releases/latest). No admin rights needed, and it upgrades over an older version, keeping your settings. The installer isn't code-signed yet: if Windows warns you, choose **More info → Run anyway**.
 
-**macOS:** with Flutter and Xcode installed, run `sh tool/build_macos.sh` to get `dist/Slipway.dmg`. The first time, right-click the app and choose **Open**. The embedded device screen needs **System Settings → Privacy & Security → Accessibility**.
+**macOS:** download the `.dmg` for your Mac from the [latest release](https://github.com/novannp/flutter-devkit/releases/latest), or run `sh tool/build_macos.sh` with Flutter and Xcode installed. The first time, right-click the app and choose **Open**. The embedded device screen needs **System Settings → Privacy & Security → Accessibility**.
+
+**Uninstall:** on Windows use **Settings → Apps**, and delete the `Slipway` firewall rule if you added one. On macOS drag the app to the Trash. Your settings stay in `%APPDATA%\Slipway` and `~/Library/Application Support/com.novannp.slipway`; delete those too to remove everything.
 
 ## Features
 
@@ -50,7 +52,7 @@
 - Talk to the [Claude Code](https://claude.com/claude-code) you already have installed. Slipway runs it and never reads your credentials, and usage counts against your own plan
 
 **Devices**
-- Finds devices over USB, Wi-Fi 5555 and Wireless debugging, across subnets
+- Finds devices on your own network over USB, Wi-Fi 5555 and Wireless debugging
 - Mirrors and controls them with the device tools included, one by one or side by side
 - A window per device: logcat, files, apps, terminal, network conditioning and dev toggles
 - Display lab: change resolution, DPI and screen size on a real device
@@ -106,11 +108,25 @@ Errors are kept in `errors.log`: **Help → Show error log**.
 | Problem | Try this |
 |---|---|
 | Phone doesn't show up | Same Wi-Fi as the PC, and Wireless debugging on? Click **Fix network access** on Devices |
-| Device on another subnet isn't found | Add the subnet in **Settings → Devices**. The device must be on port 5555 |
-| Tired of re-pairing | Device menu → **Enable port 5555** |
+| Tired of re-pairing | Device menu → **Enable port 5555**, or turn on **Auto-switch to port 5555** in **Settings → Devices**. It lets anyone on your network who is paired with the device reach its `adb` |
 | `adb` keeps restarting | Another `adb` version is running. Keep just one on `PATH` |
 | Jira or Bitbucket won't connect | **Work → ⚙ → Test connection** shows the exact error |
 | Printer gets nothing from an emulator | Use the PC's IP, not `10.0.2.2` |
+
+## Privacy
+
+This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. There is no telemetry.
+
+Some features talk to other services when you use them, under those services' own privacy policies:
+
+- **Agent:** your messages and the code it reads go to Anthropic through your Claude Code
+- **Work:** Jira and Bitbucket, at the addresses you set
+- **Packages:** pub.dev
+- **Emulators:** system images from Google
+- **Firebase:** Firebase, through its CLI
+- **Flutter and Dart tools:** they report by their own analytics settings
+
+**Scan network** only runs when you press it, and only looks at the networks this computer is on.
 
 ## Development
 

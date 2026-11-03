@@ -99,7 +99,7 @@ class DevicesCubit extends Cubit<DevicesState> {
   Timer? _adbPoll;
 
   Future<void> init() async {
-    autoPort5555.value = (await SharedPreferences.getInstance()).getBool('auto_port_5555') ?? true;
+    autoPort5555.value = (await SharedPreferences.getInstance()).getBool('auto_port_5555') ?? false;
     for (final d in await store.load()) {
       _devices[d.id] = d;
     }
@@ -279,7 +279,8 @@ class DevicesCubit extends Cubit<DevicesState> {
   }
 
   /// Like `scrcpy --tcpip`: devices on USB or a random Wireless-debugging port move to ip:5555 by themselves.
-  static final autoPort5555 = ValueNotifier(true);
+  // Off until asked for: it opens the device's adb to the network.
+  static final autoPort5555 = ValueNotifier(false);
   final _autoSwitched = <String>{};
   var _switching = false;
 
@@ -310,11 +311,9 @@ class DevicesCubit extends Cubit<DevicesState> {
     if (state.demo) return '(demo) scan skipped';
     emit(state.copyWith(scanning: true, scanProgress: 0));
     var found = 0;
-    final near = _devices.values.map((d) => d.ip).nonNulls.toList();
     try {
       await for (final ip in scanner.scan(
         5555,
-        near: near,
         onProgress: (done, total) => emit(state.copyWith(scanProgress: done / total)),
       )) {
         found++;
@@ -341,7 +340,7 @@ class DevicesCubit extends Cubit<DevicesState> {
     await refreshNow();
     final wireless = (await adb.mdnsServices()).where((s) => s.isConnect).length;
     final unpaired = state.devices.where((d) => d.adb == AdbState.unpaired).length;
-    final subnets = await scanner.subnetLabels(near: near);
+    final subnets = await scanner.subnetLabels();
     if (subnets.isEmpty) return 'No local network found — connect to Wi-Fi/LAN first';
     if (found == 0 && wireless == 0) return 'Scanned ${subnets.join(', ')}: ${pick(noDeviceLines)}';
     return 'Scanned ${subnets.join(', ')}: $found on port 5555 · $wireless with wireless debugging'
