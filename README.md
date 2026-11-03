@@ -275,6 +275,8 @@ fvm flutter run -d windows
 
 The version comes from `pubspec.yaml`.
 
+Every push to `main` that passes CI also builds these. Find them as `dist-windows`, `dist-arm64` and `dist-x64` at the bottom of the run's page under **Actions**, for 30 days; downloading needs a GitHub login.
+
 > [!IMPORTANT]
 > Building by hand? Keep `--no-tree-shake-icons` on `flutter build windows --release`, or some icons go missing.
 

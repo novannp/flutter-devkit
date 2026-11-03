@@ -32,3 +32,37 @@ jobs:
       - if: failure()
         run: python .github/report_failures.py test-results.json
       - run: flutter build ${{ matrix.build }} --release --no-tree-shake-icons
+
+  # Only for main: a tag gets these from the release workflow, and a pull request doesn't need them.
+  dist:
+    name: dist (${{ matrix.name }})
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows, os: windows-latest, arch: windows }
+          - { name: macOS arm64, os: macos-latest, arch: arm64 }
+          - { name: macOS x64, os: macos-15-intel, arch: x64 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - if: runner.os == 'Windows'
+        run: |
+          choco install innosetup --no-progress -y
+          .	ooluild_installer.ps1
+      - if: runner.os != 'Windows'
+        run: |
+          sh tool/build_macos.sh
+          mv dist/FlutterDevKit.dmg "dist/FlutterDevKit-${{ matrix.arch }}.dmg"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.arch }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+          if-no-files-found: error
+          retention-days: 30
