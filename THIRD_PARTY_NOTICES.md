@@ -72,4 +72,6 @@ The app is built with the Flutter SDK and packages from pub.dev, under BSD, MIT,
 
 Flutter, Dart and the related logos are trademarks of Google LLC. Android is a trademark of Google LLC. Visual Studio Code and Windows are trademarks of Microsoft Corporation. macOS is a trademark of Apple Inc. Slipway is not endorsed by or affiliated with any of them. These names only say what the app works with.
 
+Slipway is not based on Visual Studio Code. It isn't a fork and contains none of its source, and its editor engine is written from scratch in Flutter.
+
 Some themes follow color schemes published by others, and carry those names to say which: One Dark, Dracula, Nord and Solarized. The VS Code themes follow the default colors of Visual Studio Code.

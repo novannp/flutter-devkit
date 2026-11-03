@@ -127,19 +127,32 @@ Keep `--no-tree-shake-icons` when running `flutter build` by hand, or some icons
 
 Slipway stands on the work of these people and projects. Thank you for building and sharing them.
 
-| Package | Used for | By |
-|---|---|---|
-| [flutter_bloc](https://pub.dev/packages/flutter_bloc) | App state | [Felix Angelov and the Bloc community](https://github.com/felangel/bloc) |
-| [xterm](https://pub.dev/packages/xterm), [flutter_pty](https://pub.dev/packages/flutter_pty) | The terminal | [TerminalStudio](https://github.com/TerminalStudio) |
-| [bonsoir](https://pub.dev/packages/bonsoir) | Finding apps on the network | [Skyost](https://github.com/Skyost/Bonsoir) |
-| [window_manager](https://pub.dev/packages/window_manager) | The window and title bar | [LeanFlutter](https://github.com/leanflutter/window_manager) |
-| [vm_service](https://pub.dev/packages/vm_service), [ffi](https://pub.dev/packages/ffi), [path](https://pub.dev/packages/path) | Debugger, native calls, file paths | [Dart team](https://github.com/dart-lang) |
-| [shared_preferences](https://pub.dev/packages/shared_preferences), [file_selector](https://pub.dev/packages/file_selector), [path_provider](https://pub.dev/packages/path_provider), [flutter_lints](https://pub.dev/packages/flutter_lints) | Preferences, file pickers, app folders, code checks | [Flutter team](https://github.com/flutter/packages) |
+|  | By | Project | Used for |
+|---|---|---|---|
+| <a href="https://github.com/felangel"><img src="https://github.com/felangel.png?size=64" width="32" height="32" alt="Felix Angelov" /></a> | [Felix Angelov](https://github.com/felangel) | [flutter_bloc](https://pub.dev/packages/flutter_bloc) | App state |
+| <a href="https://github.com/TerminalStudio"><img src="https://github.com/TerminalStudio.png?size=64" width="32" height="32" alt="TerminalStudio" /></a> <a href="https://github.com/xuty"><img src="https://github.com/xuty.png?size=64" width="32" height="32" alt="xuty" /></a> | [TerminalStudio](https://github.com/TerminalStudio), [xuty](https://github.com/xuty) | [xterm](https://pub.dev/packages/xterm), [flutter_pty](https://pub.dev/packages/flutter_pty) | The terminal |
+| <a href="https://github.com/Skyost"><img src="https://github.com/Skyost.png?size=64" width="32" height="32" alt="Hugo Delaunay" /></a> | [Hugo Delaunay](https://github.com/Skyost) | [bonsoir](https://pub.dev/packages/bonsoir) | Finding apps on the network |
+| <a href="https://github.com/lijy91"><img src="https://github.com/lijy91.png?size=64" width="32" height="32" alt="LiJianying" /></a> <a href="https://github.com/leanflutter"><img src="https://github.com/leanflutter.png?size=64" width="32" height="32" alt="LeanFlutter" /></a> | [LiJianying](https://github.com/lijy91), [LeanFlutter](https://github.com/leanflutter) | [window_manager](https://pub.dev/packages/window_manager) | The window and title bar |
+| <a href="https://github.com/dart-lang"><img src="https://github.com/dart-lang.png?size=64" width="32" height="32" alt="Dart team" /></a> | [Dart team](https://github.com/dart-lang) | [vm_service](https://pub.dev/packages/vm_service), [ffi](https://pub.dev/packages/ffi), [path](https://pub.dev/packages/path) | Debugger, native calls, file paths |
+| <a href="https://github.com/flutter"><img src="https://github.com/flutter.png?size=64" width="32" height="32" alt="Flutter team" /></a> | [Flutter team](https://github.com/flutter) | [shared_preferences](https://pub.dev/packages/shared_preferences), [file_selector](https://pub.dev/packages/file_selector), [path_provider](https://pub.dev/packages/path_provider), [flutter_lints](https://pub.dev/packages/flutter_lints) | Preferences, file pickers, app folders, code checks |
+| <a href="https://github.com/Genymobile"><img src="https://github.com/Genymobile.png?size=64" width="32" height="32" alt="Genymobile" /></a> <a href="https://github.com/rom1v"><img src="https://github.com/rom1v.png?size=64" width="32" height="32" alt="Romain Vimont" /></a> | [Genymobile](https://github.com/Genymobile), [Romain Vimont](https://github.com/rom1v) | [scrcpy](https://github.com/Genymobile/scrcpy) | Device screens, shipped |
+| <a href="https://github.com/FFmpeg"><img src="https://github.com/FFmpeg.png?size=64" width="32" height="32" alt="FFmpeg" /></a> | [FFmpeg](https://github.com/FFmpeg) | [FFmpeg](https://ffmpeg.org) | Video for scrcpy, shipped |
+| <a href="https://github.com/slouken"><img src="https://github.com/slouken.png?size=64" width="32" height="32" alt="Sam Lantinga" /></a> <a href="https://github.com/libsdl-org"><img src="https://github.com/libsdl-org.png?size=64" width="32" height="32" alt="SDL" /></a> | [Sam Lantinga](https://github.com/slouken), [SDL](https://github.com/libsdl-org) | [SDL](https://github.com/libsdl-org/SDL) | Windowing for scrcpy, shipped |
+| <a href="https://github.com/libusb"><img src="https://github.com/libusb.png?size=64" width="32" height="32" alt="libusb" /></a> | [libusb](https://github.com/libusb) | [libusb](https://github.com/libusb/libusb) | USB for scrcpy, shipped |
+| <a href="https://github.com/leoafarias"><img src="https://github.com/leoafarias.png?size=64" width="32" height="32" alt="Leo Farias" /></a> | [Leo Farias](https://github.com/leoafarias) | [FVM](https://github.com/btwld/fvm) | Flutter versions, the copy you install |
+| <a href="https://github.com/flutter"><img src="https://github.com/flutter.png?size=64" width="32" height="32" alt="Flutter team" /></a> <a href="https://github.com/dart-lang"><img src="https://github.com/dart-lang.png?size=64" width="32" height="32" alt="Dart team" /></a> | [Flutter team](https://github.com/flutter), [Dart team](https://github.com/dart-lang) | [Flutter](https://flutter.dev) and [Dart](https://dart.dev) SDKs | Running your project, and the analysis server behind the editor |
+| <a href="https://github.com/invertase"><img src="https://github.com/invertase.png?size=64" width="32" height="32" alt="Invertase" /></a> | [Invertase](https://github.com/invertase) | [FlutterFire CLI](https://github.com/invertase/flutterfire_cli) | Firebase setup, the copy you install |
+| <a href="https://github.com/firebase"><img src="https://github.com/firebase.png?size=64" width="32" height="32" alt="Firebase" /></a> | [Firebase](https://github.com/firebase) | [Firebase CLI](https://github.com/firebase/firebase-tools) | Firebase setup, the copy you install |
+| <a href="https://github.com/anthropics"><img src="https://github.com/anthropics.png?size=64" width="32" height="32" alt="Anthropic" /></a> | [Anthropic](https://github.com/anthropics) | [Claude Code](https://claude.com/claude-code) | The Agent, the copy you install |
 
-It also ships or runs [scrcpy](https://github.com/Genymobile/scrcpy) by Genymobile and Romain Vimont, [FFmpeg](https://ffmpeg.org), [SDL](https://github.com/libsdl-org/SDL), [libusb](https://github.com/libusb/libusb), [Android Debug Bridge](https://developer.android.com/tools/adb), the [Flutter](https://flutter.dev) and [Dart](https://dart.dev) SDKs, [FVM](https://github.com/btwld/fvm) by Leo Farias, [FlutterFire CLI](https://github.com/invertase/flutterfire_cli) by Invertase and [Firebase CLI](https://github.com/firebase/firebase-tools).
+[Android Debug Bridge](https://developer.android.com/tools/adb) comes from the Android Open Source Project.
+
+Slipway is made by <a href="https://github.com/novannp"><img src="https://github.com/novannp.png?size=64" width="32" height="32" alt="Novan Noviansyah Pratama" /></a> [Novan Noviansyah Pratama](https://github.com/novannp) and [its contributors](https://github.com/novannp/flutter-devkit/graphs/contributors).
 
 ## License
 
 [MIT](LICENSE). Everything it ships stays under its own license: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), or **Help → Licenses** in the app.
 
 Flutter, Dart and the related logos are trademarks of Google LLC. Slipway is not endorsed by or affiliated with Google LLC. Visual Studio Code is a trademark of Microsoft Corporation. Slipway is an independent project, and these names only say what it works with.
+
+**Slipway is not based on Visual Studio Code.** It isn't a fork and contains none of its source, and its editor engine is written from scratch in Flutter. Microsoft has no part in it. The optional VS Code themes only follow that editor's published default colors.
