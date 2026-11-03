@@ -331,7 +331,8 @@ class _GitGraphViewState extends State<GitGraphView> {
     final rows = _rows;
     if (rows == null) return const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)));
     if (rows.isEmpty) return Center(child: Text('No commits yet.', style: TextStyle(color: scheme.outline, fontSize: 13)));
-    final graphWidth = (rows.fold<int>(0, (most, r) => r.width > most ? r.width : most) * _laneWidth).clamp(_laneWidth, widget.compact ? 84.0 : 280.0) + 6;
+    // Each message starts right after the last line in its own row, close to its dot.
+    double graphWidthOf(GraphRow r) => (r.width * _laneWidth).clamp(_laneWidth, widget.compact ? 84.0 : 280.0) + 6;
     final small = TextStyle(fontSize: 11.5, color: scheme.outline);
     final selected = _selected;
     final files = _files;
@@ -343,7 +344,7 @@ class _GitGraphViewState extends State<GitGraphView> {
       itemExtent: _rowHeight,
       itemBuilder: (_, shown) {
         if (openAt >= 0 && shown > openAt && shown <= openAt + extra) {
-          return _fileRow(rows[openAt], files?[shown - openAt - 1], graphWidth, scheme);
+          return _fileRow(rows[openAt], files?[shown - openAt - 1], graphWidthOf(rows[openAt]), scheme);
         }
         final row = rows[openAt >= 0 && shown > openAt ? shown - extra : shown], c = row.commit;
         return GestureDetector(
@@ -356,7 +357,7 @@ class _GitGraphViewState extends State<GitGraphView> {
               children: [
                 ClipRect(
                   child: SizedBox(
-                    width: graphWidth,
+                    width: graphWidthOf(row),
                     height: _rowHeight,
                     child: CustomPaint(painter: _RowPainter(row, scheme.surface)),
                   ),

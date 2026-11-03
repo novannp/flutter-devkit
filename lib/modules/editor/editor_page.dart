@@ -60,6 +60,11 @@ class EditorCommands {
 
   /// Commands of the window around the Editor, listed in the palette too.
   static List<PaletteItem> Function()? windowCommands;
+
+  /// What the menu bar is built from, and what tells it to look again.
+  static List<PaletteItem> Function()? commands;
+  static VoidCallback? flutterCommands;
+  static final commandsChanged = ValueNotifier(0);
   static ValueChanged<String>? openRecent;
   static Future<void> Function(String path, {int? line, int? column})? openPath;
 }
@@ -85,8 +90,6 @@ class EditorPage extends StatefulWidget {
   State<EditorPage> createState() => _EditorPageState();
 }
 
-const _pickPackageToUpgrade = 'pick';
-const _allFlutterCommands = 'all';
 const _newWindowItem = 'new-window';
 const _buildRunnerBuild = 'dart run build_runner build --delete-conflicting-outputs';
 const _buildRunnerWatch = 'dart run build_runner watch --delete-conflicting-outputs';
@@ -204,6 +207,9 @@ class _EditorPageState extends State<EditorPage> {
     EditorCommands.commandPalette = _commandPalette;
     EditorCommands.goToSymbol = _goToSymbol;
     EditorCommands.saveAll = _saveAll;
+    EditorCommands.commands = _allCommands;
+    EditorCommands.flutterCommands = () => unawaited(_flutterPalette());
+    _commandsChanged();
     _git.addListener(_rebuild);
     // A pull or a teammate's change can touch pubspec.yaml, with nothing in the Editor being saved.
     _packagesPoll = Timer.periodic(const Duration(seconds: 10), (_) => _checkPackages());
@@ -228,6 +234,8 @@ class _EditorPageState extends State<EditorPage> {
     _terminalWarmup?.cancel();
     _flutter?.removeListener(_onFlutter);
     EditorCommands.openPath = null;
+    EditorCommands.commands = null;
+    EditorCommands.flutterCommands = null;
     Settings.instance.removeListener(_onSettings);
     HardwareKeyboard.instance.removeHandler(_onControlUp);
     FocusManager.instance.removeListener(_onFocusChange);
@@ -403,6 +411,7 @@ class _EditorPageState extends State<EditorPage> {
     });
     setState(() {
       _ws = ws;
+      _commandsChanged();
       _hits = const [];
       _syncTools();
     });
@@ -653,6 +662,9 @@ class _EditorPageState extends State<EditorPage> {
     await _openFile(picked.$1, line: picked.$2, column: picked.$2 == null ? null : 0);
   }
 
+  // After the frame: this can happen while the menu bar around this page is building.
+  void _commandsChanged() => WidgetsBinding.instance.addPostFrameCallback((_) => EditorCommands.commandsChanged.value++);
+
   List<PaletteItem> _flutterItems() {
     final ws = _ws;
     return [
@@ -674,13 +686,16 @@ class _EditorPageState extends State<EditorPage> {
 
   Future<void> _flutterPalette() => showPalette(context, hint: 'Flutter command', empty: 'No commands match', items: _flutterItems());
 
-  Future<void> _commandPalette() {
-    return showPalette(
-      context,
-      hint: 'Type a command, or @ to find a method in this file',
-      empty: 'No commands match',
-      prefixes: {'@': (rest) => unawaited(_goToSymbol(query: rest))},
-      items: [
+  Future<void> _commandPalette() => showPalette(
+    context,
+    hint: 'Type a command, or @ to find a method in this file',
+    empty: 'No commands match',
+    prefixes: {'@': (rest) => unawaited(_goToSymbol(query: rest))},
+    items: _allCommands(),
+  );
+
+  /// The palette lists these, and the menu bar is built from them.
+  List<PaletteItem> _allCommands() => [
         PaletteItem('Go to File', _quickOpen, keys: 'Ctrl+P', icon: Icons.search, group: 'Go'),
         PaletteItem('Go to Line', _goToLine, keys: 'Ctrl+G', icon: Icons.format_list_numbered, group: 'Go'),
         PaletteItem('Go to Symbol in File', _goToSymbol, keys: 'Ctrl+Shift+O', icon: Icons.data_object, group: 'Go'),
@@ -720,6 +735,10 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Stop', () => _flutter?.stop(), keys: 'Shift+F5', icon: Icons.stop, group: 'Run'),
         PaletteItem('Hot Reload', () => _flutter?.reload(full: false), keys: 'Ctrl+F5', icon: Icons.bolt, group: 'Run'),
         PaletteItem('Hot Restart', () => _flutter?.reload(full: true), keys: 'Ctrl+Shift+F5', icon: Icons.restart_alt, group: 'Run'),
+        PaletteItem('Toggle Hot Reload on Save', () {
+          unawaited(Settings.instance.update('flutter.hotReloadOnSave', !_reloadOnSave));
+          _rebuild();
+        }, icon: Icons.bolt_outlined, group: 'Run'),
         PaletteItem('Toggle Breakpoint', () => _pane?.toggleBreakpointAtCursor(), keys: 'F9', icon: Icons.circle_outlined, group: 'Debug'),
         PaletteItem('Continue', _debugger.resume, icon: Icons.play_circle_outline, group: 'Debug'),
         PaletteItem('Pause', _debugger.pause, keys: 'F6', icon: Icons.pause_circle_outline, group: 'Debug'),
@@ -734,9 +753,7 @@ class _EditorPageState extends State<EditorPage> {
         ..._flutterItems(),
         ...?EditorCommands.windowCommands?.call(),
         for (final t in appThemes) PaletteItem(t.name, () => setAppTheme(t), group: 'Theme', icon: Icons.palette_outlined),
-      ],
-    );
-  }
+  ];
 
   Future<void> _goToSymbol({String query = ''}) async {
     final ws = _ws;
@@ -1106,7 +1123,10 @@ class _EditorPageState extends State<EditorPage> {
     final ws = _ws;
     if (ws == null || !mounted) return;
     final buildRunner = usesBuildRunner(ws.root);
-    if (buildRunner != _buildRunner) setState(() => _buildRunner = buildRunner);
+    if (buildRunner != _buildRunner) {
+      setState(() => _buildRunner = buildRunner);
+      _commandsChanged();
+    }
     final since = _toolBusy ? null : packagesOutOfSyncSince(ws.root);
     final show = since != null && since != _dismissedPackages;
     final showing = _notices.any((n) => n.id == 'packages');
@@ -1734,46 +1754,6 @@ class _EditorPageState extends State<EditorPage> {
                 PopupMenuItem(height: 30, value: _buildRunnerClean, child: Text('Clear its cache')),
               ],
             ),
-          PopupMenuButton<String>(
-            tooltip: 'Flutter commands',
-            icon: const Icon(Icons.bolt_outlined),
-            enabled: !_toolBusy,
-            onSelected: (v) => switch (v) {
-              _pickPackageToUpgrade => unawaited(_upgradeOnePackage()),
-              _allFlutterCommands => unawaited(_flutterPalette()),
-              _ => unawaited(_runTool(v)),
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(height: 30, value: 'pub get', child: Text('pub get')),
-              PopupMenuItem(height: 30, value: 'pub upgrade', child: Text('pub upgrade')),
-              PopupMenuItem(height: 30, value: _pickPackageToUpgrade, child: Text('pub upgrade [package]…')),
-              PopupMenuItem(height: 30, value: 'pub outdated', child: Text('pub outdated')),
-              PopupMenuItem(height: 30, value: 'clean', child: Text('clean')),
-              PopupMenuItem(height: 30, value: 'analyze', child: Text('analyze')),
-              PopupMenuItem(height: 30, value: 'test', child: Text('test')),
-              PopupMenuItem(height: 30, value: 'doctor', child: Text('doctor')),
-              PopupMenuDivider(),
-              PopupMenuItem(height: 30, value: _allFlutterCommands, child: Text('All commands…')),
-            ],
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'Editor options',
-            icon: const Icon(Icons.tune, size: 20),
-            itemBuilder: (_) => [
-              const PopupMenuItem(height: 30, value: 'dart', child: Text('Dart settings…')),
-              CheckedPopupMenuItem(height: 30, value: 'wrap', checked: EditorView.wordWrap.value, child: const Text('Word wrap (Alt+Z)')),
-              const PopupMenuDivider(),
-              CheckedPopupMenuItem(height: 30, value: 'reload', checked: _reloadOnSave, child: const Text('Hot reload on save')),
-            ],
-            onSelected: (v) async {
-              if (v == 'dart') await _dartSettings(ws);
-              if (v == 'wrap') await EditorView.toggleWordWrap();
-              if (v == 'reload') {
-                await Settings.instance.update('flutter.hotReloadOnSave', !_reloadOnSave);
-              }
-              _rebuild();
-            },
-          ),
         ],
       ),
     );

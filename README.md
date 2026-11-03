@@ -63,7 +63,7 @@
 
 ## Shortcuts
 
-Every command is in the palette, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>. On macOS use <kbd>Cmd</kbd> in place of <kbd>Ctrl</kbd>; the menus show the exceptions.
+Every command is in the palette, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>, and under **File**, **Edit**, **View**, **Go**, **Run**, **Flutter** and **Git** in the menu bar. On macOS use <kbd>Cmd</kbd> in place of <kbd>Ctrl</kbd>; the menus show the exceptions.
 
 | Keys | Action |
 |---|---|

@@ -195,6 +195,36 @@ void main() {
     });
   });
 
+  testWidgets('a message starts after the last line of its own row, not in one straight column', (tester) async {
+    tester.view.physicalSize = const Size(700, 300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final dir = Directory.systemTemp.createTempSync('graphnear');
+    addTearDown(() => dir.delete(recursive: true).catchError((_) => dir));
+    await tester.runAsync(() async {
+      await _git(dir.path, ['init', '-b', 'main']);
+      await _git(dir.path, ['config', 'user.email', 'test@example.com']);
+      await _git(dir.path, ['config', 'user.name', 'Test']);
+      await _commit(dir.path, 'a');
+      await _git(dir.path, ['checkout', '-b', 'side']);
+      await _commit(dir.path, 'b');
+      await _git(dir.path, ['checkout', 'main']);
+      await _commit(dir.path, 'c');
+      await _git(dir.path, ['merge', '--no-edit', 'side']);
+      await _commit(dir.path, 'd');
+    });
+    final sc = SourceControl();
+    addTearDown(sc.dispose);
+    await tester.runAsync(() => sc.open(dir.path));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: GitGraphView(git: sc))));
+    for (var i = 0; i < 300 && find.text('add d').evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(tester.getTopLeft(find.text('add d')).dx, lessThan(tester.getTopLeft(find.text('add b')).dx));
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('long branch names never push a row out', (tester) async {
     tester.view.physicalSize = const Size(700, 300);
     tester.view.devicePixelRatio = 1;

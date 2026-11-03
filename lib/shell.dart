@@ -198,7 +198,19 @@ class _LogoState extends State<_Logo> {
 String windowTitleFor(AppModule? active) => active == null || active == _editor ? 'Slipway' : '${active.label} — Slipway';
 
 const _barHeight = 30.0;
-const _menusFoldBelow = 640.0;
+const _menusFoldBelow = 900.0;
+
+const _flutterPubMenu = ['Pub Get', 'Pub Upgrade', 'Pub Upgrade Package…', 'Pub Outdated', 'Add Package', 'Sort pubspec.yaml A–Z'];
+const _flutterProjectMenu = [
+  'Flutter Clean',
+  'Flutter Analyze',
+  'Flutter Test',
+  'Flutter Doctor',
+  'Flutter Devices',
+  'Generate Code (build_runner)',
+  'Generate on Every Save (build_runner watch)',
+];
+const _flutterToolsMenu = ['Flutter Versions (FVM)', 'Firebase', 'Dart Settings'];
 
 class _TitleBar extends StatefulWidget {
   const _TitleBar({required this.active, required this.onSelect});
@@ -271,6 +283,98 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
       if (e.menu == menu && ExtensionManager.instance.isEnabled(e.id)) ...e.modules,
   ];
 
+  Widget _themeMenu() =>
+    SubmenuButton(
+      style: _itemStyle,
+      leadingIcon: const Icon(Icons.palette_outlined, size: 16),
+      menuChildren: [
+        for (final t in appThemes)
+          ValueListenableBuilder(
+            valueListenable: appTheme,
+            builder: (_, current, _) => MenuItemButton(
+              style: _itemStyle,
+              closeOnActivate: false,
+              leadingIcon: Container(
+                width: 15,
+                height: 15,
+                decoration: BoxDecoration(
+                  color: t.surface,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: t.primary, width: 3),
+                ),
+              ),
+              trailingIcon: current == t ? Icon(Icons.check, size: 15, color: Theme.of(context).colorScheme.primary) : null,
+              onPressed: () => setAppTheme(t),
+              child: Text(t.name),
+            ),
+          ),
+      ],
+      child: const Text('Theme'),
+    );
+
+  List<PaletteItem> get _commands => EditorCommands.commands?.call() ?? const [];
+
+  Widget _commandItem(PaletteItem c) => _item(c.label, c.icon ?? Icons.chevron_right, c.onPick, keys: c.keys);
+
+  Widget _command(String label) {
+    final found = _commands.where((c) => c.label == label).firstOrNull;
+    return found == null ? const SizedBox.shrink() : _commandItem(found);
+  }
+
+  List<Widget> _labelled(List<String> labels) => [
+    for (final c in _commands)
+      if (labels.contains(c.label)) _commandItem(c),
+  ];
+
+  List<Widget> _grouped(Set<String> groups, {Set<String> leaving = const {}}) => [
+    for (final c in _commands)
+      if (groups.contains(c.group) && !leaving.contains(c.label)) _commandItem(c),
+  ];
+
+  Widget _commandMenu(String title, Set<String> groups) => SubmenuButton(
+    style: _itemStyle,
+    menuChildren: _grouped(groups),
+    child: Text(title),
+  );
+
+  Widget _viewMenu() => SubmenuButton(
+    style: _itemStyle,
+    menuChildren: [
+      _item('Command Palette', Icons.keyboard_command_key, () => EditorCommands.commandPalette?.call(), keys: 'Ctrl+Shift+P'),
+      _item('Extensions', Icons.extension_outlined, () => _openModule(_extensions), keys: 'Ctrl+Shift+X'),
+      const _MenuDivider(),
+      ..._grouped({'View'}),
+      const _MenuDivider(),
+      ..._grouped({'Editor'}, leaving: {'Format Document'}),
+      const _MenuDivider(),
+      _themeMenu(),
+    ],
+    child: const Text('View'),
+  );
+
+  Widget _flutterMenu() => SubmenuButton(
+    style: _itemStyle,
+    menuChildren: [
+      ..._labelled(_flutterPubMenu),
+      const _MenuDivider(),
+      ..._labelled(_flutterProjectMenu),
+      SubmenuButton(
+        style: _itemStyle,
+        leadingIcon: const Icon(Icons.build_outlined, size: 16),
+        menuChildren: [
+          for (final c in _commands)
+            if (c.group == 'Flutter' && c.label.startsWith('Build ')) _commandItem(c),
+        ],
+        child: const Text('Build'),
+      ),
+      const _MenuDivider(),
+      ..._labelled(_flutterToolsMenu),
+      const _MenuDivider(),
+      _item('All Commands…', Icons.more_horiz, () => EditorCommands.flutterCommands?.call()),
+    ],
+    child: const Text('Flutter'),
+  );
+
   Widget _fileMenu(ColorScheme scheme) => SubmenuButton(
     style: _itemStyle,
     menuChildren: [
@@ -323,43 +427,11 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
         ),
       ),
       const _MenuDivider(),
-      _item('Go to File…', Icons.search, () {
-        _openModule(_editor);
-        EditorCommands.quickOpen?.call();
-      }, keys: 'Ctrl+P'),
+      _command('Save'),
       _item('Save All', Icons.save_outlined, () => EditorCommands.saveAll?.call(), keys: 'Ctrl+Shift+S'),
-      _item('Command Palette', Icons.keyboard_command_key, () => EditorCommands.commandPalette?.call(), keys: 'Ctrl+Shift+P'),
-      _item('Go to Symbol in File', Icons.data_object, () => EditorCommands.goToSymbol?.call(), keys: 'Ctrl+Shift+O'),
+      _command('Close Tab'),
       const _MenuDivider(),
-      _item('Extensions', Icons.extension_outlined, () => _openModule(_extensions), keys: 'Ctrl+Shift+X'),
       _item('Settings', Icons.settings_outlined, () => _openModule(_settings), keys: 'Ctrl+,'),
-      SubmenuButton(
-        style: _itemStyle,
-        leadingIcon: const Icon(Icons.palette_outlined, size: 16),
-        menuChildren: [
-          for (final t in appThemes)
-            ValueListenableBuilder(
-              valueListenable: appTheme,
-              builder: (_, current, _) => MenuItemButton(
-                style: _itemStyle,
-                closeOnActivate: false,
-                leadingIcon: Container(
-                  width: 15,
-                  height: 15,
-                  decoration: BoxDecoration(
-                    color: t.surface,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: t.primary, width: 3),
-                  ),
-                ),
-                trailingIcon: current == t ? Icon(Icons.check, size: 15, color: scheme.primary) : null,
-                onPressed: () => setAppTheme(t),
-                child: Text(t.name),
-              ),
-            ),
-        ],
-        child: const Text('Theme'),
-      ),
       const _MenuDivider(),
       _item('Quit Slipway', Icons.power_settings_new, BackgroundRunner.instance.quit),
     ],
@@ -371,6 +443,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
     menuChildren: [
       for (final (label, icon, intent, _, _, keys) in _undoActions) _item(label, icon, () => invokeOnFocused(intent), keys: keys),
       const _MenuDivider(),
+      if (_commands.isNotEmpty) ...[_command('Format Document'), const _MenuDivider()],
       for (final (label, icon, intent, _, _, keys) in _clipboardActions) _item(label, icon, () => invokeOnFocused(intent), keys: keys),
     ],
     child: const Text('Edit'),
@@ -439,6 +512,11 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
     child: const Text('Help'),
   );
 
+  List<PlatformMenuItem> _nativeGrouped(Set<String> groups) => [
+    for (final c in _commands)
+      if (groups.contains(c.group)) _nativeItem(c.label, c.onPick),
+  ];
+
   PlatformMenuItem _nativeItem(String label, VoidCallback callback, {LogicalKeyboardKey? key, bool shift = false, bool control = false}) => PlatformMenuItem(
     label: label,
     onSelected: callback,
@@ -492,16 +570,25 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
           PlatformMenuItemGroup(members: [_nativeItem('Clear Recently Opened', RecentPaths.clear)]),
       ]),
       PlatformMenuItemGroup(members: [
-        _nativeItem('Go to File…', () {
-          _openModule(_editor);
-          EditorCommands.quickOpen?.call();
-        }, key: LogicalKeyboardKey.keyP),
         _nativeItem('Save All', () => EditorCommands.saveAll?.call(), key: LogicalKeyboardKey.keyS, shift: true),
-        _nativeItem('Command Palette', () => EditorCommands.commandPalette?.call(), key: LogicalKeyboardKey.keyP, shift: true),
-        _nativeItem('Go to Symbol in File', () => EditorCommands.goToSymbol?.call(), key: LogicalKeyboardKey.keyO, shift: true),
-        _nativeItem('Extensions', () => _openModule(_extensions), key: LogicalKeyboardKey.keyX, shift: true),
       ]),
     ]),
+    if (_commands.isNotEmpty) ...[
+      PlatformMenu(label: 'View', menus: [
+        PlatformMenuItemGroup(members: [
+          _nativeItem('Command Palette', () => EditorCommands.commandPalette?.call(), key: LogicalKeyboardKey.keyP, shift: true),
+          _nativeItem('Extensions', () => _openModule(_extensions), key: LogicalKeyboardKey.keyX, shift: true),
+        ]),
+        PlatformMenuItemGroup(members: _nativeGrouped({'View'})),
+        PlatformMenuItemGroup(members: _nativeGrouped({'Editor'})),
+      ]),
+      PlatformMenu(label: 'Go', menus: _nativeGrouped({'Go'})),
+      PlatformMenu(label: 'Run', menus: _nativeGrouped({'Run', 'Debug'})),
+      PlatformMenu(label: 'Flutter', menus: [
+        ..._nativeGrouped({'Flutter'}),
+      ]),
+      PlatformMenu(label: 'Git', menus: _nativeGrouped({'Git'})),
+    ],
     PlatformMenu(label: 'Edit', menus: [
       PlatformMenuItemGroup(members: [
         for (final (label, _, intent, key, shift, _) in _undoActions) _editItem(label, intent, key, shift: shift),
@@ -563,7 +650,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
               ),
               const SizedBox(width: 6),
               if (!Platform.isMacOS) ListenableBuilder(
-                listenable: ExtensionManager.instance,
+                listenable: Listenable.merge([ExtensionManager.instance, EditorCommands.commandsChanged]),
                 builder: (_, _) => MenuBar(
                   style: MenuStyle(
                     backgroundColor: WidgetStateProperty.all(Colors.transparent),
@@ -575,6 +662,13 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
                     final menus = [
                       _fileMenu(scheme),
                       _editMenu(),
+                      if (_commands.isNotEmpty) ...[
+                        _viewMenu(),
+                        _commandMenu('Go', {'Go'}),
+                        _commandMenu('Run', {'Run', 'Debug'}),
+                        _flutterMenu(),
+                        _commandMenu('Git', {'Git'}),
+                      ],
                       ?_menu('Device', _enabledIn('Device')),
                       ?_menu(
                         'Tools',
@@ -628,7 +722,10 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
     if (!Platform.isMacOS) return titleBar;
     return ListenableBuilder(
       listenable: Listenable.merge([ExtensionManager.instance, RecentPaths.paths, appTheme]),
-      builder: (_, child) => PlatformMenuBar(menus: _nativeMenus(), child: child),
+      builder: (_, child) => ValueListenableBuilder(
+        valueListenable: EditorCommands.commandsChanged,
+        builder: (_, _, _) => PlatformMenuBar(menus: _nativeMenus(), child: child!),
+      ),
       child: titleBar,
     );
   }
