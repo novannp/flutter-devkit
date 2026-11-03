@@ -172,9 +172,15 @@ void main() {
       doc.dispose();
     });
 
-    test('refuses binary files', () async {
-      final f = File(p.join(dir.path, 'a.bin'))..writeAsBytesSync([1, 0, 2]);
-      await expectLater(EditorDocument.open(f.path), throwsA(isA<FileSystemException>()));
+    test('opens what is not text as a preview', () async {
+      final zeros = File(p.join(dir.path, 'a.bin'))..writeAsBytesSync([1, 0, 2]);
+      final latin = File(p.join(dir.path, 'b.txt'))..writeAsBytesSync([0xE9, 0xE8]);
+      for (final file in [zeros, latin]) {
+        final doc = await EditorDocument.open(file.path);
+        addTearDown(doc.dispose);
+        expect(doc.binary, isTrue);
+        expect(doc.dirty, isFalse);
+      }
     });
 
     test('follows outside edits, but never over unsaved work', () async {
