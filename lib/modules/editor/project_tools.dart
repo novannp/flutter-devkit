@@ -39,6 +39,68 @@ Future<void> openInSystemTerminal(List<String> command) async {
   }
 }
 
+class FlutterToolCommand {
+  const FlutterToolCommand(this.label, this.args, this.icon, {this.build = false});
+
+  final String label;
+
+  /// For `flutter`, unless it starts with `dart`.
+  final String args;
+  final IconData icon;
+  final bool build;
+}
+
+/// Everything the palette can run. A build only shows when this computer and this project can do it.
+List<FlutterToolCommand> flutterToolCommands(String root, {required bool usesFvm, String? device, String? host}) {
+  final os = host ?? Platform.operatingSystem;
+  bool has(String folder) => Directory(p.join(root, folder)).existsSync();
+  FlutterToolCommand build(String label, String args, IconData icon) => FlutterToolCommand(label, 'build $args', icon, build: true);
+  return [
+    const FlutterToolCommand('Pub Get', 'pub get', Icons.download_outlined),
+    const FlutterToolCommand('Pub Upgrade', 'pub upgrade', Icons.upgrade),
+    const FlutterToolCommand('Pub Upgrade to Latest Majors', 'pub upgrade --major-versions', Icons.upgrade),
+    const FlutterToolCommand('Pub Downgrade', 'pub downgrade', Icons.arrow_downward),
+    const FlutterToolCommand('Pub Outdated', 'pub outdated', Icons.update),
+    const FlutterToolCommand('Pub Deps', 'pub deps', Icons.account_tree_outlined),
+    const FlutterToolCommand('Pub Cache Repair', 'pub cache repair', Icons.build_outlined),
+    const FlutterToolCommand('Pub Publish (Dry Run)', 'pub publish --dry-run', Icons.publish),
+    const FlutterToolCommand('Flutter Clean', 'clean', Icons.cleaning_services_outlined),
+    const FlutterToolCommand('Flutter Analyze', 'analyze', Icons.rule),
+    const FlutterToolCommand('Flutter Test', 'test', Icons.science_outlined),
+    const FlutterToolCommand('Flutter Test with Coverage', 'test --coverage', Icons.science_outlined),
+    const FlutterToolCommand('Flutter Doctor', 'doctor', Icons.medical_services_outlined),
+    const FlutterToolCommand('Flutter Doctor (Verbose)', 'doctor -v', Icons.medical_services_outlined),
+    const FlutterToolCommand('Flutter Devices', 'devices', Icons.devices),
+    const FlutterToolCommand('Flutter Emulators', 'emulators', Icons.phone_android),
+    const FlutterToolCommand('Flutter Channel', 'channel', Icons.alt_route),
+    const FlutterToolCommand('Flutter Config', 'config --list', Icons.settings_outlined),
+    const FlutterToolCommand('Flutter Precache', 'precache', Icons.cloud_download_outlined),
+    // fvm pins the SDK, and picks a new one from its own panel.
+    if (!usesFvm) const FlutterToolCommand('Flutter Upgrade SDK', 'upgrade', Icons.upgrade),
+    if (File(p.join(root, 'l10n.yaml')).existsSync()) const FlutterToolCommand('Generate Localizations (gen-l10n)', 'gen-l10n', Icons.translate),
+    if (device != null) ...[
+      FlutterToolCommand('Flutter Install on Device', 'install -d $device', Icons.install_mobile),
+      FlutterToolCommand('Flutter Logs from Device', 'logs -d $device', Icons.notes),
+    ],
+    if (has('android')) ...[
+      build('Build APK', 'apk', Icons.android),
+      build('Build APK (Debug)', 'apk --debug', Icons.android),
+      build('Build App Bundle', 'appbundle', Icons.android),
+    ],
+    if (has('ios') && os == 'macos') ...[
+      build('Build iOS', 'ios', Icons.phone_iphone),
+      build('Build IPA', 'ipa', Icons.phone_iphone),
+    ],
+    if (has('macos') && os == 'macos') build('Build macOS', 'macos', Icons.desktop_mac_outlined),
+    if (has('windows') && os == 'windows') build('Build Windows', 'windows', Icons.desktop_windows_outlined),
+    if (has('linux') && os == 'linux') build('Build Linux', 'linux', Icons.computer),
+    if (has('web')) build('Build Web', 'web', Icons.language),
+    const FlutterToolCommand('Dart Fix (Preview)', 'dart fix --dry-run', Icons.auto_fix_high_outlined),
+    const FlutterToolCommand('Dart Fix (Apply)', 'dart fix --apply', Icons.auto_fix_high_outlined),
+    const FlutterToolCommand('Dart Format Project', 'dart format .', Icons.format_align_left),
+  ];
+}
+
 Object? _jsonIn(String output) {
   final start = output.indexOf('{');
   if (start < 0) return null;

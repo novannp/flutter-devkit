@@ -310,6 +310,20 @@ class Settings extends ChangeNotifier {
   /// What was left out of [runArgs], to say so rather than run something else than asked.
   List<String> blockedRunArgs() => _allRunArgs().where((a) => !isSafeRunArg(a)).toList();
 
+  /// What a `flutter build` shares with Run. The mode and extra run arguments don't apply to it.
+  List<String> buildArgs() => _allBuildArgs().where(isSafeRunArg).toList();
+
+  List<String> blockedBuildArgs() => _allBuildArgs().where((a) => !isSafeRunArg(a)).toList();
+
+  List<String> _allBuildArgs() {
+    final target = text('flutter.target').trim(), flavor = text('flutter.flavor').trim();
+    return [
+      if (target.isNotEmpty) '--target=$target',
+      if (flavor.isNotEmpty) '--flavor=$flavor',
+      for (final d in list('flutter.dartDefines')) '--dart-define=$d',
+    ];
+  }
+
   List<String> _allRunArgs() {
     final mode = text('flutter.mode'), target = text('flutter.target').trim(), flavor = text('flutter.flavor').trim();
     return [

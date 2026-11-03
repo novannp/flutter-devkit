@@ -212,6 +212,9 @@ class _GitGraphViewState extends State<GitGraphView> {
   /// The picked commit's files, for the side panel to show under it. Null while they load.
   List<CommitFile>? _files;
 
+  // The commit and file opened last, to keep it marked under the commit.
+  (String, String)? _pickedFile;
+
   @override
   void initState() {
     super.initState();
@@ -237,8 +240,10 @@ class _GitGraphViewState extends State<GitGraphView> {
   }
 
   Widget _fileRow(GraphRow row, CommitFile? file, double graphWidth, ColorScheme scheme) {
-    final content = SizedBox(
+    final picked = file != null && _pickedFile == (row.commit.hash, file.path);
+    final content = Container(
       height: _rowHeight,
+      color: picked ? scheme.primary.withValues(alpha: .14) : null,
       child: Row(
         children: [
           ClipRect(
@@ -264,7 +269,13 @@ class _GitGraphViewState extends State<GitGraphView> {
       ),
     );
     if (file == null) return content;
-    return InkWell(onTap: () => widget.onOpenFile?.call(row.commit, file), child: content);
+    return InkWell(
+      onTap: () {
+        setState(() => _pickedFile = (row.commit.hash, file.path));
+        widget.onOpenFile?.call(row.commit, file);
+      },
+      child: content,
+    );
   }
 
   // Follows commits, pulls and branch switches, without redrawing when nothing moved.

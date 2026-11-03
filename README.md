@@ -26,7 +26,9 @@
 - Its own engine, with no WebView: multiple cursors, folding, regex find and replace, syntax colors for 14 languages
 - Dart analysis: completion, snippets, errors as you type, go to definition, references, rename, quick fixes
 - Follows the SDK your project pins with `fvm`
-- Tabs and tools share one strip: drag to reorder or split, and <kbd>Ctrl</kbd>+<kbd>Tab</kbd> returns to the tab used before
+- Tabs and tools, the Agent included, share one strip: drag to reorder or split, and <kbd>Ctrl</kbd>+<kbd>Tab</kbd> returns to the tab used before
+- Selecting text marks the same text around it, and colors in the code show a swatch at the end of their line
+- Search and quick open leave out what git ignores
 - Previews for images, PDF, fonts, ZIP/APK, Markdown, CSV, JSON and SVG
 
 **Flutter**
@@ -34,6 +36,7 @@
 - Debugger and widget inspector
 - Packages panel for pub.dev: add, upgrade, remove, sort
 - Panels for Flutter versions (`fvm`), Firebase setup (`flutterfire`) and `build_runner`
+- `flutter`, `pub` and `dart` commands in the palette, including builds for the platforms your project has
 
 **Git**
 - Source Control with stage, commit, push, pull and side-by-side diffs
@@ -133,10 +136,10 @@ Slipway stands on the work of these people and projects. Thank you for building 
 | [vm_service](https://pub.dev/packages/vm_service), [ffi](https://pub.dev/packages/ffi), [path](https://pub.dev/packages/path) | Debugger, native calls, file paths | [Dart team](https://github.com/dart-lang) |
 | [shared_preferences](https://pub.dev/packages/shared_preferences), [file_selector](https://pub.dev/packages/file_selector), [path_provider](https://pub.dev/packages/path_provider), [flutter_lints](https://pub.dev/packages/flutter_lints) | Preferences, file pickers, app folders, code checks | [Flutter team](https://github.com/flutter/packages) |
 
-It also ships or runs [scrcpy](https://github.com/Genymobile/scrcpy) by Genymobile and Romain Vimont, [FFmpeg](https://ffmpeg.org), [SDL](https://github.com/libsdl-org/SDL), [libusb](https://github.com/libusb/libusb), [Android Debug Bridge](https://developer.android.com/tools/adb), the [Flutter](https://flutter.dev) and [Dart](https://dart.dev) SDKs, [FVM](https://fvm.app), [FlutterFire CLI](https://firebase.flutter.dev/docs/cli) and [Firebase CLI](https://github.com/firebase/firebase-tools).
+It also ships or runs [scrcpy](https://github.com/Genymobile/scrcpy) by Genymobile and Romain Vimont, [FFmpeg](https://ffmpeg.org), [SDL](https://github.com/libsdl-org/SDL), [libusb](https://github.com/libusb/libusb), [Android Debug Bridge](https://developer.android.com/tools/adb), the [Flutter](https://flutter.dev) and [Dart](https://dart.dev) SDKs, [FVM](https://github.com/btwld/fvm) by Leo Farias, [FlutterFire CLI](https://github.com/invertase/flutterfire_cli) by Invertase and [Firebase CLI](https://github.com/firebase/firebase-tools).
 
 ## License
 
-[MIT](LICENSE). Everything it ships stays under its own license: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), or **Help → About → View licenses** in the app.
+[MIT](LICENSE). Everything it ships stays under its own license: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), or **Help → Licenses** in the app.
 
 Flutter, Dart and the related logos are trademarks of Google LLC. Slipway is not endorsed by or affiliated with Google LLC. Visual Studio Code is a trademark of Microsoft Corporation. Slipway is an independent project, and these names only say what it works with.

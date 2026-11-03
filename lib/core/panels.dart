@@ -16,7 +16,8 @@ class PanelCard extends StatelessWidget {
     return DecoratedBox(
       position: DecorationPosition.foreground,
       decoration: BoxDecoration(borderRadius: shape, border: Border.all(color: scheme.outlineVariant.withValues(alpha: .55))),
-      child: ClipRRect(borderRadius: shape, child: ColoredBox(color: scheme.surface, child: child)),
+      // A Material, not a plain color: ink paints on the nearest one, and a color above that hides it.
+      child: ClipRRect(borderRadius: shape, child: Material(color: scheme.surface, child: child)),
     );
   }
 }
@@ -123,23 +124,39 @@ class _RailItemState extends State<RailItem> {
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Container(
-              // The count sits under the icon, so no number can ever cover it.
-              height: badge == null ? 42 : 52,
-              decoration: BoxDecoration(color: fill, borderRadius: BorderRadius.circular(9)),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(widget.icon, size: 22, color: widget.selected ? scheme.primary : scheme.onSurfaceVariant),
-                  if (badge != null)
-                    Container(
-                      margin: const EdgeInsets.only(top: 2),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(6)),
-                      child: Text(badge, style: TextStyle(fontSize: 9, height: 1.3, fontWeight: FontWeight.w700, color: scheme.onPrimary)),
-                    ),
-                ],
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Center(
+              // Every item the same square, with a count on its corner, above the icon so it never covers it.
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: fill, borderRadius: BorderRadius.circular(10)),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(widget.icon, size: 20, color: widget.selected ? scheme.primary : scheme.onSurfaceVariant),
+                    if (badge != null)
+                      Positioned(
+                        top: -4,
+                        right: -5,
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          decoration: BoxDecoration(
+                            color: scheme.primary,
+                            borderRadius: BorderRadius.circular(7),
+                            border: Border.all(color: canvasOf(scheme), width: 1.5),
+                          ),
+                          child: Text(
+                            badge,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 9, height: 1.25, fontWeight: FontWeight.w700, color: scheme.onPrimary),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -86,6 +86,7 @@ class EditorPage extends StatefulWidget {
 }
 
 const _pickPackageToUpgrade = 'pick';
+const _allFlutterCommands = 'all';
 const _newWindowItem = 'new-window';
 const _buildRunnerBuild = 'dart run build_runner build --delete-conflicting-outputs';
 const _buildRunnerWatch = 'dart run build_runner watch --delete-conflicting-outputs';
@@ -112,7 +113,7 @@ bool matchesLogSearch(String line, String query) {
 enum _Panel { problems, output, terminal, widgets }
 
 /// What the left panel shows. There's one panel, so opening one view replaces the other.
-enum _Side { files, git, search, debug, packages, agent }
+enum _Side { files, git, search, debug, packages }
 
 class _EditorPageState extends State<EditorPage> {
   EditorWorkspace? _ws;
@@ -198,6 +199,7 @@ class _EditorPageState extends State<EditorPage> {
     EditorCommands.openPath = _openFile;
     Settings.instance.addListener(_onSettings);
     HardwareKeyboard.instance.addHandler(_onControlUp);
+    FocusManager.instance.addListener(_onFocusChange);
     EditorCommands.quickOpen = _quickOpen;
     EditorCommands.commandPalette = _commandPalette;
     EditorCommands.goToSymbol = _goToSymbol;
@@ -228,6 +230,7 @@ class _EditorPageState extends State<EditorPage> {
     EditorCommands.openPath = null;
     Settings.instance.removeListener(_onSettings);
     HardwareKeyboard.instance.removeHandler(_onControlUp);
+    FocusManager.instance.removeListener(_onFocusChange);
     _ws?.removeListener(_rebuild);
     _ws?.dispose();
     _terminal?.dispose();
@@ -281,6 +284,11 @@ class _EditorPageState extends State<EditorPage> {
   void _onTools() {
     _syncTools();
     _rebuild();
+  }
+
+  // A tab closing takes the focus with it, and every shortcut until the next click.
+  void _onFocusChange() {
+    if (mounted && identical(FocusManager.instance.primaryFocus, _pageFocus.enclosingScope)) _pageFocus.requestFocus();
   }
 
   /// A tab clicked, or a file opened, decides what's in front: the title bar and menus follow.
@@ -539,7 +547,7 @@ class _EditorPageState extends State<EditorPage> {
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyU) {
       action = () => _showPanel(_Panel.output);
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyA) {
-      action = () => _showSide(_Side.agent);
+      action = _showAgent;
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyN) {
       action = openProjectWindow;
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyB) {
@@ -645,8 +653,28 @@ class _EditorPageState extends State<EditorPage> {
     await _openFile(picked.$1, line: picked.$2, column: picked.$2 == null ? null : 0);
   }
 
-  Future<void> _commandPalette() {
+  List<PaletteItem> _flutterItems() {
     final ws = _ws;
+    return [
+      for (final c in flutterToolCommands(ws?.root ?? '', usesFvm: ws != null && projectUsesFvm(ws.root), device: _device))
+        PaletteItem(c.label, () => unawaited(c.build ? _runBuild(c.args) : _runTool(c.args)), icon: c.icon, group: 'Flutter'),
+      PaletteItem('Pub Upgrade Package…', () => unawaited(_upgradeOnePackage()), icon: Icons.upgrade, group: 'Flutter'),
+      if (_buildRunner) ...[
+        PaletteItem('Generate Code (build_runner)', () => unawaited(_runTool(_buildRunnerBuild)), icon: Icons.auto_fix_high_outlined, group: 'Flutter'),
+        PaletteItem('Generate on Every Save (build_runner watch)', () => unawaited(_runTool(_buildRunnerWatch)), icon: Icons.auto_fix_high_outlined, group: 'Flutter'),
+        PaletteItem('Clear Generated Code Cache (build_runner clean)', () => unawaited(_runTool(_buildRunnerClean)), icon: Icons.auto_fix_high_outlined, group: 'Flutter'),
+      ],
+      PaletteItem('Sort pubspec.yaml A–Z', () => unawaited(_sortPubspec()), icon: Icons.sort_by_alpha, group: 'Flutter'),
+      PaletteItem('Add Package', () => _showSide(_Side.packages), icon: Icons.add, group: 'Flutter'),
+      PaletteItem('Flutter Versions (FVM)', () => unawaited(_showFvm()), icon: Icons.layers_outlined, group: 'Flutter'),
+      PaletteItem('Firebase', () => unawaited(_showFirebase()), icon: Icons.local_fire_department_outlined, group: 'Flutter'),
+      if (ws != null) PaletteItem('Dart Settings', () => unawaited(_dartSettings(ws)), icon: Icons.tune, group: 'Flutter'),
+    ];
+  }
+
+  Future<void> _flutterPalette() => showPalette(context, hint: 'Flutter command', empty: 'No commands match', items: _flutterItems());
+
+  Future<void> _commandPalette() {
     return showPalette(
       context,
       hint: 'Type a command, or @ to find a method in this file',
@@ -678,7 +706,7 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Show Files', () => _showSide(_Side.files), keys: 'Ctrl+Shift+E', icon: Icons.description_outlined, group: 'View'),
         PaletteItem('Show Source Control', () => _showSide(_Side.git), keys: 'Ctrl+Shift+G', icon: Icons.account_tree_outlined, group: 'View'),
         PaletteItem('Show Search', () => _showSide(_Side.search), keys: 'Ctrl+Shift+F', icon: Icons.search, group: 'View'),
-        PaletteItem('Show Agent', () => _showSide(_Side.agent), keys: 'Ctrl+Shift+A', icon: Icons.auto_awesome_outlined, group: 'View'),
+        PaletteItem('Show Agent', _showAgent, keys: 'Ctrl+Shift+A', icon: Icons.auto_awesome_outlined, group: 'View'),
         PaletteItem('Show Packages', () => _showSide(_Side.packages), keys: 'Ctrl+Shift+B', icon: Icons.inventory_2_outlined, group: 'View'),
         PaletteItem('Show Run and Debug', () => _showSide(_Side.debug), keys: 'Ctrl+Shift+D', icon: Icons.bug_report_outlined, group: 'View'),
         PaletteItem('Toggle Side Panel', _toggleSide, keys: 'Ctrl+B', icon: Icons.view_sidebar_outlined, group: 'View'),
@@ -703,21 +731,7 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Sync or Publish Branch', () => unawaited(_syncBranch()), icon: Icons.sync, group: 'Git'),
         PaletteItem('Toggle Line Blame', EditorView.toggleLineBlame, icon: Icons.person_search_outlined, group: 'Git'),
         PaletteItem('Discard All Changes', () => unawaited(confirmDiscardAll(context, _git)), icon: Icons.undo, group: 'Git'),
-        PaletteItem('Flutter Versions (FVM)', () => unawaited(_showFvm()), icon: Icons.layers_outlined, group: 'Flutter'),
-        PaletteItem('Firebase', () => unawaited(_showFirebase()), icon: Icons.local_fire_department_outlined, group: 'Flutter'),
-        PaletteItem('Pub Get', () => unawaited(_runTool('pub get')), icon: Icons.download_outlined, group: 'Flutter'),
-        PaletteItem('Pub Upgrade', () => unawaited(_runTool('pub upgrade')), icon: Icons.upgrade, group: 'Flutter'),
-        PaletteItem('Pub Upgrade Package…', () => unawaited(_upgradeOnePackage()), icon: Icons.upgrade, group: 'Flutter'),
-        PaletteItem('Pub Upgrade to Latest Majors', () => unawaited(_runTool('pub upgrade --major-versions')), icon: Icons.upgrade, group: 'Flutter'),
-        PaletteItem('Pub Outdated', () => unawaited(_runTool('pub outdated')), icon: Icons.update, group: 'Flutter'),
-        if (_buildRunner) ...[
-          PaletteItem('Generate Code (build_runner)', () => unawaited(_runTool(_buildRunnerBuild)), icon: Icons.auto_fix_high_outlined, group: 'Flutter'),
-          PaletteItem('Generate on Every Save (build_runner watch)', () => unawaited(_runTool(_buildRunnerWatch)), icon: Icons.auto_fix_high_outlined, group: 'Flutter'),
-        ],
-        PaletteItem('Sort pubspec.yaml A–Z', () => unawaited(_sortPubspec()), icon: Icons.sort_by_alpha, group: 'Flutter'),
-        PaletteItem('Add Package', () => _showSide(_Side.packages), icon: Icons.add, group: 'Flutter'),
-        PaletteItem('Clean', () => unawaited(_runTool('clean')), icon: Icons.cleaning_services_outlined, group: 'Flutter'),
-        if (ws != null) PaletteItem('Dart Settings', () => unawaited(_dartSettings(ws)), icon: Icons.tune, group: 'Flutter'),
+        ..._flutterItems(),
         ...?EditorCommands.windowCommands?.call(),
         for (final t in appThemes) PaletteItem(t.name, () => setAppTheme(t), group: 'Theme', icon: Icons.palette_outlined),
       ],
@@ -795,11 +809,13 @@ class _EditorPageState extends State<EditorPage> {
 
   // A click on a panel can leave nothing focused, and then F9 or F10 reach no one.
   Widget _keepingKeys(Widget child) => Listener(
-    onPointerUp: (_) => WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_pageFocus.hasFocus && FocusManager.instance.primaryFocus is FocusScopeNode) _pageFocus.requestFocus();
-    }),
+    onPointerUp: (_) => _reclaimKeys(),
     child: child,
   );
+
+  void _reclaimKeys() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted && !_pageFocus.hasFocus && FocusManager.instance.primaryFocus is FocusScopeNode) _pageFocus.requestFocus();
+  });
 
   EditTarget? _here() {
     final doc = _ws?.active;
@@ -886,6 +902,35 @@ class _EditorPageState extends State<EditorPage> {
     unawaited(_git.refresh());
     // Terminals and other tools change the repo too.
     _gitPoll = Timer.periodic(const Duration(seconds: 4), (_) => _git.refresh());
+  }
+
+  void _showAgent() {
+    final ws = _ws;
+    if (ws == null) return;
+    ToolTabs.instance.show(_diffTabs.putIfAbsent(
+      ':agent',
+      () => AppModule(
+        'Agent',
+        Icons.auto_awesome_outlined,
+        AgentView(
+          root: ws.root,
+          visible: true,
+          activeFile: () => _lastFile(ws),
+          onBeforeSend: ws.saveAll,
+          onOpenFile: (path) => unawaited(_openFile(path)),
+        ),
+      ),
+    ));
+  }
+
+  // The agent's own tab is in front while you type to it, so "this file" means the one used last.
+  String? _lastFile(EditorWorkspace ws) {
+    for (final group in [ws.focused, ...ws.groups]) {
+      for (final doc in group.history) {
+        if (doc.module == null) return doc.path;
+      }
+    }
+    return null;
   }
 
   void _showGitGraph() {
@@ -1095,6 +1140,13 @@ class _EditorPageState extends State<EditorPage> {
       for (final n in _notices)
         if (n.id != id) n,
     ]);
+  }
+
+  /// A build takes the project's target, flavor and defines, as Run does.
+  Future<bool> _runBuild(String args) {
+    final blocked = Settings.instance.blockedBuildArgs();
+    if (blocked.isNotEmpty) _toast('Left out of the build, for its shell characters: ${blocked.join(' ')}');
+    return _runCommand(['flutter', ...args.split(' '), ...Settings.instance.buildArgs()]);
   }
 
   /// [args] is a command for `flutter`, unless it starts with `dart`.
@@ -1312,7 +1364,7 @@ class _EditorPageState extends State<EditorPage> {
       onKeyEvent: (_, e) => _onKey(e),
       child: Column(
         children: [
-          _toolbar(ws, scheme),
+          Material(color: canvasOf(scheme), child: _toolbar(ws, scheme)),
           Expanded(
             child: Stack(
               fit: StackFit.expand,
@@ -1370,14 +1422,6 @@ class _EditorPageState extends State<EditorPage> {
                           revision: _pubRevision,
                           onRun: (args) => unawaited(_runTool(args)),
                           onSort: () => unawaited(_sortPubspec()),
-                        ),
-                        AgentView(
-                          key: ValueKey('agent:${ws.root}'),
-                          root: ws.root,
-                          visible: _sideOpen && _side == _Side.agent,
-                          activeFile: () => ws.active?.module == null ? ws.active?.path : null,
-                          onBeforeSend: ws.saveAll,
-                          onOpenFile: (path) => unawaited(_openFile(path)),
                         ),
                       ],
                     )),
@@ -1505,7 +1549,7 @@ class _EditorPageState extends State<EditorPage> {
             badge: _debugger.paused ? '!' : null,
           ),
           item(platformKeys('Packages (Ctrl+Shift+B)'), Icons.inventory_2_outlined, _sideOpen && _side == _Side.packages, () => side(_Side.packages)),
-          item(platformKeys('Agent (Ctrl+Shift+A)'), Icons.auto_awesome_outlined, _sideOpen && _side == _Side.agent, () => side(_Side.agent)),
+          item(platformKeys('Agent (Ctrl+Shift+A)'), Icons.auto_awesome_outlined, false, _showAgent),
           item('Flutter Versions (FVM)', Icons.layers_outlined, false, () => unawaited(_showFvm())),
           item('Firebase', Icons.local_fire_department_outlined, false, () => unawaited(_showFirebase())),
                   ],
@@ -1535,7 +1579,6 @@ class _EditorPageState extends State<EditorPage> {
     return Container(
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      color: canvasOf(scheme),
       child: Row(
         children: [
           // Takes all the room that's left, instead of sharing it with a Spacer.
@@ -1566,7 +1609,7 @@ class _EditorPageState extends State<EditorPage> {
           if (fvm && !narrow)
             Tooltip(
               message: 'Flutter SDK pinned by fvm: ${flutterSdkOf(ws.root) ?? 'not installed yet'}. Click to change it.',
-              child: GestureDetector(onTap: () => unawaited(_showFvm()), child: Container(
+              child: InkWell(onTap: () => unawaited(_showFvm()), borderRadius: BorderRadius.circular(6), child: Container(
                 margin: const EdgeInsets.only(left: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -1695,7 +1738,11 @@ class _EditorPageState extends State<EditorPage> {
             tooltip: 'Flutter commands',
             icon: const Icon(Icons.bolt_outlined),
             enabled: !_toolBusy,
-            onSelected: (v) => v == _pickPackageToUpgrade ? unawaited(_upgradeOnePackage()) : unawaited(_runTool(v)),
+            onSelected: (v) => switch (v) {
+              _pickPackageToUpgrade => unawaited(_upgradeOnePackage()),
+              _allFlutterCommands => unawaited(_flutterPalette()),
+              _ => unawaited(_runTool(v)),
+            },
             itemBuilder: (_) => const [
               PopupMenuItem(height: 30, value: 'pub get', child: Text('pub get')),
               PopupMenuItem(height: 30, value: 'pub upgrade', child: Text('pub upgrade')),
@@ -1705,6 +1752,8 @@ class _EditorPageState extends State<EditorPage> {
               PopupMenuItem(height: 30, value: 'analyze', child: Text('analyze')),
               PopupMenuItem(height: 30, value: 'test', child: Text('test')),
               PopupMenuItem(height: 30, value: 'doctor', child: Text('doctor')),
+              PopupMenuDivider(),
+              PopupMenuItem(height: 30, value: _allFlutterCommands, child: Text('All commands…')),
             ],
           ),
           PopupMenuButton<String>(

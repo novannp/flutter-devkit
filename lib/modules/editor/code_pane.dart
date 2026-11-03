@@ -181,6 +181,13 @@ CodeLineSpanBuilder diagnosticsSpanBuilder(
       ]);
     };
 
+/// Whole-word text matches in files like the current one, apart from the place asked about.
+List<SearchHit> textUsages(List<SearchHit> hits, String word, String extension, String path, int line) => [
+  for (final h in hits)
+    if (p.extension(h.path) == extension && !(h.path == path && h.line == line))
+      for (final at in occurrencesOf(h.text, word)) SearchHit(h.path, h.line, at, h.text),
+];
+
 class CodePane extends StatefulWidget {
   const CodePane({super.key, required this.workspace, required this.doc, required this.debugger, required this.git, required this.onKey, required this.onTarget, required this.onReferences});
 
@@ -259,6 +266,9 @@ class CodePaneState extends State<CodePane> {
   var _usageIndex = 0;
   Offset? _usagesAt;
   var _usagesOf = '';
+
+  // Text matches, shown until the analyzer has its answer.
+  var _usagesRough = false;
   final _usagesScroll = ScrollController();
   static const _usageRow = 24.0;
 
@@ -805,18 +815,44 @@ class CodePaneState extends State<CodePane> {
     final token = _beginLoading(word.isEmpty ? 'Finding usages…' : 'Finding usages of $word…', line, col);
     final List<EditTarget> usages;
     final List<SearchHit> hits;
+    var answered = false, shownEarly = false;
+    unawaited(() async {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      if (answered || word.isEmpty || !mounted || token != _loadingToken) return;
+      final early = textUsages(await searchInFiles(widget.workspace.root, word), word, p.extension(_doc.path), _doc.path, line);
+      if (answered || early.isEmpty || !mounted || token != _loadingToken) return;
+      shownEarly = true;
+      _clearHover();
+      _loadingTimer?.cancel();
+      setState(() {
+        _loading = null;
+        _usages = early;
+        _usageTargets = [for (final h in early) EditTarget(h.path, h.line, h.column)];
+        _usageIndex = 0;
+        _usagesOf = word;
+        _usagesRough = true;
+        _usagesAt = _caretOffset(line, col);
+      });
+    }());
     try {
       final refs = await widget.workspace.references(_doc, line, col);
+      answered = true;
       if (!mounted || token != _loadingToken) return;
+      // Closed while waiting: the answer shouldn't bring it back.
+      if (shownEarly && _usages == null) return;
       usages = usagesApartFrom(refs, _doc.path, line, col, text);
       hits = await widget.workspace.referenceHits(usages);
       if (!mounted || token != _loadingToken) return;
     } finally {
       if (token == _loadingToken) _endLoading();
     }
-    if (usages.isEmpty) return _toast(word.isEmpty ? 'No usages found' : 'No usages of $word found');
+    if (usages.isEmpty) {
+      if (shownEarly) setState(() => _usages = null);
+      return _toast(word.isEmpty ? 'No usages found' : 'No usages of $word found');
+    }
     _clearHover();
     setState(() {
+      _usagesRough = false;
       _usages = hits;
       _usageTargets = usages;
       _usageIndex = 0;
@@ -961,7 +997,9 @@ class CodePaneState extends State<CodePane> {
         ),
       );
     }
-    final title = '${hits.length} ${hits.length == 1 ? 'usage' : 'usages'} of $_usagesOf';
+    final title = _usagesRough
+        ? '${hits.length} text ${hits.length == 1 ? 'match' : 'matches'} for $_usagesOf. The analyzer is still reading the project…'
+        : '${hits.length} ${hits.length == 1 ? 'usage' : 'usages'} of $_usagesOf';
     return _Floating(
       at: at,
       lineHeight: 20,

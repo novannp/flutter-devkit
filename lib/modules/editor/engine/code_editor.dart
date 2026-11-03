@@ -948,6 +948,8 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
       }
     }
 
+    _paintSameAsSelection(canvas, paragraphs, paint);
+
     paint.color = widget.style.selectionColor;
     for (final s in all) {
       if (s.isCollapsed) continue;
@@ -964,6 +966,7 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
       para.paragraph._painter.paint(canvas, para.offset);
       final foldEnd = _ctrl.foldedRanges[para.index];
       if (foldEnd != null) _paintFoldMark(canvas, para, foldEnd);
+      _paintColors(canvas, para);
     }
 
     if (_focus.hasFocus && _caretAlpha > 0) {
@@ -1013,6 +1016,49 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
     }
     for (var i = low; i < matches.length && matches[i].line == line; i++) {
       yield matches[i];
+    }
+  }
+
+  void _paintSameAsSelection(Canvas canvas, List<CodeLineRenderParagraph> paragraphs, Paint paint) {
+    final s = _ctrl.selection;
+    if (s.isCollapsed || s.startIndex != s.endIndex || _ctrl.extraSelections.isNotEmpty) return;
+    final needle = _ctrl.selectedText;
+    if (needle.trim().length < 2) return;
+    paint.color = widget.style.selectionColor.withValues(alpha: widget.style.selectionColor.a * .55);
+    for (final para in paragraphs) {
+      for (final at in occurrencesOf(_ctrl.codeLines[para.index].text, needle)) {
+        if (para.index == s.startIndex && at == s.startOffset) continue;
+        _paintRange(canvas, para, at, at + needle.length, paint);
+      }
+    }
+  }
+
+  /// A line under each color in the code, and a swatch of it past the end of the line. Neither moves the text.
+  void _paintColors(Canvas canvas, CodeLineRenderParagraph para) {
+    final marks = _ctrl.colorMarksOn(para.index);
+    if (marks.isEmpty) return;
+    final painter = para.paragraph._painter;
+    final length = _ctrl.codeLines[para.index].length;
+    final fill = Paint();
+    final outline = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = const Color(0x66808080);
+    final end = painter.getOffsetForCaret(TextPosition(offset: length), Rect.zero);
+    final side = (_lineHeight - 6).clamp(6, 12).toDouble();
+    var x = para.offset.dx + end.dx + _charWidth;
+    for (final m in marks) {
+      fill.color = Color(m.argb);
+      if (m.start < m.end && m.end <= length) {
+        for (final box in painter.getBoxesForSelection(TextSelection(baseOffset: m.start, extentOffset: m.end))) {
+          final r = box.toRect().shift(para.offset);
+          canvas.drawRect(Rect.fromLTRB(r.left, r.bottom - 2, r.right, r.bottom), fill);
+        }
+      }
+      final swatch = RRect.fromRectAndRadius(Rect.fromLTWH(x, para.offset.dy + end.dy + (_lineHeight - side) / 2, side, side), const Radius.circular(2));
+      canvas.drawRRect(swatch, fill);
+      canvas.drawRRect(swatch, outline);
+      x += side + 4;
     }
   }
 

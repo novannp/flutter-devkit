@@ -257,11 +257,19 @@ class _SourceControlViewState extends State<SourceControlView> {
     ),
   );
 
+  // The change whose diff was opened last, to keep it marked in the list.
+  (String, bool)? _picked;
+
   Widget _row(GitChange c, bool staged, ColorScheme scheme) {
     final status = staged ? c.index : c.worktree;
+    final picked = _picked == (c.path, staged);
     return InkWell(
-      onTap: () => widget.onDiff(c, staged),
-      child: Padding(
+      onTap: () {
+        setState(() => _picked = (c.path, staged));
+        widget.onDiff(c, staged);
+      },
+      child: Container(
+        color: picked ? scheme.primary.withValues(alpha: .14) : null,
         padding: const EdgeInsets.only(left: 8),
         child: Row(
           children: [

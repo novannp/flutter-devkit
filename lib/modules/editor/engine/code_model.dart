@@ -11,6 +11,58 @@ class CodeLineOptions {
   final TextLineBreak lineBreak;
 }
 
+/// Where [needle] appears on a line. A word only matches a whole word, so `conn` isn't found in `connType`.
+List<int> occurrencesOf(String line, String needle) {
+  if (needle.isEmpty) return const [];
+  final word = RegExp(r'^[A-Za-z0-9_$]+$').hasMatch(needle);
+  bool wordChar(int i) => i >= 0 && i < line.length && RegExp(r'[A-Za-z0-9_$]').hasMatch(line[i]);
+  final found = <int>[];
+  for (var at = line.indexOf(needle); at >= 0; at = line.indexOf(needle, at + needle.length)) {
+    if (!word || (!wordChar(at - 1) && !wordChar(at + needle.length))) found.add(at);
+  }
+  return found;
+}
+
+/// A color named in the code, as 0xAARRGGBB.
+class ColorMark {
+  const ColorMark(this.start, this.end, this.argb);
+
+  final int start, end, argb;
+}
+
+/// How a file writes `#` colors. Where `#add` is more likely a word, only the long forms count.
+/// Android puts alpha first, and the web puts it last.
+enum HexColors { web, data, android }
+
+HexColors? hexColorsOf(String path) {
+  final dot = path.lastIndexOf('.');
+  return switch (dot < 0 ? '' : path.substring(dot).toLowerCase()) {
+    '.css' || '.scss' || '.less' || '.html' || '.svg' => HexColors.web,
+    '.json' || '.arb' || '.yaml' || '.yml' || '.toml' => HexColors.data,
+    '.xml' => HexColors.android,
+    _ => null,
+  };
+}
+
+final _hexColor = RegExp(r'(?<![\w&])#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b');
+
+List<ColorMark> hexColorMarks(String line, HexColors style) {
+  final marks = <ColorMark>[];
+  for (final m in _hexColor.allMatches(line)) {
+    var digits = m[1]!;
+    if (digits.length < 6) {
+      if (style == HexColors.data) continue;
+      digits = digits.split('').map((d) => '$d$d').join();
+    }
+    final value = int.parse(digits, radix: 16);
+    final argb = digits.length == 6
+        ? 0xFF000000 | value
+        : (style == HexColors.android ? value : (value & 0xFF) << 24 | value >>> 8);
+    marks.add(ColorMark(m.start, m.end, argb));
+  }
+  return marks;
+}
+
 class CodeLine {
   const CodeLine(this.text, {this.chunkParent = false});
 
@@ -111,6 +163,19 @@ class CodeLineEditingController extends ChangeNotifier {
   }
 
   final CodeLineOptions options;
+
+  /// Colors found by the analyzer, by line.
+  Map<int, List<ColorMark>> colorMarks = const {};
+
+  /// For files without an analyzer, to find colors in the text itself.
+  HexColors? hexColors;
+
+  List<ColorMark> colorMarksOn(int line) {
+    final known = colorMarks[line];
+    if (known != null) return known;
+    final style = hexColors;
+    return style == null ? const [] : hexColorMarks(_lines[line], style);
+  }
   final CodeLineSpanBuilder? spanBuilder;
 
   List<String> _lines;

@@ -12,6 +12,49 @@ const _logins = '{"status":"success","result":[{"user":{"email":"me@example.com"
 const _projects = '{"status":"success","result":[{"projectId":"my-app-1","displayName":"My App"},{"projectId":"Bad Id","displayName":"x"}]}';
 
 void main() {
+  group('flutterToolCommands', () {
+    late Directory root;
+
+    setUp(() => root = Directory.systemTemp.createTempSync('commands'));
+    tearDown(() => root.deleteSync(recursive: true));
+
+    List<String> labels({bool usesFvm = false, String? device, String host = 'windows'}) => [
+      for (final c in flutterToolCommands(root.path, usesFvm: usesFvm, device: device, host: host)) c.label,
+    ];
+
+    test('has what was only in the toolbar, and what was nowhere', () {
+      expect(labels(), containsAll(['Flutter Analyze', 'Flutter Test', 'Flutter Doctor', 'Flutter Devices', 'Pub Deps', 'Dart Fix (Apply)']));
+    });
+
+    test('a build shows only where this computer and project can do it', () {
+      expect(labels().where((l) => l.startsWith('Build')), isEmpty);
+      for (final d in ['android', 'ios', 'macos', 'windows', 'web']) {
+        Directory('${root.path}/$d').createSync();
+      }
+      expect(labels(host: 'windows'), containsAll(['Build APK', 'Build Windows', 'Build Web']));
+      expect(labels(host: 'windows'), isNot(contains('Build IPA')));
+      expect(labels(host: 'macos'), containsAll(['Build IPA', 'Build macOS']));
+      expect(labels(host: 'macos'), isNot(contains('Build Windows')));
+    });
+
+    test('follows the project and the device', () {
+      expect(labels(), contains('Flutter Upgrade SDK'));
+      expect(labels(usesFvm: true), isNot(contains('Flutter Upgrade SDK')));
+      expect(labels(), isNot(contains('Flutter Logs from Device')));
+      expect(labels(device: 'abc'), contains('Flutter Logs from Device'));
+      expect(labels(), isNot(contains('Generate Localizations (gen-l10n)')));
+      File('${root.path}/l10n.yaml').writeAsStringSync('');
+      expect(labels(), contains('Generate Localizations (gen-l10n)'));
+    });
+
+    test('only builds take the project build settings, and every command is plain words', () {
+      for (final c in flutterToolCommands(root.path, usesFvm: false, device: 'abc', host: 'windows')) {
+        expect(c.build, c.args.startsWith('build '), reason: c.label);
+        expect(c.args.split(' '), everyElement(isNotEmpty), reason: c.label);
+      }
+    });
+  });
+
   late Directory dir;
   late List<List<String>> ran;
   setUp(() {

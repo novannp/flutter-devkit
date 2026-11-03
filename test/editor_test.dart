@@ -202,6 +202,20 @@ void main() {
     });
   });
 
+  test('search and quick open leave out what git ignores, and .history', () async {
+    final dir = Directory.systemTemp.createTempSync('ignored');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    await Process.run('git', ['init', '-q'], workingDirectory: dir.path);
+    File(p.join(dir.path, '.gitignore')).writeAsStringSync('secret/\n*.gen.dart\n');
+    for (final f in ['lib/a.dart', 'lib/b.gen.dart', 'secret/c.dart', '.history/lib/d.dart']) {
+      File(p.join(dir.path, f))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('FIND');
+    }
+    expect((await searchInFiles(dir.path, 'FIND')).map((h) => p.basename(h.path)), ['a.dart']);
+    expect((await listProjectFiles(dir.path)).map(p.basename), unorderedEquals(['.gitignore', 'a.dart']));
+  });
+
   test('searchInFiles skips generated folders', () async {
     final dir = await Directory.systemTemp.createTemp('search');
     addTearDown(() => dir.delete(recursive: true));

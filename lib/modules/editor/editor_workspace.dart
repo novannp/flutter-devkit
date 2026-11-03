@@ -26,7 +26,40 @@ String tidyOnSave(String text, {required bool trim, required bool finalNewline})
 const _languageIds = {'.dart': 'dart', '.yaml': 'yaml', '.yml': 'yaml'};
 
 /// Folders that only hold generated output, skipped by quick open and find in files.
-const skippedFolders = {'build', '.dart_tool', '.git', '.fvm', '.idea', '.gradle', 'node_modules', 'Pods'};
+const skippedFolders = {'build', '.dart_tool', '.git', '.fvm', '.idea', '.gradle', '.history', 'node_modules', 'Pods'};
+
+/// What git ignores in [root], relative to it, with forward slashes. Empty outside a repository.
+Future<Set<String>> gitIgnoredPaths(String root) async {
+  try {
+    final r = await Process.run('git', const ['-c', 'core.quotepath=off', 'ls-files', '--others', '--ignored', '--exclude-standard', '--directory'], workingDirectory: root).timeout(const Duration(seconds: 5));
+    if (r.exitCode != 0) return const {};
+    return {
+      for (final l in const LineSplitter().convert(r.stdout as String))
+        if (l.trim().isNotEmpty) l.trim().endsWith('/') ? l.trim().substring(0, l.trim().length - 1) : l.trim(),
+    };
+  } on Exception {
+    return const {};
+  }
+}
+
+bool _isIgnored(String path, String root, Set<String> ignored) => ignored.isNotEmpty && ignored.contains(p.relative(path, from: root).replaceAll(r'\', '/'));
+
+/// The answer to `textDocument/documentColor`, by line.
+Map<int, List<ColorMark>> colorMarksFromLsp(List<Object?> colors) {
+  int channel(Object? v) => (((v as num?) ?? 0) * 255).round().clamp(0, 255);
+  final marks = <int, List<ColorMark>>{};
+  for (final c in colors.whereType<Map>()) {
+    final start = (c['range'] as Map)['start'] as Map, end = (c['range'] as Map)['end'] as Map;
+    final color = c['color'] as Map;
+    final line = start['line'] as int;
+    marks.putIfAbsent(line, () => []).add(ColorMark(
+      start['character'] as int,
+      end['line'] == line ? end['character'] as int : start['character'] as int,
+      channel(color['alpha']) << 24 | channel(color['red']) << 16 | channel(color['green']) << 8 | channel(color['blue']),
+    ));
+  }
+  return marks;
+}
 
 class Diagnostic {
   const Diagnostic(this.path, this.line, this.column, this.endLine, this.endColumn, this.severity, this.message, this.code, this.raw);
@@ -307,6 +340,7 @@ class EditorDocument extends ChangeNotifier {
       options: CodeLineOptions(lineBreak: crlf ? TextLineBreak.crlf : TextLineBreak.lf),
       spanBuilder: spanBuilder,
     );
+    controller.hexColors = hexColorsOf(path);
     final doc = EditorDocument._(path, controller, text, await file.lastModified());
     doc._lastLines = controller.codeLines;
     controller.addListener(doc._onControllerChanged);
@@ -654,6 +688,19 @@ class EditorWorkspace extends ChangeNotifier {
     _semanticTimers[doc] = Timer(const Duration(milliseconds: 250), () => refreshSemantics(doc));
   }
 
+  Future<void> _refreshColors(EditorDocument doc, LspClient lsp, int version) async {
+    try {
+      final colors = await lsp.request('textDocument/documentColor', {
+        'textDocument': {'uri': doc.uri},
+      });
+      if (doc.version != version || colors is! List || !documents.contains(doc)) return;
+      doc.controller.colorMarks = colorMarksFromLsp(colors);
+      doc.controller.forceRepaint();
+    } on Exception {
+      // Only a preview: the code is still there.
+    }
+  }
+
   Future<void> refreshSemantics(EditorDocument doc) async {
     final lsp = _lsp;
     if (lsp == null || doc.languageId != 'dart' || !lsp.running) return;
@@ -667,6 +714,7 @@ class EditorWorkspace extends ChangeNotifier {
       _analyzerAnswered();
       doc.semantics = decodeSemanticTokens(result['data'] as List, lsp.tokenTypes, lsp.tokenModifiers);
       doc.controller.forceRepaint();
+      unawaited(_refreshColors(doc, lsp, version));
       final symbols = await lsp.request('textDocument/documentSymbol', {
         'textDocument': {'uri': doc.uri},
       });
@@ -1077,10 +1125,12 @@ class SearchHit {
 }
 
 /// Searches text files under [root], leaving out generated folders. Runs on another isolate to keep typing smooth.
-Future<List<SearchHit>> searchInFiles(String root, String query, {int limit = 1000}) =>
-    compute((_) => _search(root, query, limit), null);
+Future<List<SearchHit>> searchInFiles(String root, String query, {int limit = 1000}) async {
+  final ignored = await gitIgnoredPaths(root);
+  return compute((_) => _search(root, query, limit, ignored), null);
+}
 
-List<SearchHit> _search(String root, String query, int limit) {
+List<SearchHit> _search(String root, String query, int limit, Set<String> ignored) {
   final q = query.toLowerCase();
   final hits = <SearchHit>[];
   void walk(Directory dir) {
@@ -1092,6 +1142,7 @@ List<SearchHit> _search(String root, String query, int limit) {
     }
     for (final e in entries) {
       if (hits.length >= limit) return;
+      if (_isIgnored(e.path, root, ignored)) continue;
       if (e is Directory) {
         if (!skippedFolders.contains(p.basename(e.path))) walk(e);
       } else if (e is File) {
@@ -1116,11 +1167,17 @@ List<SearchHit> _search(String root, String query, int limit) {
 }
 
 /// Every file under [root] outside generated folders, for quick open.
-Future<List<String>> listProjectFiles(String root) => compute((_) {
+Future<List<String>> listProjectFiles(String root) async {
+  final ignored = await gitIgnoredPaths(root);
+  return compute((_) => _listFiles(root, ignored), null);
+}
+
+List<String> _listFiles(String root, Set<String> ignored) {
   final files = <String>[];
   void walk(Directory dir) {
     try {
       for (final e in dir.listSync(followLinks: false)) {
+        if (_isIgnored(e.path, root, ignored)) continue;
         if (e is Directory) {
           if (!skippedFolders.contains(p.basename(e.path))) walk(e);
         } else if (e is File) {
@@ -1134,4 +1191,4 @@ Future<List<String>> listProjectFiles(String root) => compute((_) {
 
   walk(Directory(root));
   return files;
-}, null);
+}

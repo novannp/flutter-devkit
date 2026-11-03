@@ -168,6 +168,7 @@ class LspClient {
               'activeParameterSupport': true,
             },
           },
+          'colorProvider': {'dynamicRegistration': false},
           'semanticTokens': {
             'requests': {'full': true},
             'tokenTypes': const <String>[],

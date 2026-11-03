@@ -1,6 +1,6 @@
 # Third-party notices
 
-Slipway itself is under the MIT License, in `LICENSE`. It also ships or downloads the software below, which stays under its own license. Inside the app, **Help → About Slipway → View licenses** lists these and every Dart package.
+Slipway itself is under the MIT License, in `LICENSE`. It also ships or downloads the software below, which stays under its own license. Inside the app, **Help → Licenses** lists these and every Dart package.
 
 ## Programs shipped with the app
 
@@ -50,6 +50,19 @@ Permission is granted to anyone to use this software for any purpose, including 
 | Software | License | Where |
 |---|---|---|
 | flutter_pty | MIT, Copyright (c) 2022 xuty | `third_party/flutter_pty`, with its `LICENSE` |
+
+## Tools it runs, not shipped
+
+Slipway starts the copies of these you installed yourself. They aren't part of it, and each has its own license. Thank you to their authors.
+
+| Software | By | License | Source |
+|---|---|---|---|
+| Flutter SDK | The Flutter authors | BSD-3-Clause | https://github.com/flutter/flutter |
+| Dart SDK | The Dart project authors | BSD-3-Clause | https://github.com/dart-lang/sdk |
+| FVM | Leo Farias and contributors | MIT | https://github.com/btwld/fvm |
+| FlutterFire CLI | Invertase and contributors | Apache-2.0 | https://github.com/invertase/flutterfire_cli |
+| Firebase CLI | Firebase and contributors | MIT | https://github.com/firebase/firebase-tools |
+| Claude Code | Anthropic | Anthropic's terms | https://claude.com/claude-code |
 
 ## Dart and Flutter packages
 

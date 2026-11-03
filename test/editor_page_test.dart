@@ -27,6 +27,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'ink_audit.dart';
+
 final _primary = Platform.isMacOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft;
 
 void main() {
@@ -288,6 +290,24 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
       expect(find.text('Loading suggestions…'), findsNothing);
+
+      expect(inksHiddenBehindABox(), isEmpty);
+
+      // The agent opens as a tab, like the other tools, not in the side panel.
+      await tester.sendKeyDownEvent(_primary);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyUpEvent(_primary);
+      await tester.pump();
+      await tester.pump();
+      expect(ToolTabs.instance.open.map((m) => m.label), contains('Agent'));
+      await tester.sendKeyDownEvent(_primary);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyW);
+      await tester.sendKeyUpEvent(_primary);
+      await tester.pump();
+      await tester.pump();
+      expect(ToolTabs.instance.open.map((m) => m.label), isNot(contains('Agent')));
 
       // The palette finds commands, and the symbol list opens over the current file.
       await tester.sendKeyDownEvent(_primary);

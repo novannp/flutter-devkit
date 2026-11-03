@@ -31,6 +31,15 @@ void main() {
     }
   });
 
+  test('every program credited in the app is in the notices too', () {
+    final notices = File('THIRD_PARTY_NOTICES.md').readAsStringSync();
+    for (final c in [...shippedCredits, ...installedCredits]) {
+      expect(notices, contains(c.name), reason: c.name);
+      if (c.asset != null) expect(File(c.asset!).existsSync(), isTrue, reason: c.asset);
+    }
+    expect(notices, contains('Leo Farias'));
+  });
+
   test('no product name or logo borrows from the Flutter or Dart marks', () {
     expect(Directory('assets/fonts').existsSync(), isFalse);
     for (final file in Directory('lib').listSync(recursive: true).whereType<File>()) {

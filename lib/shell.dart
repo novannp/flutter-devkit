@@ -22,6 +22,7 @@ import 'modules/editor/tool_tabs.dart';
 import 'modules/editor/palette.dart';
 import 'modules/help/connection_guide.dart';
 import 'modules/help/getting_started.dart';
+import 'modules/help/licenses_page.dart';
 import 'modules/settings/settings_page.dart';
 import 'core/platform_keys.dart';
 
@@ -180,7 +181,7 @@ class _LogoState extends State<_Logo> {
   }
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => StatusBarItem(
     onTap: _tap,
     child: AnimatedRotation(turns: _turns, duration: const Duration(milliseconds: 500), child: widget.child),
   );
@@ -378,17 +379,38 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
 
   void _about() {
     final scheme = Theme.of(context).colorScheme;
-    showAboutDialog(
+    showDialog<void>(
       context: context,
-      applicationName: 'Slipway',
-      applicationVersion: 'Version $appVersion',
-      applicationIcon: const AppLogo(size: 48),
-      applicationLegalese: 'MIT License. Flutter, Dart and the related logos are trademarks of Google LLC. Slipway is not endorsed by or affiliated with Google LLC.',
-      children: [
-        const Text('A Flutter IDE with the device tools you test on right beside the code.'),
-        const SizedBox(height: 10),
-        Text('Dart ${Platform.version.split(' ').first}  •  ${Platform.operatingSystemVersion}', style: TextStyle(fontSize: 12, color: scheme.outline)),
-      ],
+      builder: (ctx) => AlertDialog(
+        icon: const AppLogo(size: 48),
+        title: const Text('Slipway'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Version $appVersion'),
+              const SizedBox(height: 10),
+              const Text('A Flutter IDE with the device tools you test on right beside the code.'),
+              const SizedBox(height: 10),
+              Text('Dart ${Platform.version.split(' ').first}  •  ${Platform.operatingSystemVersion}', style: TextStyle(fontSize: 12, color: scheme.outline)),
+              const SizedBox(height: 10),
+              Text('MIT License. Flutter, Dart and the related logos are trademarks of Google LLC. Slipway is not endorsed by or affiliated with Google LLC.', style: TextStyle(fontSize: 12, color: scheme.outline)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              unawaited(showLicenses(context));
+            },
+            child: const Text('View licenses'),
+          ),
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
     );
   }
 
@@ -403,6 +425,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
       }),
       _item('Take a break 🎮', Icons.sports_esports_outlined, () => _takeABreak(context)),
       const Divider(height: 1),
+      _item('Licenses', Icons.gavel_outlined, () => unawaited(showLicenses(context))),
       _item('About Slipway', Icons.info_outline, _about),
     ],
     child: const Text('Help'),
