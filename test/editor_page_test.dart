@@ -194,7 +194,8 @@ void main() {
       await settle(() => shown() == null, 'project B, with no tabs yet');
       expect(tab('one.txt'), findsNothing);
 
-      EditorCommands.openRecent!(p.join(b, 'three.txt'));
+      await settle(() => find.text('three.txt').evaluate().isNotEmpty, 'the tree of project B');
+      await tester.tap(find.text('three.txt'));
       await settle(() => shown() == 'three.txt', 'a file in project B');
 
       EditorCommands.openRecent!(a);

@@ -280,7 +280,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
             for (final path in recents)
               MenuItemButton(
                 style: _itemStyle,
-                leadingIcon: Icon(p.extension(path).isEmpty ? Icons.folder_outlined : Icons.insert_drive_file_outlined, size: 16),
+                leadingIcon: const Icon(Icons.folder_outlined, size: 16),
                 onPressed: () {
                   _openModule(_editor);
                   EditorCommands.openRecent?.call(path);

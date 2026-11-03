@@ -33,6 +33,7 @@ import 'file_tree.dart';
 import 'fuzzy_files.dart';
 import 'log_style.dart';
 import 'notices.dart';
+import 'packages_view.dart';
 import 'palette.dart';
 import 'widget_inspector.dart';
 import 'source_control.dart';
@@ -79,7 +80,7 @@ class EditorPage extends StatefulWidget {
 enum _Panel { problems, output, terminal, widgets }
 
 /// What the left panel shows. There's one panel, so opening one view replaces the other.
-enum _Side { files, git, search, debug }
+enum _Side { files, git, search, debug, packages }
 
 class _EditorPageState extends State<EditorPage> {
   EditorWorkspace? _ws;
@@ -112,6 +113,7 @@ class _EditorPageState extends State<EditorPage> {
   final _git = SourceControl();
   Timer? _gitPoll;
   var _side = _Side.files;
+  var _pubRevision = 0;
   var _restoringTabs = false;
   List<Avd> _avds = const [];
   var _sideOpen = true;
@@ -322,7 +324,6 @@ class _EditorPageState extends State<EditorPage> {
     try {
       await _ws?.open(path, line: line, column: column);
       await _rememberTabs();
-      if (!isLibrarySource(path)) unawaited(RecentPaths.add(path));
     } on FileSystemException catch (e) {
       _toast('${p.basename(path)}: ${e.message}');
     }
@@ -413,6 +414,8 @@ class _EditorPageState extends State<EditorPage> {
       action = () => _showPanel(_Panel.problems);
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyU) {
       action = () => _showPanel(_Panel.output);
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyB) {
+      action = () => _showSide(_Side.packages);
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyV) {
       final doc = _ws?.active;
       action = doc != null && doc.canPreview ? doc.togglePreview : null;
@@ -496,7 +499,6 @@ class _EditorPageState extends State<EditorPage> {
 
   Future<void> _openRecent(String path) async {
     if (Directory(path).existsSync()) return _openRoot(path);
-    if (File(path).existsSync()) return _openPicked(path);
     await RecentPaths.remove(path);
     _toast('${p.basename(path)} is no longer there');
   }
@@ -539,6 +541,7 @@ class _EditorPageState extends State<EditorPage> {
         if (_ws?.active case final doc? when doc.canPreview)
           PaletteItem(doc.previewing ? 'Show Code' : 'Open Preview', doc.togglePreview, keys: 'Ctrl+Shift+V', icon: Icons.visibility_outlined),
         PaletteItem('Show Search', () => _showSide(_Side.search), keys: 'Ctrl+Shift+F', icon: Icons.search),
+        PaletteItem('Show Packages', () => _showSide(_Side.packages), keys: 'Ctrl+Shift+B', icon: Icons.inventory_2_outlined),
         PaletteItem('Show Run and Debug', () => _showSide(_Side.debug), keys: 'Ctrl+Shift+D', icon: Icons.bug_report_outlined),
         PaletteItem('Toggle Side Panel', _toggleSide, keys: 'Ctrl+B', icon: Icons.view_sidebar_outlined),
         PaletteItem('Show Problems', () => _showPanel(_Panel.problems), keys: 'Ctrl+Shift+M', icon: Icons.error_outline),
@@ -563,6 +566,10 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Git: Discard All Changes', () => unawaited(confirmDiscardAll(context, _git)), icon: Icons.undo),
         PaletteItem('Flutter: Pub Get', () => unawaited(_runTool('pub get')), icon: Icons.download_outlined),
         PaletteItem('Flutter: Pub Upgrade', () => unawaited(_runTool('pub upgrade')), icon: Icons.upgrade),
+        PaletteItem('Flutter: Pub Upgrade to Latest Majors', () => unawaited(_runTool('pub upgrade --major-versions')), icon: Icons.upgrade),
+        PaletteItem('Flutter: Pub Outdated', () => unawaited(_runTool('pub outdated')), icon: Icons.update),
+        PaletteItem('Flutter: Sort pubspec.yaml A–Z', () => unawaited(_sortPubspec()), icon: Icons.sort_by_alpha),
+        PaletteItem('Flutter: Add Package', () => _showSide(_Side.packages), icon: Icons.add),
         PaletteItem('Flutter: Clean', () => unawaited(_runTool('clean')), icon: Icons.cleaning_services_outlined),
         if (ws != null) PaletteItem('Dart Settings', () => unawaited(_dartSettings(ws)), icon: Icons.tune),
         PaletteItem('Open Folder', _pickFolder, icon: Icons.folder_open),
@@ -830,8 +837,30 @@ class _EditorPageState extends State<EditorPage> {
     } on Exception catch (e) {
       if (mounted) setState(() => _tool.add('Failed: $e'));
     }
-    if (mounted) setState(() => _toolBusy = false);
+    if (mounted) {
+      setState(() {
+        _toolBusy = false;
+        if (args.startsWith('pub')) _pubRevision++;
+      });
+    }
     _checkPackages();
+  }
+
+  Future<void> _sortPubspec() async {
+    final ws = _ws;
+    if (ws == null || _toolBusy) return;
+    await ws.saveAll();
+    final file = File(p.join(ws.root, 'pubspec.yaml'));
+    try {
+      final before = await file.readAsString();
+      final after = sortPubspecDependencies(before);
+      if (after == before) return _toast('pubspec.yaml is already sorted');
+      await file.writeAsString(after, flush: true);
+    } on FileSystemException catch (e) {
+      return _toast('pubspec.yaml: ${e.message}');
+    }
+    await ws.documentAt(file.path)?.reloadIfChanged();
+    await _runTool('pub get');
   }
 
   // A beat after typing stops, so a whole word doesn't walk the project once per letter.
@@ -949,6 +978,15 @@ class _EditorPageState extends State<EditorPage> {
                           root: ws.root,
                           onOpen: (path, line, column) => _openFile(path, line: line, column: column),
                         ),
+                        PackagesView(
+                          key: ValueKey(ws.root),
+                          root: ws.root,
+                          visible: _sideOpen && _side == _Side.packages,
+                          busy: _toolBusy,
+                          revision: _pubRevision,
+                          onRun: (args) => unawaited(_runTool(args)),
+                          onSort: () => unawaited(_sortPubspec()),
+                        ),
                       ],
                     )),
                   ),
@@ -1045,7 +1083,7 @@ class _EditorPageState extends State<EditorPage> {
       message: tip,
       preferBelow: false,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Material(
           color: selected ? scheme.primary.withValues(alpha: .14) : Colors.transparent,
           borderRadius: shape,
@@ -1053,11 +1091,11 @@ class _EditorPageState extends State<EditorPage> {
             borderRadius: shape,
             onTap: onTap,
             child: SizedBox(
-              height: badge == null ? 36 : 46,
+              height: badge == null ? 42 : 52,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, size: 20, color: selected ? scheme.primary : scheme.onSurfaceVariant),
+                  Icon(icon, size: 22, color: selected ? scheme.primary : scheme.onSurfaceVariant),
                   if (badge != null)
                     Container(
                       margin: const EdgeInsets.only(top: 2),
@@ -1079,7 +1117,7 @@ class _EditorPageState extends State<EditorPage> {
     return Material(
       color: canvasOf(scheme),
       child: SizedBox(
-        width: 46,
+        width: 60,
         child: Column(
         children: [
           item(platformKeys('Files (Ctrl+Shift+E)'), Icons.description_outlined, _sideOpen && _side == _Side.files, () => side(_Side.files)),
@@ -1098,6 +1136,7 @@ class _EditorPageState extends State<EditorPage> {
             () => side(_Side.debug),
             badge: _debugger.paused ? '!' : null,
           ),
+          item(platformKeys('Packages (Ctrl+Shift+B)'), Icons.inventory_2_outlined, _sideOpen && _side == _Side.packages, () => side(_Side.packages)),
           const Spacer(),
           item(platformKeys('Extensions (Ctrl+Shift+X)'), Icons.extension_outlined, false, () => EditorCommands.openExtensions?.call()),
         ],

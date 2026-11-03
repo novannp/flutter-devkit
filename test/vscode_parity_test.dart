@@ -229,6 +229,15 @@ void main() {
     });
   });
 
+  test('recents forget the single files older versions saved', () async {
+    final dir = Directory.systemTemp.createTempSync('recents');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final file = File(p.join(dir.path, 'a.dart'))..writeAsStringSync('');
+    SharedPreferences.setMockInitialValues({'editor_recents': [dir.path, file.path]});
+    await RecentPaths.load();
+    expect(RecentPaths.paths.value, [dir.path]);
+  });
+
   test('recents put the newest first, drop repeats and stay short', () async {
     SharedPreferences.setMockInitialValues({});
     await RecentPaths.load();

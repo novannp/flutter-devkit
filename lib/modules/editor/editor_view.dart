@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -48,12 +49,15 @@ const _prefRecents = 'editor_recents';
 const _prefLineBlame = 'editor_line_blame';
 
 /// Folders and files opened lately, newest first.
+/// The project folders opened lately.
 class RecentPaths {
   static const limit = 20;
   static final paths = ValueNotifier(const <String>[]);
 
   static Future<void> load() async {
-    paths.value = (await SharedPreferences.getInstance()).getStringList(_prefRecents) ?? const [];
+    final saved = (await SharedPreferences.getInstance()).getStringList(_prefRecents) ?? const [];
+    // Older versions listed single files here too.
+    paths.value = [for (final path in saved) if (!FileSystemEntity.isFileSync(path)) path];
   }
 
   static Future<void> add(String path) async {

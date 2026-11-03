@@ -83,10 +83,12 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 **Project and team**
 
 - **Source Control**: changed files, stage, commit, push and pull, branches, discard one file or everything at once (a copy stays in `git stash`), a side by side before and after diff in its own tab, gutter marks for lines that differ from `HEAD`, and line blame at the end of the current line (**Git: Toggle Line Blame** in the palette or the right-click menu)
+- **Open Recent** under File lists your project folders, and reopens each with the tabs it had
 - **Find things**: fuzzy quick open (`online payment` finds `online_payment.dart`, `main.dart:42` jumps to the line), search in files as you type, Open File and Open Recent
 - **One left panel** switches between files, Source Control, search and debug. The terminal and Problems are in the bottom panel, running in the open project
 - **Notifications** in the corner, such as when packages are missing or out of sync, with a button to run `pub get`
 - **File previews**: images, PDFs, fonts and what's inside a ZIP, APK or AAB open in a tab, and anything else binary as hex. Markdown, CSV, JSON and SVG switch between code and preview (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>), and the preview follows your unsaved text
+- **Packages** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>): search pub.dev and add a dependency or dev dependency, see which packages are behind, upgrade or remove one, upgrade everything including major versions, sort `pubspec.yaml` A–Z, and run the other pub commands from one panel
 - **`pub get` on save**: saving `pubspec.yaml` runs it by itself; turn it off in the project's Dart settings
 - **Extensions** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>): Device Manager, Emulators, Printer, Notes, Maintenance, History and Work are built in and can be turned off. They open as tabs beside the code, so the Editor stays where it is
 - **Settings**: grouped into General, Editor, Projects, Devices and Tools, with a search box across all of them. An Android SDK in an unusual folder can be chosen under Tools
