@@ -1135,7 +1135,7 @@ class _CodeEditorState extends State<CodeEditor> with SingleTickerProviderStateM
     _lastDownAt = e.localPosition;
     final (line, col) = _positionAt(e.localPosition);
     final keys = HardwareKeyboard.instance;
-    if (keys.isAltPressed) {
+    if (isAltReallyPressed()) {
       _ctrl.addCursor(CodeLineSelection.collapsed(index: line, offset: col));
       return;
     }

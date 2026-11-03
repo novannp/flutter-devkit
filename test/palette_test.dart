@@ -48,4 +48,42 @@ void main() {
     expect(ran, 'all');
     expect(find.byType(TextField), findsNothing);
   });
+
+  test('search also finds a command by its group', () {
+    void none() {}
+    final items = [PaletteItem('Pub Get', none, group: 'Flutter'), PaletteItem('Open File', none, group: 'File')];
+    expect(filterPalette(items, 'flutter pub').single.label, 'Pub Get');
+    expect(filterPalette(items, 'open').single.label, 'Open File');
+  });
+
+  testWidgets('browsing shows headings, and the arrows follow what shows', (tester) async {
+    tester.view.physicalSize = const Size(1000, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var ran = '';
+    final items = [
+      PaletteItem('One', () => ran = 'one', group: 'A'),
+      PaletteItem('Two', () => ran = 'two', group: 'B', keys: 'Ctrl+Shift+T'),
+      PaletteItem('Three', () => ran = 'three', group: 'A'),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(onPressed: () => showPalette(context, hint: 'h', empty: 'e', items: items), child: const Text('Open')),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('A'), findsOneWidget);
+    expect(find.text('Shift'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Three')).dy, lessThan(tester.getTopLeft(find.text('Two')).dy), reason: 'grouped');
+
+    // One, then Three: the second row on screen, even though it was third in the list.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(ran, 'three');
+  });
 }

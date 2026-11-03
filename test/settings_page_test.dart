@@ -4,7 +4,6 @@ import 'package:devkit/core/settings.dart';
 import 'package:devkit/core/tools.dart';
 import 'package:devkit/extensions/emulators/avd_service.dart';
 import 'package:devkit/modules/devices/services/adb_service.dart';
-import 'package:devkit/modules/editor/editor_view.dart';
 import 'package:devkit/modules/settings/settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

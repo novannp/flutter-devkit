@@ -99,9 +99,9 @@ class _ShellState extends State<Shell> {
     EditorCommands.openSettings = () => _go(_modules.indexOf(_settings));
     EditorCommands.windowCommands = () => [
       for (final m in _modules)
-        if (m != _editor) PaletteItem('Open ${m.label}', () => _go(_modules.indexOf(m)), keys: m == _extensions ? 'Ctrl+Shift+X' : (m == _settings ? 'Ctrl+,' : null), icon: m.icon),
-      PaletteItem('Getting Started', () => showGettingStarted(context), icon: Icons.school_outlined),
-      PaletteItem('Connection Guide', () => showConnectionGuide(context), icon: Icons.help_outline),
+        if (m != _editor) PaletteItem('Open ${m.label}', () => _go(_modules.indexOf(m)), keys: m == _extensions ? 'Ctrl+Shift+X' : (m == _settings ? 'Ctrl+,' : null), icon: m.icon, group: 'Window'),
+      PaletteItem('Getting Started', () => showGettingStarted(context), icon: Icons.school_outlined, group: 'Window'),
+      PaletteItem('Connection Guide', () => showConnectionGuide(context), icon: Icons.help_outline, group: 'Window'),
     ];
     ExtensionManager.instance.addListener(_onExtensions);
     _tools.addListener(_rebuild);

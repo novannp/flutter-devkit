@@ -4,10 +4,13 @@ import 'package:flutter/services.dart';
 import '../../core/platform_keys.dart';
 
 class PaletteItem {
-  const PaletteItem(this.label, this.onPick, {this.detail, this.keys, this.icon});
+  const PaletteItem(this.label, this.onPick, {this.detail, this.keys, this.icon, this.group});
 
   final String label;
   final String? detail, keys;
+
+  /// The heading it sits under. Searching finds this too, so "flutter pub" works.
+  final String? group;
   final IconData? icon;
   final VoidCallback onPick;
 }
@@ -38,7 +41,8 @@ List<PaletteItem> filterPalette(List<PaletteItem> items, String query) {
   final starts = <PaletteItem>[], rest = <PaletteItem>[];
   for (final item in items) {
     final label = item.label.toLowerCase();
-    if (!words.every((w) => _isSubsequence(w, label))) continue;
+    final hay = item.group == null ? label : '${item.group!.toLowerCase()} $label';
+    if (!words.every((w) => _isSubsequence(w, hay) || _isSubsequence(w, label))) continue;
     (label.startsWith(q) ? starts : rest).add(item);
   }
   return [...starts, ...rest];
@@ -64,8 +68,9 @@ class _Palette extends StatefulWidget {
 }
 
 class _PaletteState extends State<_Palette> {
-  static const _rowHeight = 30.0;
+  static const _rowHeight = 34.0, _headingHeight = 28.0;
   var _index = 0;
+  var _query = '';
   late var _shown = widget.items;
   final _scroll = ScrollController();
 
@@ -75,31 +80,113 @@ class _PaletteState extends State<_Palette> {
     super.dispose();
   }
 
+  /// Headings only while browsing: search results go by how well they match.
+  bool get _grouped => _query.isEmpty && widget.items.any((i) => i.group != null);
+
+  List<Object> get _rows {
+    if (!_grouped) return _shown;
+    final order = <String?>[];
+    final groups = <String?, List<PaletteItem>>{};
+    for (final item in _shown) {
+      if (!groups.containsKey(item.group)) order.add(item.group);
+      (groups[item.group] ??= []).add(item);
+    }
+    return [
+      for (final group in order) ...[?group, ...groups[group]!],
+    ];
+  }
+
+  /// In the order the rows show, which is what the arrows and Enter have to follow.
+  List<PaletteItem> get _items => _rows.whereType<PaletteItem>().toList();
+
   void _move(int delta) {
-    if (_shown.isEmpty) return;
-    setState(() => _index = (_index + delta) % _shown.length);
+    final items = _items;
+    if (items.isEmpty) return;
+    setState(() => _index = (_index + delta) % items.length);
     if (!_scroll.hasClients) return;
-    final top = _index * _rowHeight;
+    var top = 0.0;
+    var seen = 0;
+    for (final row in _rows) {
+      if (row is PaletteItem && seen++ == _index) break;
+      top += row is PaletteItem ? _rowHeight : _headingHeight;
+    }
+    // The first command brings its heading along.
+    if (_index == 0) top = 0;
+    final position = _scroll.position;
     if (top < _scroll.offset) {
       _scroll.jumpTo(top);
-    } else if (top + _rowHeight > _scroll.offset + _scroll.position.viewportDimension) {
-      _scroll.jumpTo(top + _rowHeight - _scroll.position.viewportDimension);
+    } else if (top + _rowHeight > _scroll.offset + position.viewportDimension) {
+      _scroll.jumpTo((top + _rowHeight - position.viewportDimension).clamp(0, position.maxScrollExtent));
     }
+  }
+
+  Widget _keyCap(String text, ColorScheme scheme) => Container(
+    margin: const EdgeInsets.only(left: 3),
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+    decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(4)),
+    child: Text(text, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+  );
+
+  Widget _keys(String keys, ColorScheme scheme) {
+    final label = platformKeys(keys);
+    // macOS writes them run together, as its own menus do.
+    final parts = label.contains('+') && label.length > 1 ? label.split(RegExp(r'\+(?=.)')) : [label];
+    return Row(mainAxisSize: MainAxisSize.min, children: [for (final part in parts) _keyCap(part, scheme)]);
+  }
+
+  Widget _row(PaletteItem item, bool selected, ColorScheme scheme) {
+    final shape = BorderRadius.circular(7);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      child: Material(
+        color: selected ? scheme.primary.withValues(alpha: .14) : Colors.transparent,
+        borderRadius: shape,
+        child: InkWell(
+          borderRadius: shape,
+          onTap: () => Navigator.pop(context, item),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                SizedBox(width: 24, child: item.icon == null ? null : Icon(item.icon, size: 16, color: selected ? scheme.primary : scheme.outline)),
+                Flexible(child: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))),
+                if (item.detail != null) ...[
+                  const SizedBox(width: 10),
+                  Flexible(child: Text(item.detail!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: scheme.outline))),
+                ],
+                if (!_grouped && item.group != null) ...[
+                  const SizedBox(width: 8),
+                  Text(item.group!, style: TextStyle(fontSize: 11.5, color: scheme.outline)),
+                ],
+                const Spacer(),
+                if (item.keys != null) _keys(item.keys!, scheme),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final small = TextStyle(fontSize: 12, color: scheme.outline);
+    final rows = _rows;
+    final items = _items;
+    final selected = _index < items.length ? items[_index] : null;
     return Dialog(
       alignment: Alignment.topCenter,
+      insetPadding: const EdgeInsets.fromLTRB(24, 64, 24, 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
       child: SizedBox(
-        width: 640,
-        height: 440,
+        width: 620,
+        height: 460,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
               child: Focus(
                 onKeyEvent: (_, e) {
                   if (e is KeyUpEvent) return KeyEventResult.ignored;
@@ -115,48 +202,70 @@ class _PaletteState extends State<_Palette> {
                 },
                 child: TextField(
                   autofocus: true,
-                  decoration: InputDecoration(hintText: widget.hint, isDense: true),
+                  style: const TextStyle(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: widget.hint,
+                    isDense: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    prefixIcon: Icon(Icons.search, size: 18, color: scheme.outline),
+                    prefixIconConstraints: const BoxConstraints.tightFor(width: 28, height: 32),
+                  ),
                   onChanged: (v) => setState(() {
+                    _query = v.trim();
                     _shown = filterPalette(widget.items, v);
                     _index = 0;
                     if (_scroll.hasClients) _scroll.jumpTo(0);
                   }),
                   onSubmitted: (_) {
-                    if (_shown.isNotEmpty) Navigator.pop(context, _shown[_index]);
+                    final items = _items;
+                    if (_index < items.length) Navigator.pop(context, items[_index]);
                   },
                 ),
               ),
             ),
+            const Divider(height: 1),
             Expanded(
-              child: _shown.isEmpty
+              child: rows.isEmpty
                   ? Center(child: Text(widget.empty, style: TextStyle(color: scheme.outline, fontSize: 13)))
                   : ListView.builder(
                       controller: _scroll,
-                      itemCount: _shown.length,
-                      itemExtent: _rowHeight,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      itemCount: rows.length,
                       itemBuilder: (_, i) {
-                        final item = _shown[i];
-                        return InkWell(
-                          onTap: () => Navigator.pop(context, item),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            color: i == _index ? scheme.primary.withValues(alpha: .14) : null,
-                            child: Row(
-                              children: [
-                                if (item.icon != null) ...[Icon(item.icon, size: 15, color: scheme.outline), const SizedBox(width: 8)],
-                                Flexible(child: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))),
-                                if (item.detail != null) ...[
-                                  const SizedBox(width: 10),
-                                  Flexible(child: Text(item.detail!, maxLines: 1, overflow: TextOverflow.ellipsis, style: small)),
-                                ],
-                                const Spacer(),
-                                if (item.keys != null) Text(platformKeys(item.keys!), style: small),
-                              ],
-                            ),
-                          ),
-                        );
+                        final row = rows[i];
+                        if (row is String) {
+                          return Container(
+                            height: _headingHeight,
+                            alignment: Alignment.bottomLeft,
+                            padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                            child: Text(row, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: scheme.outline)),
+                          );
+                        }
+                        final item = row as PaletteItem;
+                        return SizedBox(height: _rowHeight, child: _row(item, identical(item, selected), scheme));
                       },
                     ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Row(
+                children: [
+                  _keyCap('↑↓', scheme),
+                  Text(' Move', style: TextStyle(fontSize: 11.5, color: scheme.outline)),
+                  const SizedBox(width: 10),
+                  _keyCap('Enter', scheme),
+                  Text(' Run', style: TextStyle(fontSize: 11.5, color: scheme.outline)),
+                  const SizedBox(width: 10),
+                  _keyCap('Esc', scheme),
+                  Text(' Close', style: TextStyle(fontSize: 11.5, color: scheme.outline)),
+                  const Spacer(),
+                  Text('${items.length}', style: TextStyle(fontSize: 11.5, color: scheme.outline)),
+                ],
+              ),
             ),
           ],
         ),
