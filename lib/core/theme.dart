@@ -595,6 +595,7 @@ ThemeData buildTheme(AppTheme t) {
     ),
     menuTheme: MenuThemeData(
       style: MenuStyle(
+        padding: const WidgetStatePropertyAll(EdgeInsets.all(4)),
         backgroundColor: WidgetStatePropertyAll(scheme.surface),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         shape: WidgetStatePropertyAll(

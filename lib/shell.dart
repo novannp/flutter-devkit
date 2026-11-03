@@ -157,6 +157,13 @@ class _ShellState extends State<Shell> {
 
 final _tagline = tagline();
 
+class _MenuDivider extends StatelessWidget {
+  const _MenuDivider();
+
+  @override
+  Widget build(BuildContext context) => const Divider(height: 9, indent: 8, endIndent: 8);
+}
+
 class _Logo extends StatefulWidget {
   const _Logo({required this.child, required this.onTap});
 
@@ -209,9 +216,10 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
 
   static final _itemStyle = ButtonStyle(
     textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 13)),
-    minimumSize: WidgetStateProperty.all(const Size(0, 28)),
+    minimumSize: WidgetStateProperty.all(const Size(0, 30)),
     padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 10)),
     visualDensity: VisualDensity.compact,
+    shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))),
   );
 
   @override
@@ -250,7 +258,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
 
   Widget _item(String label, IconData icon, VoidCallback? onPressed, {String? keys, Widget? trailing}) => MenuItemButton(
     style: _itemStyle,
-    leadingIcon: Icon(icon, size: 17),
+    leadingIcon: Icon(icon, size: 16),
     onPressed: onPressed,
     trailingIcon: keys == null ? null : Text(platformKeys(keys), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline)),
     child: trailing ?? Text(label),
@@ -280,7 +288,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
         valueListenable: RecentPaths.paths,
         builder: (_, recents, _) => SubmenuButton(
           style: _itemStyle,
-          leadingIcon: const Icon(Icons.history, size: 17),
+          leadingIcon: const Icon(Icons.history, size: 16),
           menuChildren: [
             if (recents.isEmpty) _item('Nothing yet', Icons.history, null),
             for (final path in recents)
@@ -307,14 +315,14 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
                 ),
               ),
             if (recents.isNotEmpty) ...[
-              const Divider(height: 1),
+              const _MenuDivider(),
               _item('Clear Recently Opened', Icons.clear_all, RecentPaths.clear),
             ],
           ],
           child: const Text('Open Recent'),
         ),
       ),
-      const Divider(height: 1),
+      const _MenuDivider(),
       _item('Go to File…', Icons.search, () {
         _openModule(_editor);
         EditorCommands.quickOpen?.call();
@@ -322,12 +330,12 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
       _item('Save All', Icons.save_outlined, () => EditorCommands.saveAll?.call(), keys: 'Ctrl+Shift+S'),
       _item('Command Palette', Icons.keyboard_command_key, () => EditorCommands.commandPalette?.call(), keys: 'Ctrl+Shift+P'),
       _item('Go to Symbol in File', Icons.data_object, () => EditorCommands.goToSymbol?.call(), keys: 'Ctrl+Shift+O'),
-      const Divider(height: 1),
+      const _MenuDivider(),
       _item('Extensions', Icons.extension_outlined, () => _openModule(_extensions), keys: 'Ctrl+Shift+X'),
       _item('Settings', Icons.settings_outlined, () => _openModule(_settings), keys: 'Ctrl+,'),
       SubmenuButton(
         style: _itemStyle,
-        leadingIcon: const Icon(Icons.palette_outlined, size: 17),
+        leadingIcon: const Icon(Icons.palette_outlined, size: 16),
         menuChildren: [
           for (final t in appThemes)
             ValueListenableBuilder(
@@ -352,8 +360,8 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
         ],
         child: const Text('Theme'),
       ),
-      const Divider(height: 1),
-      _item('Quit Slipway (the bugs will wait)', Icons.power_settings_new, BackgroundRunner.instance.quit),
+      const _MenuDivider(),
+      _item('Quit Slipway', Icons.power_settings_new, BackgroundRunner.instance.quit),
     ],
     child: const Text('File'),
   );
@@ -362,7 +370,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
     style: _itemStyle,
     menuChildren: [
       for (final (label, icon, intent, _, _, keys) in _undoActions) _item(label, icon, () => invokeOnFocused(intent), keys: keys),
-      const Divider(height: 1),
+      const _MenuDivider(),
       for (final (label, icon, intent, _, _, keys) in _clipboardActions) _item(label, icon, () => invokeOnFocused(intent), keys: keys),
     ],
     child: const Text('Edit'),
@@ -424,7 +432,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
         if (file != null && file.existsSync()) unawaited(revealInExplorer(file.path));
       }),
       _item('Take a break 🎮', Icons.sports_esports_outlined, () => _takeABreak(context)),
-      const Divider(height: 1),
+      const _MenuDivider(),
       _item('Licenses', Icons.gavel_outlined, () => unawaited(showLicenses(context))),
       _item('About Slipway', Icons.info_outline, _about),
     ],
