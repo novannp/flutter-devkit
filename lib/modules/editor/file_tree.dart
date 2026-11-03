@@ -263,7 +263,7 @@ class FileTreeState extends State<FileTree> {
               child: ListView.builder(
                 controller: _scroll,
                 itemCount: rows.length,
-                itemExtent: 23,
+                itemExtent: 30,
                 itemBuilder: (_, i) {
                   final r = rows[i];
                   final path = r.entity.path;
@@ -275,7 +275,7 @@ class FileTreeState extends State<FileTree> {
                       borderRadius: BorderRadius.circular(7),
                       onTap: () => r.isDir ? _toggle(path) : widget.onOpen(path),
                       child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 6),
+                        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                         decoration: BoxDecoration(
                           color: open ? scheme.primary.withValues(alpha: .14) : null,
                           borderRadius: BorderRadius.circular(7),
@@ -291,15 +291,15 @@ class FileTreeState extends State<FileTree> {
                             const SizedBox(width: 2),
                             () {
                               final (icon, color) = r.isDir ? _folderIcon(path, _expanded.contains(path)) : fileIconOf(path);
-                              return Icon(icon, size: 16, color: color ?? scheme.outline);
+                              return Icon(icon, size: 18, color: color ?? scheme.outline);
                             }(),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 p.basename(path),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 13, color: errors > 0 ? scheme.error : null),
+                                style: TextStyle(fontSize: 13.5, color: errors > 0 ? scheme.error : null),
                               ),
                             ),
                             if (errors > 0) Text('$errors', style: TextStyle(fontSize: 11, color: scheme.error)),

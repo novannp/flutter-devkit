@@ -446,6 +446,10 @@ void main() {
       await tester.sendKeyDownEvent(_primary);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
       await tester.sendKeyUpEvent(_primary);
+      // MediaQuery follows the view, and the layout reads the window's width from it.
+      tester.view.physicalSize = const Size(560, 400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await tester.binding.setSurfaceSize(const Size(560, 400));
       await tester.pump();
       expect(tester.takeException()?.toString(), isNull);

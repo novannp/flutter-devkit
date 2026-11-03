@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -112,7 +113,7 @@ class _EditorPageState extends State<EditorPage> {
   var _panel = _Panel.problems;
   var _panelOpen = false;
   double _panelHeight = 240;
-  double _treeWidth = 260;
+  double _treeWidth = 320;
 
   ConsoleSession? _terminal;
   FlutterSession? _flutter;
@@ -1077,7 +1078,10 @@ class _EditorPageState extends State<EditorPage> {
       );
     }
     final windowWidth = MediaQuery.sizeOf(context).width;
-    final sideWidth = _treeWidth.clamp(0, windowWidth * .4).toDouble();
+    // In a small window the panel gives way first: an editor narrower than its gutter is no use.
+    final mirror = _mirrorOpen ? _mirrorWidth.clamp(0, windowWidth * .4) : 0;
+    final roomLeft = windowWidth - 60 - mirror - ws.groups.length * 200;
+    final sideWidth = min(_treeWidth, min(windowWidth * .4, roomLeft)).clamp(0, 600).toDouble();
     return _keepingKeys(Focus(
       focusNode: _pageFocus,
       onKeyEvent: (_, e) => _onKey(e),
@@ -1105,15 +1109,16 @@ class _EditorPageState extends State<EditorPage> {
                         width: sideWidth * t,
                         child: OverflowBox(
                           alignment: Alignment.centerLeft,
-                          minWidth: sideWidth,
-                          maxWidth: sideWidth,
+                          // Squeezed further than this, the panel is cut off rather than crushed.
+                          minWidth: max(sideWidth, 240),
+                          maxWidth: max(sideWidth, 240),
                           child: child,
                         ),
                       ),
                     ),
                   ),
                   child: SizedBox(
-                    width: sideWidth,
+                    width: max(sideWidth, 240),
                     child: PanelCard(child: IndexedStack(
                       index: _side.index,
                       sizing: StackFit.expand,

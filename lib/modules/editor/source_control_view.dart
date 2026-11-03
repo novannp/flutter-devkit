@@ -157,7 +157,7 @@ class _SourceControlViewState extends State<SourceControlView> {
   }
 
   Widget _branchBar(ColorScheme scheme) => SizedBox(
-    height: 28,
+    height: 32,
     child: Row(
       children: [
         Expanded(
