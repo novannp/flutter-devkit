@@ -82,8 +82,6 @@ class EditorPage extends StatefulWidget {
 }
 
 const _pickPackageToUpgrade = 'pick';
-const _showFvmItem = 'fvm';
-const _showFirebaseItem = 'firebase';
 const _buildRunnerBuild = 'dart run build_runner build --delete-conflicting-outputs';
 const _buildRunnerWatch = 'dart run build_runner watch --delete-conflicting-outputs';
 const _buildRunnerClean = 'dart run build_runner clean';
@@ -191,7 +189,7 @@ class _EditorPageState extends State<EditorPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_loadAvds());
     });
-    ToolTabs.instance.addListener(_rebuild);
+    ToolTabs.instance.addListener(_onTools);
     _debugger
       ..onMessage = ((m) => _flutter?.note(m, error: true))
       ..addListener(_onDebugger);
@@ -214,7 +212,7 @@ class _EditorPageState extends State<EditorPage> {
     _pageFocus.dispose();
     _packagesPoll?.cancel();
     _searchFocus.dispose();
-    ToolTabs.instance.removeListener(_rebuild);
+    ToolTabs.instance.removeListener(_onTools);
     _gitPoll?.cancel();
     _git
       ..removeListener(_rebuild)
@@ -232,6 +230,52 @@ class _EditorPageState extends State<EditorPage> {
 
   void _rebuild() {
     if (mounted) setState(() {});
+  }
+
+  var _syncingTools = false;
+
+  /// [ToolTabs] says which tools are open and which is in front; here they are tabs among the files.
+  void _syncTools() {
+    final ws = _ws;
+    if (ws == null || _syncingTools) return;
+    _syncingTools = true;
+    try {
+      final tools = ToolTabs.instance;
+      for (final doc in [...ws.documents]) {
+        if (doc.module case final m? when !tools.open.contains(m)) unawaited(ws.close(doc));
+      }
+      for (final m in tools.open) {
+        if (ws.toolDoc(m) == null) ws.openTool(m, activate: false);
+      }
+      if (tools.active case final m?) {
+        ws.openTool(m);
+      } else {
+        ws.showCode();
+      }
+    } finally {
+      _syncingTools = false;
+    }
+  }
+
+  void _onTools() {
+    _syncTools();
+    _rebuild();
+  }
+
+  /// A tab clicked, or a file opened, decides what's in front: the title bar and menus follow.
+  void _followActiveTab() {
+    if (_syncingTools) return;
+    final ws = _ws;
+    if (ws == null) return;
+    final module = ws.active?.module;
+    final tools = ToolTabs.instance;
+    if (identical(module, tools.active)) return;
+    _syncingTools = true;
+    try {
+      module == null ? tools.showEditor() : tools.show(module);
+    } finally {
+      _syncingTools = false;
+    }
   }
 
   // A settings.json edited by hand, or in the settings page, applies at once.
@@ -276,7 +320,8 @@ class _EditorPageState extends State<EditorPage> {
     if (ws == null || _restoringTabs) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefRoot, ws.root);
-    await ProjectTabs(ws.documents.map((d) => d.path).toList(), ws.active?.path).save(ws.root);
+    final files = ws.documents.where((d) => d.module == null);
+    await ProjectTabs(files.map((d) => d.path).toList(), ws.active?.module == null ? ws.active?.path : null).save(ws.root);
   }
 
   /// What a project had open last time. Before tabs were per project there was one list, for the last project.
@@ -298,6 +343,7 @@ class _EditorPageState extends State<EditorPage> {
       await _rememberTabs();
       _stopTool();
       old.removeListener(_rebuild);
+      old.removeListener(_followActiveTab);
       _revealSub?.cancel();
       old.dispose();
     }
@@ -318,6 +364,7 @@ class _EditorPageState extends State<EditorPage> {
     Settings.instance.openProject(root);
     ws.dart = await DartSettings.load(root);
     ws.addListener(_rebuild);
+    ws.addListener(_followActiveTab);
     _revealSub = ws.revealRequests.stream.listen((t) {
       // The tab's pane may only appear on the next frame.
       WidgetsBinding.instance.addPostFrameCallback((_) => _pane?.reveal(t.line, t.column));
@@ -325,6 +372,7 @@ class _EditorPageState extends State<EditorPage> {
     setState(() {
       _ws = ws;
       _hits = const [];
+      _syncTools();
     });
     unawaited(_git.open(root));
     // A diff belongs to the project it was opened from.
@@ -398,6 +446,7 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Future<void> _closeTab(EditorDocument doc) async {
+    if (doc.module case final m?) return ToolTabs.instance.close(m);
     if (!await _confirmUnsaved(doc.dirty ? [doc] : const [])) return;
     await _ws?.close(doc);
     await _rememberTabs();
@@ -553,7 +602,7 @@ class _EditorPageState extends State<EditorPage> {
     if (!mounted) return;
     final picked = await showDialog<(String, int?)>(
       context: context,
-      builder: (_) => _QuickOpen(root: ws.root, files: files, recent: [for (final d in ws.documents) d.path]),
+      builder: (_) => _QuickOpen(root: ws.root, files: files, recent: [for (final d in ws.documents) if (d.module == null) d.path]),
     );
     if (picked != null) await _openFile(picked.$1, line: picked.$2, column: picked.$2 == null ? null : 0);
   }
@@ -970,7 +1019,7 @@ class _EditorPageState extends State<EditorPage> {
 
   Future<void> _showFvm() async {
     final ws = _ws;
-    if (ws == null) return;
+    if (ws == null) return _toast('Open a folder first');
     await showDialog<void>(
       context: context,
       builder: (_) => FvmDialog(
@@ -986,7 +1035,7 @@ class _EditorPageState extends State<EditorPage> {
 
   Future<void> _showFirebase() async {
     final ws = _ws;
-    if (ws == null) return;
+    if (ws == null) return _toast('Open a folder first');
     await showDialog<void>(
       context: context,
       builder: (_) => FirebaseDialog(
@@ -1159,7 +1208,7 @@ class _EditorPageState extends State<EditorPage> {
                   child: Column(
                     children: [
                       if (ws.lspError != null) _errorBanner(ws.lspError!, scheme),
-                      Expanded(child: _workArea(_groups(ws, scheme), scheme)),
+                      Expanded(child: _groups(ws, scheme)),
                       TweenAnimationBuilder<double>(
                         tween: Tween(end: _panelOpen ? 1 : 0),
                         duration: const Duration(milliseconds: 130),
@@ -1279,6 +1328,13 @@ class _EditorPageState extends State<EditorPage> {
         width: 60,
         child: Column(
         children: [
+          // A short window scrolls these, and Extensions stays in reach below them.
+          Expanded(
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
           item(platformKeys('Files (Ctrl+Shift+E)'), Icons.description_outlined, _sideOpen && _side == _Side.files, () => side(_Side.files)),
           item(
             platformKeys('Source Control (Ctrl+Shift+G)'),
@@ -1296,7 +1352,13 @@ class _EditorPageState extends State<EditorPage> {
             badge: _debugger.paused ? '!' : null,
           ),
           item(platformKeys('Packages (Ctrl+Shift+B)'), Icons.inventory_2_outlined, _sideOpen && _side == _Side.packages, () => side(_Side.packages)),
-          const Spacer(),
+          item('Flutter Versions (FVM)', Icons.layers_outlined, false, () => unawaited(_showFvm())),
+          item('Firebase', Icons.local_fire_department_outlined, false, () => unawaited(_showFirebase())),
+                  ],
+                ),
+              ),
+            ),
+          ),
           item(platformKeys('Extensions (Ctrl+Shift+X)'), Icons.extension_outlined, false, () => EditorCommands.openExtensions?.call()),
         ],
       ),
@@ -1473,12 +1535,7 @@ class _EditorPageState extends State<EditorPage> {
             tooltip: 'Flutter commands',
             icon: const Icon(Icons.flutter_dash),
             enabled: !_toolBusy,
-            onSelected: (v) => switch (v) {
-              _pickPackageToUpgrade => unawaited(_upgradeOnePackage()),
-              _showFvmItem => unawaited(_showFvm()),
-              _showFirebaseItem => unawaited(_showFirebase()),
-              _ => unawaited(_runTool(v)),
-            },
+            onSelected: (v) => v == _pickPackageToUpgrade ? unawaited(_upgradeOnePackage()) : unawaited(_runTool(v)),
             itemBuilder: (_) => const [
               PopupMenuItem(height: 30, value: 'pub get', child: Text('pub get')),
               PopupMenuItem(height: 30, value: 'pub upgrade', child: Text('pub upgrade')),
@@ -1488,9 +1545,6 @@ class _EditorPageState extends State<EditorPage> {
               PopupMenuItem(height: 30, value: 'analyze', child: Text('analyze')),
               PopupMenuItem(height: 30, value: 'test', child: Text('test')),
               PopupMenuItem(height: 30, value: 'doctor', child: Text('doctor')),
-              PopupMenuDivider(),
-              PopupMenuItem(height: 30, value: _showFvmItem, child: Text('Flutter versions (FVM)…')),
-              PopupMenuItem(height: 30, value: _showFirebaseItem, child: Text('Firebase…')),
             ],
           ),
           PopupMenuButton<String>(
@@ -1586,7 +1640,7 @@ class _EditorPageState extends State<EditorPage> {
                     duration: const Duration(milliseconds: 120),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(panelGap, 0, panelGap, panelGap),
-                      child: PanelCard(child: m.page),
+                      child: PanelCard(child: KeyedSubtree(key: GlobalObjectKey(m), child: m.page)),
                     ),
                   ),
                 ),
@@ -1717,7 +1771,9 @@ class _EditorPageState extends State<EditorPage> {
         _rebuild();
       });
     }
-    final doc = group.settling ? null : group.active;
+    final inFront = group.settling ? null : group.active;
+    // What a tool's tab has in front isn't code, and takes no breadcrumbs or banners.
+    final doc = inFront?.module == null ? inFront : null;
     final key = _paneKeys[group] ??= GlobalKey<CodePaneState>();
     return Listener(
       onPointerDown: (_) => ws.focusGroup(group),
@@ -1737,7 +1793,9 @@ class _EditorPageState extends State<EditorPage> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (doc == null)
+                if (group.active?.module != null)
+                  const SizedBox.shrink()
+                else if (doc == null)
                   group.settling ? const SizedBox.shrink() : _EmptyEditor(onQuickOpen: _quickOpen)
                 else if (doc.binary || doc.previewing)
                   FilePreview(key: ObjectKey(doc), doc: doc)
@@ -1751,6 +1809,16 @@ class _EditorPageState extends State<EditorPage> {
                     onKey: _onKey,
                     onTarget: _jump,
                     onReferences: _showReferences,
+                  ),
+                // All of a view's tools stay built, so scans, logs and the printer keep their state behind other tabs.
+                for (final tool in group.docs.where((d) => d.module != null))
+                  Offstage(
+                    offstage: !identical(tool, group.active),
+                    // Disabled TickerMode tells hidden pages to hide native windows (embedded scrcpy) too.
+                    child: TickerMode(
+                      enabled: identical(tool, group.active),
+                      child: KeyedSubtree(key: GlobalObjectKey(tool.module!), child: tool.module!.page),
+                    ),
                   ),
                 // Only there during a drag, so it can never get in the way of the editor.
                 if (_draggingTab != null)
@@ -1806,7 +1874,7 @@ class _EditorPageState extends State<EditorPage> {
   Widget _fileTab(EditorWorkspace ws, EditorGroup group, int i, ColorScheme scheme) {
     final d = group.docs[i];
     final selected = d == group.active;
-    final (icon, color) = fileIconOf(d.path);
+    final (icon, color) = d.module == null ? fileIconOf(d.path) : (d.module!.icon, null);
     final tab = Listener(
       // Middle click closes, as in every other editor.
       onPointerDown: (e) {
@@ -1827,7 +1895,7 @@ class _EditorPageState extends State<EditorPage> {
             Icon(icon, size: 14, color: color ?? scheme.outline),
             const SizedBox(width: 5),
             Tooltip(
-              message: d.path,
+              message: d.module == null ? d.path : d.name,
               child: Text(
                 d.name,
                 style: TextStyle(
@@ -2027,7 +2095,7 @@ class _EditorPageState extends State<EditorPage> {
             Tooltip(message: sdk.path, child: Text('Flutter ${sdk.flutter}  •  Dart ${sdk.dart}', style: style)),
             const SizedBox(width: 14),
           ],
-          if (doc != null)
+          if (doc != null && doc.module == null)
             RebuildAfterFrame(
               listenable: doc.controller,
               builder: (_) {

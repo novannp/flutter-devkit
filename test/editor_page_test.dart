@@ -435,12 +435,18 @@ void main() {
       await tester.pump();
       expect(find.text('probe page'), findsOneWidget);
       expect(find.byType(FileTree), findsOneWidget);
-      expect(find.byType(CodePane), findsNothing, reason: 'the code is behind the tool, not gone');
-      await tester.tap(find.text('Editor'));
+      expect(find.byType(CodePane), findsOneWidget, reason: 'the other view keeps its code');
+      ToolTabs.instance.showEditor();
+      await tester.pump();
       await tester.pump();
       expect(find.byType(CodePane), findsNWidgets(2));
+      ToolTabs.instance.show(tool);
+      await tester.pump();
       ToolTabs.instance.close(tool);
       await tester.pump();
+      await tester.pump();
+      expect(find.text('Probe'), findsNothing);
+      expect(find.byType(CodePane), findsNWidgets(2));
 
       // A narrow window with the panels open: everything gives way instead of overflowing.
       await tester.sendKeyDownEvent(_primary);
@@ -501,6 +507,28 @@ void main() {
       await until(() => find.byType(CodePane).evaluate().length == 2, 'the second view');
       final left = tester.getCenter(tab('main.dart')).dx, right = tester.getCenter(tab('other.dart')).dx;
       expect(left, lessThan(right));
+
+      // A tool's tab is the same kind of tab: it opens beside the files, and can go beside them.
+      final tool = AppModule('Probe', Icons.devices_other, const Text('probe page'));
+      addTearDown(() => ToolTabs.instance.close(tool));
+      ToolTabs.instance.show(tool);
+      await tester.pump();
+      expect(tab('Probe'), findsOneWidget);
+      expect(find.text('probe page'), findsOneWidget);
+
+      final toolDrag = await tester.startGesture(tester.getCenter(tab('Probe')), kind: PointerDeviceKind.mouse);
+      await toolDrag.moveBy(const Offset(0, 40));
+      await tester.pump();
+      final leftPane = tester.getRect(find.byType(CodePane).first);
+      await toolDrag.moveTo(Offset(leftPane.left + 20, leftPane.center.dy));
+      await tester.pump();
+      await toolDrag.moveBy(const Offset(2, 0));
+      await tester.pump();
+      await toolDrag.up();
+      await until(() => tester.getCenter(find.text('probe page')).dx < tester.getCenter(find.byType(CodePane).first).dx, 'the tool to the left');
+      expect(find.byType(CodePane), findsNWidgets(2), reason: 'code and tool side by side');
+      ToolTabs.instance.close(tool);
+      await tester.pump();
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 3));
@@ -691,8 +719,6 @@ void main() {
       await settle(() => find.text('Before (HEAD)').evaluate().isNotEmpty, 'its before side');
       expect(find.byType(SideBySideDiff), findsOneWidget);
       expect(find.byType(SourceControlView), findsOneWidget, reason: 'the Editor is still around it');
-      await tester.tap(find.text('Editor').first);
-      await tester.pump();
       ToolTabs.instance.open.toList().forEach(ToolTabs.instance.close);
       await tester.pump();
 

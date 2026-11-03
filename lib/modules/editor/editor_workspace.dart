@@ -12,6 +12,7 @@ import 'engine/code_editor.dart';
 import 'engine/snippet.dart';
 import 'lsp_client.dart';
 import 'preview_kind.dart';
+import 'tool_tabs.dart';
 
 const _maxFileBytes = 20 * 1024 * 1024;
 
@@ -256,6 +257,9 @@ class EditorDocument extends ChangeNotifier {
   /// No text to edit, so the tab is a preview: an image, a PDF, a font.
   bool binary = false;
 
+  /// A tab that holds a tool such as Settings, in the same strip as the files.
+  AppModule? module;
+
   /// A text file showing its rendered form instead of its code.
   late bool previewing = previewKindOf(path) == PreviewKind.svg;
 
@@ -280,7 +284,7 @@ class EditorDocument extends ChangeNotifier {
   void Function()? _onSync;
   CodeLines? _lastLines;
 
-  String get name => p.basename(path);
+  String get name => module?.label ?? p.basename(path);
   String get uri => Uri.file(path).toString();
   String? get languageId => _languageIds[p.extension(path).toLowerCase()];
 
@@ -308,6 +312,9 @@ class EditorDocument extends ChangeNotifier {
     controller.addListener(doc._onControllerChanged);
     return doc;
   }
+
+  /// Its path is only an identity: no file has it, so nothing on disk can ever match.
+  static EditorDocument tool(AppModule module) => _binary('devkit-tool-${identityHashCode(module)}', DateTime(0))..module = module;
 
   static EditorDocument _binary(String path, DateTime modified) =>
       EditorDocument._(path, CodeLineEditingController(codeLines: CodeLines.fromText('')), '', modified)..binary = true;
@@ -456,6 +463,28 @@ class EditorWorkspace extends ChangeNotifier {
     to.active = doc;
     to.settling = true;
     focused = to;
+    notifyListeners();
+  }
+
+  EditorDocument? toolDoc(AppModule module) => documents.where((d) => identical(d.module, module)).firstOrNull;
+
+  /// Adds a tool's tab to the view in focus. It only comes forward if [activate] says so.
+  EditorDocument openTool(AppModule module, {bool activate = true}) {
+    var doc = toolDoc(module);
+    if (doc == null) {
+      doc = EditorDocument.tool(module);
+      documents.add(doc);
+      focused.docs.add(doc);
+      doc.addListener(notifyListeners);
+    }
+    if (activate) this.activate(doc);
+    return doc;
+  }
+
+  /// Back to the code in the view in focus, from a tool's tab.
+  void showCode() {
+    if (focused.active?.module == null) return;
+    focused.active = focused.docs.where((d) => d.module == null).lastOrNull;
     notifyListeners();
   }
 

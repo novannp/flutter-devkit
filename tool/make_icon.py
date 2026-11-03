@@ -1,4 +1,4 @@
-"""Generates the app icon (windows/runner/resources/app_icon.ico, assets/tray.ico, assets/logo.png, docs/logo.png).
+"""Generates the app icon (windows/runner/resources/app_icon.ico, assets/logo.png, docs/logo.png).
 
 Run: python tool/make_icon.py
 """
@@ -56,19 +56,13 @@ def render() -> Image.Image:
 def main() -> None:
     icon = render()
     sizes = [(16, 16), (20, 20), (24, 24), (32, 32), (40, 40), (48, 48), (64, 64), (128, 128), (256, 256)]
-    for out in [ROOT / 'windows/runner/resources/app_icon.ico', ROOT / 'assets/tray.ico']:
+    for out in [ROOT / 'windows/runner/resources/app_icon.ico']:
         icon.save(out, sizes=sizes)
     (ROOT / 'docs').mkdir(exist_ok=True)
     icon.resize((256, 256), Image.LANCZOS).save(ROOT / 'docs/logo.png')
     icon.resize((128, 128), Image.LANCZOS).save(ROOT / 'assets/logo.png')
     for size in [16, 32, 64, 128, 256, 512, 1024]:
         icon.resize((size, size), Image.LANCZOS).save(ROOT / f'macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_{size}.png')
-    # The menu bar tints a template by its alpha, so only the letter is drawn.
-    tray = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(tray)
-    for shape in LETTER:
-        draw.polygon(shape, fill=(0, 0, 0, 255))
-    tray.resize((44, 44), Image.LANCZOS).save(ROOT / 'assets/tray_mac.png')
     print('icons written')
 
 

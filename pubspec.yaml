@@ -38,7 +38,6 @@ dependencies:
   path_provider: ^2.1.6
   ffi: ^2.2.0
   window_manager: ^0.5.2
-  tray_manager: ^0.5.1
   path: ^1.9.1
   xterm: ^4.0.0
   flutter_pty: ^0.4.2
@@ -67,8 +66,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/tray.ico
-    - assets/tray_mac.png
     - assets/logo.png
     - assets/licenses/
     - LICENSE

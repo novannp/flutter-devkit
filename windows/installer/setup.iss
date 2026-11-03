@@ -34,7 +34,7 @@ WizardImageFile=wizard-1x.bmp,wizard-2x.bmp
 WizardSmallImageFile=wizard-small-1x.bmp,wizard-small-2x.bmp
 Compression=lzma2/ultra64
 SolidCompression=yes
-; DevKit keeps running in the tray, and its adb/scrcpy lock files during upgrades.
+; A running DevKit and its adb/scrcpy lock files during upgrades.
 CloseApplications=force
 RestartApplications=no
 

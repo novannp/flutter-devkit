@@ -83,15 +83,15 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 **Project and team**
 
 - **Source Control**: changed files, a side-by-side diff with syntax colors, stage, commit, push and pull, branches, discard one file or everything at once (a copy stays in `git stash`), a side by side before and after diff in its own tab, gutter marks for lines that differ from `HEAD`, and line blame at the end of the current line (**Git: Toggle Line Blame** in the palette or the right-click menu)
-- **Move tabs around**: drag any tab along its strip, drop a file's tab in another view to move it there, or on the left or right edge of a view to split it in two
+- **Move tabs around**: files and tools like Settings share one tab strip. Drag a tab along it, drop it in another view to move it there, or on the left or right edge of a view to put it side by side
 - **Open Recent** under File lists your project folders, and reopens each with the tabs it had
 - **Find things**: fuzzy quick open (`online payment` finds `online_payment.dart`, `main.dart:42` jumps to the line), search in files as you type, Open File and Open Recent
 - **One left panel** switches between files, Source Control, search and debug. The terminal and Problems are in the bottom panel, running in the open project
 - **Notifications** in the corner, such as when packages are missing or out of sync, with a button to run `pub get`
 - **File previews**: images, PDFs, fonts and what's inside a ZIP, APK or AAB open in a tab, and anything else binary as hex. Markdown, CSV, JSON and SVG switch between code and preview (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>), and the preview follows your unsaved text
 - **Packages** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>): search pub.dev and add a dependency or dev dependency, see which packages are behind, upgrade or remove one, upgrade everything including major versions, sort `pubspec.yaml` A–Z, and run the other pub commands from one panel
-- **Flutter versions**: click the `fvm` chip, or **Flutter commands → Flutter versions (FVM)**, to see what's installed, install a release, pin one for the project or make it global, without typing fvm commands. The analyzer, terminal and Run move to it straight away
-- **Firebase**: **Flutter commands → Firebase** walks you through it in order: install the CLIs, sign in, pick or create a Firebase project, run `flutterfire configure` for the platforms you choose, add packages such as Auth and Firestore, then copy the startup code
+- **Flutter versions**: the layers icon in the left rail or the `fvm` chip show what's installed, install a release, pin one for the project or make it global, without typing fvm commands. The analyzer, terminal and Run move to it straight away
+- **Firebase**: the flame icon in the left rail walks you through it in order: install the CLIs, sign in, pick or create a Firebase project, run `flutterfire configure` for the platforms you choose, add packages such as Auth and Firestore, then copy the startup code
 - **Code generation**: a project with `build_runner` gets a button in the toolbar to generate once, generate on every save, or clear its cache, with a Stop button while it runs
 - **`pub get` on save**: saving `pubspec.yaml` runs it by itself; turn it off in the project's Dart settings
 - **Extensions** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>): Device Manager, Emulators, Printer, Notes, Maintenance, History and Work are built in and can be turned off. They open as tabs beside the code, so the Editor stays where it is
@@ -147,7 +147,7 @@ Settings live in JSON you can edit by hand or from the Settings page, and change
 }
 ```
 
-`flutter.sdkPath`, `app.keepRunningOnClose` and `app.reopenLastProject` only work in your own file: a repo you clone shouldn't decide what program runs on your computer. Run arguments with shell characters such as `&` or `|` are left out, and Run tells you when that happens.
+`flutter.sdkPath` and `app.reopenLastProject` only work in your own file: a repo you clone shouldn't decide what program runs on your computer. Run arguments with shell characters such as `&` or `|` are left out, and Run tells you when that happens.
 
 ## 📡 Devices
 
@@ -213,7 +213,6 @@ Each device opens in **its own window**, made for multi-device testing.
 - **Terminal** in the Editor's bottom panel, running in the open project with its pinned SDK on `PATH`
 - **Multi Screen**: pick the devices you want in one window, with broadcast input
 - Built-in **connection guide** for USB, Wireless debugging and the printer
-- **Keeps running in the tray** when closed (quit from File or the tray icon)
 
 ## ⌨️ Workspace shortcuts
 
@@ -285,7 +284,7 @@ Every push to `main` that passes CI also builds these. Find them as `dist-window
 
 ```text
 lib/
-  core/              themes, tools (adb/scrcpy lookup), tray, project scanning, source links
+  core/              themes, tools (adb/scrcpy lookup), project scanning, source links
   modules/           what Flutter DevKit is built on
     editor/          Editor page, panels, Dart analysis server over LSP, debugger, Source Control
       engine/        our text editor: text model, multiple cursors, undo, syntax highlighting, rendering

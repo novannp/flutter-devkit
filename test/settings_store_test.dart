@@ -74,11 +74,11 @@ void main() {
     });
 
     test('a repo cannot choose the SDK that runs', () async {
-      projectFile().writeAsStringSync('{"flutter.sdkPath": "C:/evil", "app.keepRunningOnClose": false}');
+      projectFile().writeAsStringSync('{"flutter.sdkPath": "C:/evil", "app.reopenLastProject": false}');
       await s.load(path: global);
       s.openProject(root);
       expect(s.text('flutter.sdkPath'), '');
-      expect(s.flag('app.keepRunningOnClose'), isTrue);
+      expect(s.flag('app.reopenLastProject'), isTrue);
       await s.set(SettingScope.project, 'flutter.sdkPath', 'C:/evil');
       expect(s.text('flutter.sdkPath'), '');
     });

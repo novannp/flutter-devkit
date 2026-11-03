@@ -26,7 +26,6 @@ class SettingDef {
 
 const settingDefs = <SettingDef>[
   SettingDef('app.theme', SettingType.choice, null, 'Theme', 'The colors of the whole app.'),
-  SettingDef('app.keepRunningOnClose', SettingType.boolean, true, 'Keep running when closed', 'The close button hides the window, so the printer and scans keep going. Quit from the File menu or the tray.', projectable: false),
   SettingDef('app.reopenLastProject', SettingType.boolean, true, 'Reopen the last project', 'Start where you left off, instead of on the start page.', projectable: false),
 
   SettingDef('editor.fontSize', SettingType.number, 14.0, 'Font size', 'The size of code. Ctrl+plus and Ctrl+minus change it too.', min: 8, max: 36),
