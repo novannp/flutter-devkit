@@ -397,7 +397,7 @@ class _PackagesViewState extends State<PackagesView> {
   Widget _heading(String text, ColorScheme scheme, {VoidCallback? onTap, bool? open}) => InkWell(
     onTap: onTap,
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 2),
       child: Row(
         children: [
           Expanded(child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant))),
@@ -410,46 +410,52 @@ class _PackagesViewState extends State<PackagesView> {
   Widget _row(PubPackage package, ColorScheme scheme) {
     final valid = isValidPubName(package.name);
     final action = !widget.busy && valid;
+    const buttonSize = BoxConstraints.tightFor(width: 24, height: 24);
     return Padding(
       padding: const EdgeInsets.only(left: 12, right: 2),
       child: SizedBox(
-        height: 42,
+        height: 26,
         child: Row(
           children: [
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Tooltip(
+                message: package.discontinued ? '${package.name} is discontinued' : package.name,
+                child: Text(
+                  package.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: package.discontinued ? scheme.error : null),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text.rich(
+              TextSpan(
+                text: !package.fromPubDev ? 'local' : (package.current ?? '–'),
                 children: [
-                  Text(package.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
-                  Text.rich(
-                    TextSpan(
-                      text: !package.fromPubDev ? 'SDK, git or path' : (package.current ?? 'not fetched yet'),
-                      children: [
-                        if (package.hasNewer) TextSpan(text: '  →  ${package.latest}', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w600)),
-                        if (package.discontinued) TextSpan(text: '  discontinued', style: TextStyle(color: scheme.error)),
-                      ],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11.5, color: scheme.outline),
-                  ),
+                  if (package.hasNewer) TextSpan(text: ' → ${package.latest}', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w600)),
                 ],
               ),
+              maxLines: 1,
+              style: TextStyle(fontSize: 11.5, color: scheme.outline),
             ),
             if (package.hasNewer && package.fromPubDev)
               IconButton(
                 tooltip: package.canUpgrade ? 'Upgrade to ${package.upgradable}' : 'Upgrade to ${package.latest} (changes pubspec.yaml)',
-                iconSize: 16,
-                visualDensity: VisualDensity.compact,
+                iconSize: 15,
+                padding: EdgeInsets.zero,
+                constraints: buttonSize,
                 onPressed: action ? () => widget.onRun(package.canUpgrade ? 'pub upgrade ${package.name}' : 'pub upgrade --major-versions ${package.name}') : null,
                 icon: Icon(Icons.arrow_upward, color: action ? scheme.primary : null),
               ),
             if (package.fromPubDev || package.kind != PubKind.transitive)
               PopupMenuButton<VoidCallback>(
                 tooltip: 'More',
-                iconSize: 16,
+                iconSize: 15,
                 padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 200),
+                icon: const Icon(Icons.more_vert),
+                style: IconButton.styleFrom(minimumSize: const Size(24, 24), fixedSize: const Size(24, 24), padding: EdgeInsets.zero),
                 onSelected: (run) => run(),
                 itemBuilder: (_) => [
                   if (package.fromPubDev && action) ...[
