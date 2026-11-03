@@ -19,9 +19,22 @@ String? startupProjectOf(List<String> args) {
   return arg?.substring(projectWindowArg.length);
 }
 
+/// What another window of this app starts with. A debugger's engine switches stay behind:
+/// with `start-paused` the new window would wait forever for a debugger that isn't attached to it.
+Map<String, String> windowEnvironment(Map<String, String> environment) => {
+  for (final e in environment.entries)
+    if (!e.key.toUpperCase().startsWith('FLUTTER_ENGINE_SWITCH')) e.key: e.value,
+};
+
 /// Another window of the IDE, with its own analyzer, terminal and runs. It lives on after this one closes.
 Future<void> openProjectWindow([String folder = '']) async {
-  await Process.start(Platform.resolvedExecutable, ['$projectWindowArg$folder'], mode: ProcessStartMode.detached);
+  await Process.start(
+    Platform.resolvedExecutable,
+    ['$projectWindowArg$folder'],
+    mode: ProcessStartMode.detached,
+    environment: windowEnvironment(Platform.environment),
+    includeParentEnvironment: false,
+  );
 }
 
 /// Ids of devices with a workspace window open.
@@ -50,7 +63,7 @@ Future<void> openWorkspaceWindow(Device d) async {
     '$workspaceArg$payload',
     '--title=${d.displayName} · Slipway',
     '--cascade=${_open.length + 1}',
-  ], environment: FlutterHub.instance.childEnvironment);
+  ], environment: {...windowEnvironment(Platform.environment), ...FlutterHub.instance.childEnvironment}, includeParentEnvironment: false);
   // Child window output is unused; drained so the pipe buffer doesn't fill up.
   p.stdout.drain<void>();
   p.stderr.drain<void>();
