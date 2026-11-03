@@ -86,3 +86,65 @@ class _StatusBarItemState extends State<StatusBarItem> {
     );
   }
 }
+
+/// One entry of the left rail. The whole width and the gaps between entries take the click,
+/// though only the pill in the middle shows.
+class RailItem extends StatefulWidget {
+  const RailItem({super.key, required this.tooltip, required this.icon, required this.selected, required this.onTap, this.badge});
+
+  final String tooltip;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  final String? badge;
+
+  @override
+  State<RailItem> createState() => _RailItemState();
+}
+
+class _RailItemState extends State<RailItem> {
+  var _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final badge = widget.badge;
+    final fill = widget.selected
+        ? scheme.primary.withValues(alpha: .14)
+        : (_hover ? scheme.onSurface.withValues(alpha: .08) : Colors.transparent);
+    return Tooltip(
+      message: widget.tooltip,
+      preferBelow: false,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Container(
+              // The count sits under the icon, so no number can ever cover it.
+              height: badge == null ? 42 : 52,
+              decoration: BoxDecoration(color: fill, borderRadius: BorderRadius.circular(9)),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(widget.icon, size: 22, color: widget.selected ? scheme.primary : scheme.onSurfaceVariant),
+                  if (badge != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(6)),
+                      child: Text(badge, style: TextStyle(fontSize: 9, height: 1.3, fontWeight: FontWeight.w700, color: scheme.onPrimary)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

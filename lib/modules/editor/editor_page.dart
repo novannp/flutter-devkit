@@ -1430,39 +1430,8 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Widget _activityBar(ColorScheme scheme) {
-    final shape = BorderRadius.circular(9);
-    // The count sits under the icon, so no number can ever cover it.
-    Widget item(String tip, IconData icon, bool selected, VoidCallback onTap, {String? badge}) => Tooltip(
-      message: tip,
-      preferBelow: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Material(
-          color: selected ? scheme.primary.withValues(alpha: .14) : Colors.transparent,
-          borderRadius: shape,
-          child: InkWell(
-            borderRadius: shape,
-            onTap: onTap,
-            child: SizedBox(
-              height: badge == null ? 42 : 52,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 22, color: selected ? scheme.primary : scheme.onSurfaceVariant),
-                  if (badge != null)
-                    Container(
-                      margin: const EdgeInsets.only(top: 2),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(6)),
-                      child: Text(badge, style: TextStyle(fontSize: 9, height: 1.3, fontWeight: FontWeight.w700, color: scheme.onPrimary)),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    Widget item(String tip, IconData icon, bool selected, VoidCallback onTap, {String? badge}) =>
+        RailItem(tooltip: tip, icon: icon, selected: selected, onTap: onTap, badge: badge);
 
     // Clicking the open view closes the side panel, as in VS Code.
     void side(_Side which) => _sideOpen && _side == which ? _toggleSide() : _showSide(which);
