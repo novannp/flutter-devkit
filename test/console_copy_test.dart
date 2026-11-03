@@ -2,10 +2,37 @@ import 'dart:io';
 
 import 'package:devkit/modules/console/console_view.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xterm/xterm.dart';
 
 void main() {
+  testWidgets('typing reaches the shell', (tester) async {
+    final terminal = Terminal();
+    final sent = StringBuffer();
+    terminal.onOutput = sent.write;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TerminalView(terminal, hardwareKeyboardOnly: consoleUsesKeyEvents),
+        ),
+      ),
+    );
+    // A click is how the panel gets focus: it isn't focused on its own.
+    await tester.tap(find.byType(TerminalView));
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyL, character: 'l');
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyS, character: 's');
+    await tester.sendKeyEvent(LogicalKeyboardKey.space, character: ' ');
+    await tester.sendKeyEvent(LogicalKeyboardKey.minus, character: '-');
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(sent.toString(), 'ls -\x7f\r');
+    // It waits this long to tell a click from a double click.
+    await tester.pump(const Duration(milliseconds: 400));
+  });
+
   final primary = Platform.isMacOS ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft;
 
   testWidgets('Ctrl+C copies a selection, and otherwise still interrupts', (tester) async {

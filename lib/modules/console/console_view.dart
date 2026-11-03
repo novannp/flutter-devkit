@@ -36,6 +36,10 @@ const _theme = TerminalTheme(
 );
 
 /// Terminal widget: right-click copies the selection, or pastes when nothing is selected.
+/// xterm opens its text input without saying which window it's for, and such input goes nowhere,
+/// so typing comes from key events instead.
+const consoleUsesKeyEvents = true;
+
 /// Ctrl+C copies while text is selected, as in Windows Terminal. With nothing selected it still interrupts.
 bool copiesSelection(KeyEvent event, {required bool hasSelection}) {
   final keys = HardwareKeyboard.instance;
@@ -73,6 +77,7 @@ class ConsoleView extends StatelessWidget {
         controller: session.controller,
         theme: _theme,
         autofocus: autofocus,
+        hardwareKeyboardOnly: consoleUsesKeyEvents,
         textStyle: const TerminalStyle(fontSize: 13, fontFamily: 'Cascadia Mono', fontFamilyFallback: ['Consolas', ...monoFallback]),
         onSecondaryTapDown: (_, _) => _copyOrPaste(),
         onKeyEvent: (_, event) {
