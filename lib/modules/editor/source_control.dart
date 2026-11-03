@@ -87,6 +87,12 @@ List<GitChange> parseStatus(String output) {
 
 enum GitMark { added, modified, deleted }
 
+/// What the branch can do with a remote: a branch only here is published, one with a remote is synced.
+enum BranchAction { none, publish, sync }
+
+/// Fields for the git graph, split by a character that can't be typed into any of them.
+const graphLogFormat = '%H%x1f%P%x1f%D%x1f%an%x1f%ar%x1f%s';
+
 final _hunk = RegExp(r'^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@');
 
 /// Gutter marks, by 0-based line, from a `git diff -U0`.
@@ -175,6 +181,12 @@ class SourceControl extends ChangeNotifier {
   String? branch;
   int ahead = 0, behind = 0;
   bool hasUpstream = false;
+  bool hasRemote = false;
+
+  BranchAction get branchAction {
+    if (hasUpstream) return BranchAction.sync;
+    return hasRemote && branch != '(detached)' ? BranchAction.publish : BranchAction.none;
+  }
   List<GitChange> changes = const [];
   bool busy = false;
   String? error;
@@ -256,6 +268,7 @@ class SourceControl extends ChangeNotifier {
       branch = head.text.trim().isEmpty ? '(detached)' : head.text.trim();
       final counts = await _git(['rev-list', '--left-right', '--count', '@{upstream}...HEAD']);
       hasUpstream = counts.ok;
+      hasRemote = (await _git(['remote'])).text.trim().isNotEmpty;
       final parts = counts.ok ? counts.text.trim().split(RegExp(r'\s+')) : const <String>[];
       behind = int.tryParse(parts.elementAtOrNull(0) ?? '') ?? 0;
       ahead = int.tryParse(parts.elementAtOrNull(1) ?? '') ?? 0;
@@ -323,6 +336,26 @@ class SourceControl extends ChangeNotifier {
   Future<bool> push() => _run([
     hasUpstream ? ['push'] : ['push', '-u', 'origin', 'HEAD'],
   ]);
+
+  /// Publishes a branch that's only here. One with a remote gets what's new there, then sends what's new here.
+  Future<bool> sync() async {
+    if (!hasUpstream) return push();
+    if (!await _run([
+      ['fetch'],
+    ])) {
+      return false;
+    }
+    return _run([
+      if (behind > 0) ['pull', '--ff-only'],
+      if (ahead > 0) ['push'],
+    ]);
+  }
+
+  /// The newest commits of every branch, newest first.
+  Future<String> graphLog({int limit = 500}) async {
+    final r = await _git(['log', '--all', '--date-order', '-n', '$limit', '--format=$graphLogFormat']);
+    return r.ok ? r.text : '';
+  }
 
   Future<bool> pull() => _run([
     ['pull', '--ff-only'],

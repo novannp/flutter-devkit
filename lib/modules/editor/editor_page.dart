@@ -39,6 +39,7 @@ import 'fuzzy_files.dart';
 import 'log_style.dart';
 import 'notices.dart';
 import 'project_tools.dart';
+import 'git_graph.dart';
 import 'packages_view.dart';
 import 'palette.dart';
 import 'widget_inspector.dart';
@@ -691,6 +692,9 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Step Over', _debugger.stepOver, keys: 'F10', icon: Icons.redo, group: 'Debug'),
         PaletteItem('Step Into', _debugger.stepInto, keys: 'F11', icon: Icons.south_east, group: 'Debug'),
         PaletteItem('Step Out', _debugger.stepOut, keys: 'Shift+F11', icon: Icons.north_east, group: 'Debug'),
+        PaletteItem('Git Graph', _showGitGraph, icon: Icons.account_tree_outlined, group: 'Git'),
+        PaletteItem('Switch Branch', () => unawaited(_pickBranch()), icon: Icons.call_split, group: 'Git'),
+        PaletteItem('Sync or Publish Branch', () => unawaited(_syncBranch()), icon: Icons.sync, group: 'Git'),
         PaletteItem('Toggle Line Blame', EditorView.toggleLineBlame, icon: Icons.person_search_outlined, group: 'Git'),
         PaletteItem('Discard All Changes', () => unawaited(confirmDiscardAll(context, _git)), icon: Icons.undo, group: 'Git'),
         PaletteItem('Flutter Versions (FVM)', () => unawaited(_showFvm()), icon: Icons.layers_outlined, group: 'Flutter'),
@@ -854,6 +858,102 @@ class _EditorPageState extends State<EditorPage> {
     unawaited(_git.refresh());
     // Terminals and other tools change the repo too.
     _gitPoll = Timer.periodic(const Duration(seconds: 4), (_) => _git.refresh());
+  }
+
+  void _showGitGraph() {
+    if (!_git.isRepo) return _toast('This folder is not a git repository');
+    // With the diffs, because it belongs to the open project in the same way.
+    ToolTabs.instance.show(_diffTabs.putIfAbsent(':graph', () => AppModule('Git Graph', Icons.account_tree_outlined, GitGraphView(git: _git))));
+  }
+
+  Future<void> _pickBranch() async {
+    final branches = await _git.branches();
+    if (!mounted) return;
+    await showPalette(
+      context,
+      hint: 'Switch to branch',
+      empty: 'No branches match',
+      items: [
+        for (final b in branches)
+          PaletteItem(b, () => unawaited(_switchBranch(b)), icon: Icons.call_split, detail: b == _git.branch ? 'current' : null),
+        PaletteItem('Git Graph', _showGitGraph, icon: Icons.account_tree_outlined),
+      ],
+    );
+  }
+
+  Future<void> _switchBranch(String name) async {
+    if (name == _git.branch) return;
+    if (!await _git.switchTo(name) && mounted) _toast(_git.error ?? "Couldn't switch to $name");
+  }
+
+  Future<void> _syncBranch() async {
+    final publishing = _git.branchAction == BranchAction.publish;
+    final branch = _git.branch;
+    final ok = await _git.sync();
+    if (!mounted) return;
+    if (!ok) return _toast(_git.error ?? 'Sync failed');
+    if (publishing) _toast('$branch is on the remote now');
+  }
+
+  /// The branch and, when the project has a remote, a button to publish or sync it.
+  List<Widget> _branchStatus(ColorScheme scheme, TextStyle style) {
+    if (!_git.isRepo) return const [];
+    final action = _git.branchAction;
+    final (icon, tip, label) = switch (action) {
+      BranchAction.publish => (Icons.cloud_upload_outlined, 'Publish this branch: it is only on this computer', 'Publish'),
+      _ => (
+        Icons.sync,
+        'Sync: pull ${_git.behind} and push ${_git.ahead}',
+        [if (_git.behind > 0) '↓${_git.behind}', if (_git.ahead > 0) '↑${_git.ahead}'].join(' '),
+      ),
+    };
+    return [
+      Tooltip(
+        message: 'Switch branch',
+        child: InkWell(
+          onTap: () => unawaited(_pickBranch()),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.call_split, size: 14, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 3),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
+                child: Text(_git.branch ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+              ),
+            ],
+          ),
+        ),
+      ),
+      if (action != BranchAction.none) ...[
+        const SizedBox(width: 6),
+        Tooltip(
+          message: tip,
+          child: InkWell(
+            onTap: _git.busy ? null : () => unawaited(_syncBranch()),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_git.busy)
+                  const SizedBox(width: 11, height: 11, child: CircularProgressIndicator(strokeWidth: 1.5))
+                else
+                  Icon(icon, size: 14, color: action == BranchAction.publish ? scheme.primary : scheme.onSurfaceVariant),
+                if (label.isNotEmpty) ...[
+                  const SizedBox(width: 3),
+                  Text(label, style: action == BranchAction.publish ? style.copyWith(color: scheme.primary) : style),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+      const SizedBox(width: 6),
+      Tooltip(
+        message: 'Git Graph',
+        child: InkWell(onTap: _showGitGraph, child: Icon(Icons.account_tree_outlined, size: 14, color: scheme.onSurfaceVariant)),
+      ),
+      const SizedBox(width: 12),
+    ];
   }
 
   void _showDiff(GitChange change, bool staged) {
@@ -2102,6 +2202,7 @@ class _EditorPageState extends State<EditorPage> {
       color: canvasOf(scheme),
       child: Row(
         children: [
+          ..._branchStatus(scheme, style),
           InkWell(
             onTap: () => _showPanel(_Panel.problems),
             child: Row(

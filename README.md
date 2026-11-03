@@ -82,6 +82,8 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 
 **Project and team**
 
+- **Git Graph**: every branch as a drawn history, opened from the status bar or the palette. Right-click a commit to switch to its branch or copy its hash
+- **Branch in the status bar**: click it to switch. It shows what's ahead and behind with a button to sync, or **Publish** while the branch is only on your computer
 - **Source Control**: changed files, a side-by-side diff with syntax colors, stage, commit, push and pull, branches, discard one file or everything at once (a copy stays in `git stash`), a side by side before and after diff in its own tab, gutter marks for lines that differ from `HEAD`, and line blame at the end of the current line (**Git: Toggle Line Blame** in the palette or the right-click menu)
 - **Move tabs around**: files and tools like Settings share one tab strip. Drag a tab along it, drop it in another view to move it there, or on the left or right edge of a view to put it side by side
 - **Several projects at once**: **File → New Window** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>) or **Open Folder in New Window**, each with its own analyzer and runs
