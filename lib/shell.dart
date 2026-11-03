@@ -7,6 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:window_manager/window_manager.dart';
 
 import 'core/panels.dart';
+import 'modules/devices/services/flutter_hub.dart';
+import 'core/windows.dart';
 import 'core/app_logo.dart';
 import 'core/background.dart';
 import 'core/error_log.dart';
@@ -107,6 +109,7 @@ class _ShellState extends State<Shell> {
     _tools.addListener(_rebuild);
     BackgroundRunner.instance.onQuit = () async {
       await editorSaveAllOnQuit?.call();
+      await FlutterHub.instance.close();
     };
   }
 
@@ -266,10 +269,12 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
         _openModule(_editor);
         EditorCommands.openFile?.call();
       }, keys: 'Ctrl+O'),
+      _item('New Window', Icons.open_in_new, openProjectWindow, keys: 'Ctrl+Shift+N'),
       _item('Open Folder…', Icons.folder_open_outlined, () {
         _openModule(_editor);
         EditorCommands.openFolder?.call();
       }),
+      _item('Open Folder in New Window…', Icons.open_in_new, () => EditorCommands.openFolderInNewWindow?.call()),
       ValueListenableBuilder(
         valueListenable: RecentPaths.paths,
         builder: (_, recents, _) => SubmenuButton(
@@ -439,10 +444,12 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
         _openModule(_editor);
         EditorCommands.openFile?.call();
       }, key: LogicalKeyboardKey.keyO),
+      _nativeItem('New Window', openProjectWindow, key: LogicalKeyboardKey.keyN, shift: true),
       _nativeItem('Open Folder…', () {
         _openModule(_editor);
         EditorCommands.openFolder?.call();
       }),
+      _nativeItem('Open Folder in New Window…', () => EditorCommands.openFolderInNewWindow?.call()),
       PlatformMenu(label: 'Open Recent', menus: [
         if (RecentPaths.paths.value.isEmpty) const PlatformMenuItem(label: 'Nothing yet'),
         for (final path in RecentPaths.paths.value)

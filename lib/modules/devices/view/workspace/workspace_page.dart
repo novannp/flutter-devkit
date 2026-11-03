@@ -20,6 +20,7 @@ import '../../models/device.dart';
 import '../../services/adb_service.dart';
 import '../../services/device_adb.dart';
 import '../../services/flutter_session.dart';
+import '../../services/flutter_hub.dart';
 import '../../services/logcat_controller.dart';
 import 'apps_tab.dart';
 import 'dev_tab.dart';
@@ -102,7 +103,7 @@ String _prefFocus(String id) => 'ws_focus_$id';
 class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
   late final dev = DeviceAdb(context.read<AdbService>(), widget.device.adbTarget!);
   late final _log = LogcatController(dev)..start();
-  late final _flutter = FlutterSession(dev.target);
+  late final _flutter = FlutterHub.instance.session(dev.target);
   final _focus = ValueNotifier<String?>(null);
   final _filesDir = ValueNotifier('/sdcard/Download');
   final _filesRefresh = ValueNotifier(0);
@@ -206,7 +207,7 @@ class _DeviceWorkspacePageState extends State<DeviceWorkspacePage> {
     _sizeProbe?.cancel();
     _crashSub?.cancel();
     _flutter.removeListener(_onFlutter);
-    _flutter.dispose();
+    FlutterHub.instance.release(_flutter);
     _log.dispose();
     _focus.dispose();
     _ticket.dispose();

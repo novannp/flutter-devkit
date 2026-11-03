@@ -29,6 +29,12 @@ class FlutterSession extends ChangeNotifier {
   static const maxLines = 15000;
 
   final lines = <FlutterLine>[];
+
+  /// Every line there has ever been, which outlasts the trimming of [lines].
+  var appended = 0;
+
+  /// Goes up when the log is cleared.
+  var generation = 0;
   FlutterProject? project;
   FlutterStatus status = FlutterStatus.idle;
   String? progress;
@@ -57,6 +63,7 @@ class FlutterSession extends ChangeNotifier {
   void _add(String text, FlutterLineKind kind) {
     _session?.writeln(text);
     lines.add(FlutterLine(text, kind));
+    appended++;
     if (lines.length > maxLines + 1000) lines.removeRange(0, lines.length - maxLines);
     _dirty = true;
   }
@@ -252,10 +259,12 @@ class FlutterSession extends ChangeNotifier {
 
   void clear() {
     lines.clear();
+    generation++;
     notifyListeners();
   }
 
   void setReloadOnSave(bool v) {
+    if (v == reloadOnSave) return;
     reloadOnSave = v;
     v && status == FlutterStatus.running ? _startWatching() : _stopWatching();
     notifyListeners();

@@ -2,10 +2,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'apps.dart';
-import '../modules/devices/services/mdns_service.dart';
 
 // One-time upgrade from the app's previous name. Delete this file once nobody runs the old build.
 const legacyFirewallRule = 'Ravo DevKit';
@@ -33,12 +29,7 @@ Future<void> migrateFromLegacyName() async {
   if (appData == null) return;
   try {
     final old = Directory(p.join(appData, 'com.ravo', 'Ravo DevKit'));
-    if (!await copyLegacyData(old, await getApplicationSupportDirectory())) return;
-    // These used to be built in; existing installs keep working with them.
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(appPrefixesKey, const ['com.payfirstsolutions.']);
-    await prefs.setString(MdnsService.serviceTypeKey, '_ravodev._tcp');
-    if (!prefs.containsKey('bb_workspace')) await prefs.setString('bb_workspace', 'payfirst101');
+    await copyLegacyData(old, await getApplicationSupportDirectory());
   } catch (_) {
     // Starting fresh beats not starting; the old folder is left untouched.
   }

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:devkit/core/settings.dart';
 import 'package:devkit/core/theme.dart';
+import 'package:devkit/core/windows.dart';
 import 'package:devkit/modules/editor/dart_settings.dart';
 import 'package:devkit/modules/editor/editor_page.dart';
 import 'package:devkit/modules/editor/editor_workspace.dart';
@@ -187,6 +188,13 @@ void main() {
     expect(rows(2, 2, 3), [(false, 0), (false, 1), (true, 0), (true, 1), (false, 2)]);
     expect(rows(3, 2, 3).last, (true, 1), reason: 'the command run last is at the end');
     expect(rows(0, 1, 1), [(true, 0), (false, 0)]);
+  });
+
+  test('what a new window was opened for', () {
+    expect(startupProjectOf(const []), isNull);
+    expect(startupProjectOf(const ['--title=x']), isNull);
+    expect(startupProjectOf(const ['--project=']), '');
+    expect(startupProjectOf(const ['--project=C:\\My Projects\\app']), 'C:\\My Projects\\app');
   });
 
   test('searching the Output panel', () {

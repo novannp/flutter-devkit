@@ -84,6 +84,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 
 - **Source Control**: changed files, a side-by-side diff with syntax colors, stage, commit, push and pull, branches, discard one file or everything at once (a copy stays in `git stash`), a side by side before and after diff in its own tab, gutter marks for lines that differ from `HEAD`, and line blame at the end of the current line (**Git: Toggle Line Blame** in the palette or the right-click menu)
 - **Move tabs around**: files and tools like Settings share one tab strip. Drag a tab along it, drop it in another view to move it there, or on the left or right edge of a view to put it side by side
+- **Several projects at once**: **File → New Window** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>) or **Open Folder in New Window**, each with its own analyzer and runs
 - **Open Recent** under File lists your project folders, and reopens each with the tabs it had
 - **Find things**: fuzzy quick open (`online payment` finds `online_payment.dart`, `main.dart:42` jumps to the line, `@build` finds a method in the open file), search in files as you type, Open File and Open Recent
 - **One left panel** switches between files, Source Control, search and debug. The terminal and Problems are in the bottom panel, running in the open project
@@ -93,6 +94,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 - **Flutter versions**: the layers icon in the left rail or the `fvm` chip show what's installed, install a release, pin one for the project or make it global, without typing fvm commands. The analyzer, terminal and Run move to it straight away
 - **Firebase**: the flame icon in the left rail walks you through it in order: install the CLIs, sign in, pick or create a Firebase project, run `flutterfire configure` for the platforms you choose, add packages such as Auth and Firestore, then copy the startup code
 - **Search the output**: a box above the Output panel narrows it to the lines with your words, and stops following new lines while you read
+- **One run per device**: a `flutter run` from the IDE and the Flutter tab of that device's window are the same session. Status, log, hot reload, hot restart, stop and reload on save stay in step, whichever side you use, and a run keeps going when the device's window closes
 - **Code generation**: a project with `build_runner` gets a button in the toolbar to generate once, generate on every save, or clear its cache, with a Stop button while it runs
 - **`pub get` on save**: saving `pubspec.yaml` runs it by itself; turn it off in the project's Dart settings
 - **Extensions** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>): Device Manager, Emulators, Printer, Notes, Maintenance, History and Work are built in and can be turned off. They open as tabs beside the code, so the Editor stays where it is
@@ -175,13 +177,13 @@ Each device opens in **its own window**, made for multi-device testing.
 ### 📐 Display lab
 
 - Change **resolution, DPI and screen size** on a real device
-- Presets from a 5.5" phone to a **21.5" POS** and **43" 4K signage**
+- Presets from a 5.5" phone to a **21.5" display** and a **43" 4K screen**
 - Shows the resulting **dp size and breakpoint**
 
 ### 📱 Emulators
 
 - Start, cold boot, headless, stop, **wipe data**, edit hardware, delete
-- Create AVDs from **size presets** (phone, tablet, POS, kiosk, signage)
+- Create AVDs from **size presets** (phone, tablet, display, large screen)
 - **Download system images** without sdkmanager or Java
 
 ### 🧾 Printer emulator
@@ -198,7 +200,7 @@ Each device opens in **its own window**, made for multi-device testing.
 ### 🗂️ Work (Jira + Bitbucket)
 
 - **My tickets**: what's assigned to you, grouped by status, with description, comments and status changes
-- **Start work**: one click creates `feature/POS-123-…` (or `bugfix/…`) from `origin/develop`, moves the ticket to *In Progress* and opens VS Code
+- **Start work**: one click creates `feature/ABC-123-…` (or `bugfix/…`) from `origin/develop`, moves the ticket to *In Progress* and opens VS Code
 - **Push & create PR**: title and description from the ticket, default reviewers added, ticket moves to *Code Review*
 - **Pull requests**: *To review* / *Mine* / *All* across your repos; **check out** a PR to test it on a device, **approve** from Flutter DevKit
 - **Ticket in the workspace**: the device window shows the ticket of the branch you run; send a **screenshot** or **bug report** to it with one click
@@ -255,7 +257,7 @@ Uncaught errors are kept with their stack traces in `errors.log`. **Help → Sho
 | Git packages stuck on an old commit | **Maintenance → Git packages cache → Clear**, then **Update core**. |
 | Need an unmerged fix in a git package | **Maintenance →** click the package chip → **Git branch** or **Local folder**. |
 | Work: Jira or Bitbucket won't connect | **Work → ⚙ → Test connection** shows the exact error. Bitbucket app passwords use your *username*, API tokens your *email*. |
-| No ticket chip in the workspace | The branch name must contain the key (`feature/POS-123-…`) and the repo must be in **Settings → Projects**. |
+| No ticket chip in the workspace | The branch name must contain the key (`feature/ABC-123-…`) and the repo must be in **Settings → Projects**. |
 | Source links don't open | Add the repo folder in **Settings → Projects** and run `pub get` once; VS Code's `code` must be on `PATH`. |
 
 ## 🛠️ Development

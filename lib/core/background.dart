@@ -18,6 +18,14 @@ class BackgroundRunner with WindowListener {
     windowManager.addListener(this);
   }
 
+  /// A device's window has its own process. Closing it ends that, or its scrcpy would stay behind:
+  /// on Windows children die with the process, and only with the process.
+  Future<void> initDeviceWindow() async {
+    await windowManager.ensureInitialized();
+    await windowManager.setPreventClose(true);
+    windowManager.addListener(_DeviceWindowCloser());
+  }
+
   /// Last words before exit, such as saving open files.
   Future<void> Function()? onQuit;
 
@@ -31,4 +39,12 @@ class BackgroundRunner with WindowListener {
 
   @override
   void onWindowClose() => quit();
+}
+
+class _DeviceWindowCloser with WindowListener {
+  @override
+  void onWindowClose() {
+    ChildProcesses.killBound();
+    exit(0);
+  }
 }

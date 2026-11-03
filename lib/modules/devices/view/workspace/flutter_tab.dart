@@ -53,7 +53,10 @@ class _FlutterTabState extends State<FlutterTab> {
   Future<void> _load() async {
     final projects = await scanFlutterProjects();
     if (!mounted) return;
-    setState(() => _projects = projects);
+    setState(() {
+      _projects = projects;
+      _followRunning();
+    });
     _matchFocus();
   }
 
@@ -80,9 +83,20 @@ class _FlutterTabState extends State<FlutterTab> {
     s.start(p, attach: _attach, extraArgs: extra);
   }
 
+  // A run started in the IDE shows here as it is, not as this tab was last set up.
+  void _followRunning() {
+    final running = s.project;
+    if (!s.active || running == null) return;
+    _attach = s.attachMode;
+    if (_project?.path == running.path) return;
+    final listed = _projects.where((p) => p.path == running.path).firstOrNull;
+    if (listed == null) _projects = [..._projects, running];
+    _project = listed ?? running;
+  }
+
   void _onSession() {
     if (!mounted) return;
-    setState(() {});
+    setState(_followRunning);
     if (_autoScroll) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
@@ -118,6 +132,7 @@ class _FlutterTabState extends State<FlutterTab> {
                 children: [
                   Expanded(
                     child: CompactDropdown<FlutterProject>(
+                      key: ValueKey(_project?.path),
                       initialValue: _project,
                       isExpanded: true,
                       decoration: const InputDecoration(

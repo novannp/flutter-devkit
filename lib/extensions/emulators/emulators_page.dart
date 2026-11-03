@@ -475,8 +475,6 @@ class _PresetCard extends StatelessWidget {
     final landscape = p.w > p.h;
     final icon = p.inches >= 20
         ? Icons.desktop_windows_outlined
-        : p.label.startsWith('POS')
-        ? Icons.point_of_sale
         : p.inches >= 8
         ? Icons.tablet_android
         : Icons.smartphone;
@@ -591,7 +589,7 @@ class _CreateDialog extends StatefulWidget {
 }
 
 class _CreateDialogState extends State<_CreateDialog> {
-  final _name = TextEditingController(text: 'POS 15.6"');
+  final _name = TextEditingController(text: 'Display 15.6"');
   late var _image = widget.images.first;
   final _w = TextEditingController(text: '1920');
   final _h = TextEditingController(text: '1080');

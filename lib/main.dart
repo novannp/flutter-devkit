@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'modules/devices/services/flutter_hub.dart';
+import 'core/windows.dart';
 import 'core/licenses.dart';
 import 'core/settings.dart';
 import 'modules/settings/apply_settings.dart';
@@ -55,10 +57,14 @@ Future<void> main(List<String> args) async {
   // Only the main window hosts the printer; workspace windows would fight over the port.
   unawaited(ChildProcesses.killOrphans());
   if (device == null) unawaited(History.prune());
+  startupProject = startupProjectOf(args);
+  if (device != null) await BackgroundRunner.instance.initDeviceWindow();
   if (device == null) {
     await ExtensionManager.instance.load();
-    if (ExtensionManager.instance.isEnabled('printer')) unawaited(printerServer.init());
+    // One printer for the computer: a second project window would fight over the port.
+    if (startupProject == null && ExtensionManager.instance.isEnabled('printer')) unawaited(printerServer.init());
     await BackgroundRunner.instance.init();
+    await FlutterHub.instance.start();
   }
   registerBundledLicenses();
   applySettings();

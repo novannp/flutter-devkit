@@ -21,12 +21,12 @@ const displayPresets = [
   DisplayPreset('Tablet 8"', 8, 1200, 1920, 240),
   DisplayPreset('Tablet 10.1"', 10.1, 1920, 1200, 240),
   DisplayPreset('Tablet 11"', 11, 2560, 1600, 320),
-  DisplayPreset('POS 10.1"', 10.1, 1280, 800, 160),
-  DisplayPreset('POS 15.6"', 15.6, 1920, 1080, 160),
-  DisplayPreset('POS 21.5"', 21.5, 1920, 1080, 160),
-  DisplayPreset('Kiosk 24"', 24, 1080, 1920, 160),
-  DisplayPreset('Signage 32"', 32, 1920, 1080, 120),
-  DisplayPreset('Signage 4K 43"', 43, 3840, 2160, 240),
+  DisplayPreset('Display 10.1"', 10.1, 1280, 800, 160),
+  DisplayPreset('Display 15.6"', 15.6, 1920, 1080, 160),
+  DisplayPreset('Display 21.5"', 21.5, 1920, 1080, 160),
+  DisplayPreset('Portrait 24"', 24, 1080, 1920, 160),
+  DisplayPreset('Large 32"', 32, 1920, 1080, 120),
+  DisplayPreset('Large 4K 43"', 43, 3840, 2160, 240),
 ];
 
 class DisplaySize {

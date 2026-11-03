@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/child_processes.dart';
 import '../../core/settings.dart';
+import '../../core/windows.dart';
 import '../../core/panels.dart';
 import '../../core/theme.dart';
 import '../../core/local_builds.dart';
@@ -22,6 +23,7 @@ import '../../extensions/registry.dart' show ExtensionManager;
 import '../devices/cubit/devices_cubit.dart';
 import '../devices/models/device.dart';
 import '../devices/services/flutter_session.dart';
+import '../devices/services/flutter_hub.dart';
 import '../devices/view/workspace/embedded_scrcpy.dart';
 import 'breadcrumbs.dart';
 import 'code_pane.dart';
@@ -52,7 +54,7 @@ const _desktopDevice = 'windows';
 
 /// What the title bar's menus ask of the Editor, and how the Editor reaches the shell.
 class EditorCommands {
-  static VoidCallback? openFolder, openFile, quickOpen, saveAll, openExtensions, openSettings, openTerminal, openDartSettings, commandPalette, goToSymbol;
+  static VoidCallback? openFolder, openFolderInNewWindow, openFile, quickOpen, saveAll, openExtensions, openSettings, openTerminal, openDartSettings, commandPalette, goToSymbol;
 
   /// Commands of the window around the Editor, listed in the palette too.
   static List<PaletteItem> Function()? windowCommands;
@@ -82,6 +84,7 @@ class EditorPage extends StatefulWidget {
 }
 
 const _pickPackageToUpgrade = 'pick';
+const _newWindowItem = 'new-window';
 const _buildRunnerBuild = 'dart run build_runner build --delete-conflicting-outputs';
 const _buildRunnerWatch = 'dart run build_runner watch --delete-conflicting-outputs';
 const _buildRunnerClean = 'dart run build_runner clean';
@@ -175,6 +178,7 @@ class _EditorPageState extends State<EditorPage> {
       await _rememberTabs();
     };
     EditorCommands.openFolder = _pickFolder;
+    EditorCommands.openFolderInNewWindow = _pickFolderForNewWindow;
     EditorCommands.openFile = _pickFile;
     EditorCommands.openTerminal = () {
       ToolTabs.instance.showEditor();
@@ -215,6 +219,7 @@ class _EditorPageState extends State<EditorPage> {
     EditorCommands.openRecent = EditorCommands.openDartSettings = EditorCommands.commandPalette = EditorCommands.goToSymbol = null;
     _revealSub?.cancel();
     _stopTool();
+    _flutter?.removeListener(_onFlutter);
     EditorCommands.openPath = null;
     Settings.instance.removeListener(_onSettings);
     _ws?.removeListener(_rebuild);
@@ -228,8 +233,6 @@ class _EditorPageState extends State<EditorPage> {
     _git
       ..removeListener(_rebuild)
       ..dispose();
-    _flutter?.removeListener(_onFlutter);
-    _flutter?.dispose();
     _debugger
       ..removeListener(_onDebugger)
       ..dispose();
@@ -292,6 +295,7 @@ class _EditorPageState extends State<EditorPage> {
 
   // A settings.json edited by hand, or in the settings page, applies at once.
   Future<void> _onSettings() async {
+    _flutter?.setReloadOnSave(_reloadOnSave);
     _rebuild();
     final ws = _ws;
     if (ws == null) return;
@@ -320,7 +324,8 @@ class _EditorPageState extends State<EditorPage> {
     // DEVKIT_EDITOR=<file> opens straight on that file (README screenshots, demos).
     final envFile = Platform.environment['DEVKIT_EDITOR'];
     final startFile = widget.initialFile ?? envFile;
-    final startRoot = widget.initialRoot ?? (envFile == null ? null : _projectRootOf(envFile));
+    final startRoot = widget.initialRoot ?? (envFile == null ? null : _projectRootOf(envFile)) ?? startupProject;
+    if (startRoot == '') return;
     final root = startRoot ?? (Settings.instance.flag('app.reopenLastProject') ? prefs.getString(_prefRoot) : null);
     if (root == null || !Directory(root).existsSync()) return;
     await _openRoot(root, files: startFile == null ? null : [startFile]);
@@ -362,7 +367,8 @@ class _EditorPageState extends State<EditorPage> {
     _terminal?.dispose();
     _terminal = null;
     _flutter?.removeListener(_onFlutter);
-    _flutter?.dispose();
+    // An app from the project being left stops with it; one from elsewhere goes on.
+    if (old != null && _flutter?.project?.path == old.root) unawaited(_flutter!.stop());
     _flutter = null;
     _debugUri = null;
     unawaited(_debugger.disconnect());
@@ -416,6 +422,11 @@ class _EditorPageState extends State<EditorPage> {
     final active = saved?.active == null ? null : ws.documentAt(saved!.active!);
     if (active != null) ws.activate(active);
     await _rememberTabs();
+  }
+
+  Future<void> _pickFolderForNewWindow() async {
+    final path = await getDirectoryPath(confirmButtonText: 'Open in new window');
+    if (path != null) await openProjectWindow(path);
   }
 
   Future<void> _pickFolder() async {
@@ -473,8 +484,6 @@ class _EditorPageState extends State<EditorPage> {
       return _toast('Could not save ${doc.name}: ${e.message}');
     }
     isProjectPubspec(doc.path, ws.root) ? _onPubspecSaved(ws) : _checkPackages();
-    final f = _flutter;
-    if (_reloadOnSave && doc.languageId == 'dart' && f != null && f.canReload) unawaited(f.reload());
   }
 
   Future<void> _saveAll() async {
@@ -518,6 +527,8 @@ class _EditorPageState extends State<EditorPage> {
       action = () => _showPanel(_Panel.problems);
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyU) {
       action = () => _showPanel(_Panel.output);
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyN) {
+      action = openProjectWindow;
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyB) {
       action = () => _showSide(_Side.packages);
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyV) {
@@ -640,6 +651,8 @@ class _EditorPageState extends State<EditorPage> {
           if (_ws?.active case final doc?) _closeTab(doc);
         }, keys: 'Ctrl+W', icon: Icons.close, group: 'File'),
         PaletteItem('Open Folder', _pickFolder, icon: Icons.folder_open, group: 'File'),
+        PaletteItem('Open Folder in New Window', _pickFolderForNewWindow, icon: Icons.open_in_new, group: 'File'),
+        PaletteItem('New Window', openProjectWindow, keys: 'Ctrl+Shift+N', icon: Icons.open_in_new, group: 'File'),
         PaletteItem('Open File', _pickFile, keys: 'Ctrl+O', icon: Icons.file_open_outlined, group: 'File'),
         PaletteItem('Format Document', _format, keys: 'Shift+Alt+F', icon: Icons.format_align_left, group: 'Editor'),
         PaletteItem('Split Editor', _splitActive, keys: 'Ctrl+\\', icon: Icons.vertical_split_outlined, group: 'Editor'),
@@ -754,11 +767,7 @@ class _EditorPageState extends State<EditorPage> {
     if (ws == null) return;
     if (device == null) return _toast('Pick a device first');
     await ws.saveAll();
-    if (_flutter?.deviceId != device) {
-      _flutter?.removeListener(_onFlutter);
-      _flutter?.dispose();
-      _flutter = FlutterSession(device)..addListener(_onFlutter);
-    }
+    _followDevice();
     _toolAnchor = _flutter!.lines.length;
     final blocked = Settings.instance.blockedRunArgs();
     if (blocked.isNotEmpty) _toast('Left out of Run, because of its special characters: ${blocked.join(' ')}');
@@ -861,9 +870,22 @@ class _EditorPageState extends State<EditorPage> {
     ToolTabs.instance.show(tab);
   }
 
+  /// The session of the device picked here, so a run started in that device's window shows too.
+  void _followDevice() {
+    final device = _device;
+    if (_flutter?.deviceId == device) return;
+    _flutter?.removeListener(_onFlutter);
+    _flutter = device == null ? null : (FlutterHub.instance.session(device)..addListener(_onFlutter));
+    _flutter?.setReloadOnSave(_reloadOnSave);
+    _toolAnchor = _flutter?.lines.length ?? 0;
+    _onFlutter();
+  }
+
   void _onFlutter() {
     _rebuild();
-    final uri = _flutter?.vmServiceUri, root = _ws?.root;
+    final running = _flutter?.project?.path, root = _ws?.root;
+    // The debugger reads paths in the open project, which another project's app doesn't have.
+    final uri = root != null && running != null && p.equals(running, root) ? _flutter?.vmServiceUri : null;
     if (uri == _debugUri) return;
     _debugUri = uri;
     if (uri == null || root == null) {
@@ -1386,6 +1408,7 @@ class _EditorPageState extends State<EditorPage> {
     final targets = {for (final d in devices) d.adbTarget!: d.displayName, _desktopDevice: 'Windows (desktop)'};
     if (_device != null && !targets.containsKey(_device)) _device = null;
     _device ??= devices.firstOrNull?.adbTarget;
+    if (_flutter?.deviceId != _device) WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? _followDevice() : null);
     final fvm = projectUsesFvm(ws.root);
     final narrow = MediaQuery.sizeOf(context).width < 760;
     return Container(
@@ -1397,11 +1420,16 @@ class _EditorPageState extends State<EditorPage> {
           // Takes all the room that's left, instead of sharing it with a Spacer.
           Expanded(child: Row(children: [Flexible(child: PopupMenuButton<String>(
             tooltip: 'Switch project',
-            onSelected: (v) => v.isEmpty ? _pickFolder() : _openRoot(v),
+            onSelected: (v) => switch (v) {
+              '' => _pickFolder(),
+              _newWindowItem => _pickFolderForNewWindow(),
+              _ => _openRoot(v),
+            },
             itemBuilder: (_) => [
               for (final pr in _projects) PopupMenuItem(height: 30, value: pr.path, child: Text(pr.name)),
               const PopupMenuDivider(),
               const PopupMenuItem(height: 30, value: '', child: Text('Open folder…')),
+              const PopupMenuItem(height: 30, value: _newWindowItem, child: Text('Open folder in new window…')),
             ],
             child: Row(
               children: [
@@ -1675,7 +1703,10 @@ class _EditorPageState extends State<EditorPage> {
   Future<void> _onTarget(String value) async {
     final split = value.indexOf(':');
     final kind = value.substring(0, split), name = value.substring(split + 1);
-    if (kind == 'device') return setState(() => _device = name);
+    if (kind == 'device') {
+      setState(() => _device = name);
+      return _followDevice();
+    }
     final avd = _avds.where((a) => a.name == name).firstOrNull;
     if (avd == null) return;
     final cold = kind == 'cold';

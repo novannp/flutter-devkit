@@ -5,8 +5,24 @@ import 'package:flutter/foundation.dart';
 
 import '../main.dart' show workspaceArg;
 import '../modules/devices/models/device.dart';
+import '../modules/devices/services/flutter_hub.dart';
 
 final _open = <String, Process>{};
+
+const projectWindowArg = '--project=';
+
+/// The folder this window was opened for. Empty is a new window with no project yet, and null is the first window.
+String? startupProject;
+
+String? startupProjectOf(List<String> args) {
+  final arg = args.where((a) => a.startsWith(projectWindowArg)).firstOrNull;
+  return arg?.substring(projectWindowArg.length);
+}
+
+/// Another window of the IDE, with its own analyzer, terminal and runs. It lives on after this one closes.
+Future<void> openProjectWindow([String folder = '']) async {
+  await Process.start(Platform.resolvedExecutable, ['$projectWindowArg$folder'], mode: ProcessStartMode.detached);
+}
 
 /// Ids of devices with a workspace window open.
 final openWorkspaces = ValueNotifier<Set<String>>(const {});
@@ -34,7 +50,7 @@ Future<void> openWorkspaceWindow(Device d) async {
     '$workspaceArg$payload',
     '--title=${d.displayName} · Flutter DevKit',
     '--cascade=${_open.length + 1}',
-  ]);
+  ], environment: FlutterHub.instance.childEnvironment);
   // Child window output is unused; drained so the pipe buffer doesn't fill up.
   p.stdout.drain<void>();
   p.stderr.drain<void>();
