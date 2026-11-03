@@ -40,6 +40,12 @@ void main() {
     });
   });
 
+  test('reads the files of a commit, renames too', () {
+    final files = parseCommitFiles('M\tlib/a.dart\nA\tb.txt\nR100\told/c.dart\tnew/c.dart\n\n');
+    expect(files.map((f) => (f.status, f.path, f.from)), [('M', 'lib/a.dart', null), ('A', 'b.txt', null), ('R', 'new/c.dart', 'old/c.dart')]);
+    expect(parseCommitFiles(''), isEmpty);
+  });
+
   group('layout', () {
     test('a straight history stays in one lane', () {
       final rows = layoutGraph([_c('c', ['b']), _c('b', ['a']), _c('a')]);
@@ -117,6 +123,30 @@ void main() {
       expect(rows.map((r) => r.column).toSet().length, 2);
     });
 
+    test('a commit tells what it changed, even the first one and a merge', () async {
+      var log = parseGraphLog(await sc.graphLog());
+      final first = log.single.hash;
+      expect((await sc.commitFiles(first)).single.path, 'a');
+      expect(await sc.commitMessage(first), 'add a');
+      expect((await sc.commitDiff(first, const CommitFile('A', 'a'))).single.after, 'a');
+
+      File(p.join(work, 'a')).writeAsStringSync('changed');
+      await _git(work, ['add', '.']);
+      await _git(work, ['commit', '-m', 'change a']);
+      log = parseGraphLog(await sc.graphLog());
+      final rows = await sc.commitDiff(log.first.hash, const CommitFile('M', 'a'));
+      expect(rows.any((r) => r.before == 'a' && r.after == 'changed'), isTrue);
+
+      await _git(work, ['switch', '-c', 'side', 'HEAD~1']);
+      await _commit(work, 'b');
+      await _git(work, ['switch', 'main']);
+      await _git(work, ['merge', '--no-edit', 'side']);
+      log = parseGraphLog(await sc.graphLog());
+      expect(log.first.parents.length, 2);
+      expect((await sc.commitFiles(log.first.hash)).single.path, 'b', reason: 'what the merge brought into this branch');
+      expect((await sc.commitDiff(log.first.hash, const CommitFile('A', 'b'))).single.after, 'b');
+    });
+
     test('no remote: nothing to sync with', () async {
       await sc.refresh();
       expect((sc.hasRemote, sc.hasUpstream), (false, false));
@@ -165,6 +195,38 @@ void main() {
     });
   });
 
+  testWidgets('long branch names never push a row out', (tester) async {
+    tester.view.physicalSize = const Size(700, 300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final dir = Directory.systemTemp.createTempSync('graphlong');
+    addTearDown(() => dir.delete(recursive: true).catchError((_) => dir));
+    await tester.runAsync(() async {
+      await _git(dir.path, ['init', '-b', 'main']);
+      await _git(dir.path, ['config', 'user.email', 'test@example.com']);
+      await _git(dir.path, ['config', 'user.name', 'Test']);
+      await _commit(dir.path, 'a');
+      for (final n in ['one', 'two', 'three']) {
+        await _git(dir.path, ['branch', 'origin/feature/a-very-long-branch-name-that-keeps-going-$n']);
+      }
+    });
+    final sc = SourceControl();
+    addTearDown(sc.dispose);
+    await tester.runAsync(() => sc.open(dir.path));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: GitGraphView(git: sc))));
+    for (var i = 0; i < 300 && find.text('add a').evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(find.text('add a'), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'no overflow');
+    await tester.pumpWidget(const SizedBox());
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+  });
+
   testWidgets('the view lists commits with their branches', (tester) async {
     final dir = Directory.systemTemp.createTempSync('graphview');
     addTearDown(() => dir.delete(recursive: true).catchError((_) => dir));
@@ -185,6 +247,16 @@ void main() {
     }
     expect(find.text('add a'), findsOneWidget);
     expect(find.text('main'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // Picking the commit shows its files and the diff of the first.
+    await tester.tap(find.text('add a'));
+    for (var i = 0; i < 300 && find.text('A').evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(find.text('A'), findsOneWidget, reason: 'the file, marked as added');
+    expect(find.byType(VerticalDivider), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     for (var i = 0; i < 20; i++) {

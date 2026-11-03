@@ -51,3 +51,38 @@ class PillTab extends StatelessWidget {
     );
   }
 }
+
+/// Something to click in the status bar. Ink would be hidden behind the bar's own color, so this draws its own.
+class StatusBarItem extends StatefulWidget {
+  const StatusBarItem({super.key, required this.onTap, required this.child});
+
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  State<StatusBarItem> createState() => _StatusBarItemState();
+}
+
+class _StatusBarItemState extends State<StatusBarItem> {
+  var _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    final tint = Theme.of(context).colorScheme.onSurface.withValues(alpha: .1);
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(color: _hover && enabled ? tint : Colors.transparent, borderRadius: BorderRadius.circular(4)),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}

@@ -87,6 +87,24 @@ List<GitChange> parseStatus(String output) {
 
 enum GitMark { added, modified, deleted }
 
+class CommitFile {
+  const CommitFile(this.status, this.path, [this.from]);
+
+  /// A letter, as git gives it: A, M, D or R.
+  final String status;
+  final String path;
+
+  /// Where a renamed file came from.
+  final String? from;
+}
+
+/// `git show --name-status`: `M<tab>path`, or `R100<tab>old<tab>new`.
+List<CommitFile> parseCommitFiles(String output) => [
+  for (final line in const LineSplitter().convert(output))
+    if (line.split('\t') case [final status, final path, ...final rest] when status.isNotEmpty)
+      rest.isEmpty ? CommitFile(status.substring(0, 1), path) : CommitFile(status.substring(0, 1), rest.first, path),
+];
+
 /// What the branch can do with a remote: a branch only here is published, one with a remote is synced.
 enum BranchAction { none, publish, sync }
 
@@ -349,6 +367,22 @@ class SourceControl extends ChangeNotifier {
       if (behind > 0) ['pull', '--ff-only'],
       if (ahead > 0) ['push'],
     ]);
+  }
+
+  /// What a commit changed, against its first parent.
+  Future<List<CommitFile>> commitFiles(String hash) async {
+    final r = await _git(['show', '--format=', '--name-status', '-M', '-m', '--first-parent', hash]);
+    return r.ok ? parseCommitFiles(r.text) : const [];
+  }
+
+  Future<String> commitMessage(String hash) async {
+    final r = await _git(['log', '-1', '--format=%B', hash]);
+    return r.ok ? r.text.trim() : '';
+  }
+
+  Future<List<DiffRow>> commitDiff(String hash, CommitFile file) async {
+    final r = await _git(['show', '--format=', '--no-color', '--no-ext-diff', '-U1000000', '-m', '--first-parent', '-M', hash, '--', ?file.from, file.path]);
+    return r.ok ? parseSideBySide(r.text) : const [];
   }
 
   /// The newest commits of every branch, newest first.

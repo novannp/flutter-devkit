@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/theme.dart';
 import 'engine/syntax.dart';
+import 'git_graph.dart';
 import 'source_control.dart';
 import '../../core/mono_font.dart';
 
@@ -14,17 +15,23 @@ Color _statusColor(String status) => switch (status) {
 };
 
 class SourceControlView extends StatefulWidget {
-  const SourceControlView({super.key, required this.git, required this.onBeforeCommit, required this.onDiff});
+  const SourceControlView({super.key, required this.git, required this.onBeforeCommit, required this.onDiff, this.visible = true, this.onOpenGraph, this.onPickCommit});
 
   final SourceControl git;
   final Future<void> Function() onBeforeCommit;
   final void Function(GitChange change, bool staged) onDiff;
+
+  /// The graph runs git each time the repository changes, so only while someone can see it.
+  final bool visible;
+  final VoidCallback? onOpenGraph;
+  final ValueChanged<String>? onPickCommit;
 
   @override
   State<SourceControlView> createState() => _SourceControlViewState();
 }
 
 class _SourceControlViewState extends State<SourceControlView> {
+  var _graphOpen = true;
   final _message = TextEditingController();
 
   SourceControl get _git => widget.git;
@@ -133,6 +140,7 @@ class _SourceControlViewState extends State<SourceControlView> {
               ),
             const SizedBox(height: 4),
             Expanded(
+              flex: 3,
               child: ListView(
                 children: [
                   if (staged.isNotEmpty) ...[
@@ -150,6 +158,31 @@ class _SourceControlViewState extends State<SourceControlView> {
                 ],
               ),
             ),
+            const Divider(height: 1),
+            SizedBox(
+              height: 28,
+              child: InkWell(
+                onTap: () => setState(() => _graphOpen = !_graphOpen),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 6),
+                    Icon(_graphOpen ? Icons.expand_more : Icons.chevron_right, size: 16, color: scheme.outline),
+                    const SizedBox(width: 2),
+                    Expanded(child: Text('Graph', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant))),
+                    if (widget.onOpenGraph != null)
+                      IconButton(
+                        tooltip: 'Open the full graph',
+                        iconSize: 14,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+                        onPressed: widget.onOpenGraph,
+                        icon: const Icon(Icons.open_in_full),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            if (_graphOpen && widget.visible) Expanded(flex: 2, child: GitGraphView(git: _git, compact: true, onPick: widget.onPickCommit)),
           ],
         );
       },

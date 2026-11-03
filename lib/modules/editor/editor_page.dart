@@ -145,6 +145,7 @@ class _EditorPageState extends State<EditorPage> {
   Timer? _gitPoll;
   var _side = _Side.files;
   var _pubRevision = 0;
+  final _graphSelection = ValueNotifier<String?>(null);
   Timer? _terminalWarmup;
   EditorDocument? _draggingTab;
   var _restoringTabs = false;
@@ -222,6 +223,7 @@ class _EditorPageState extends State<EditorPage> {
     _revealSub?.cancel();
     _stopTool();
     _terminalWarmup?.cancel();
+    _graphSelection.dispose();
     _flutter?.removeListener(_onFlutter);
     EditorCommands.openPath = null;
     Settings.instance.removeListener(_onSettings);
@@ -863,7 +865,7 @@ class _EditorPageState extends State<EditorPage> {
   void _showGitGraph() {
     if (!_git.isRepo) return _toast('This folder is not a git repository');
     // With the diffs, because it belongs to the open project in the same way.
-    ToolTabs.instance.show(_diffTabs.putIfAbsent(':graph', () => AppModule('Git Graph', Icons.account_tree_outlined, GitGraphView(git: _git))));
+    ToolTabs.instance.show(_diffTabs.putIfAbsent(':graph', () => AppModule('Git Graph', Icons.account_tree_outlined, GitGraphView(git: _git, selection: _graphSelection))));
   }
 
   Future<void> _pickBranch() async {
@@ -910,7 +912,7 @@ class _EditorPageState extends State<EditorPage> {
     return [
       Tooltip(
         message: 'Switch branch',
-        child: InkWell(
+        child: StatusBarItem(
           onTap: () => unawaited(_pickBranch()),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -929,7 +931,7 @@ class _EditorPageState extends State<EditorPage> {
         const SizedBox(width: 6),
         Tooltip(
           message: tip,
-          child: InkWell(
+          child: StatusBarItem(
             onTap: _git.busy ? null : () => unawaited(_syncBranch()),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -950,7 +952,7 @@ class _EditorPageState extends State<EditorPage> {
       const SizedBox(width: 6),
       Tooltip(
         message: 'Git Graph',
-        child: InkWell(onTap: _showGitGraph, child: Icon(Icons.account_tree_outlined, size: 14, color: scheme.onSurfaceVariant)),
+        child: StatusBarItem(onTap: _showGitGraph, child: Icon(Icons.account_tree_outlined, size: 14, color: scheme.onSurfaceVariant)),
       ),
       const SizedBox(width: 12),
     ];
@@ -1319,7 +1321,10 @@ class _EditorPageState extends State<EditorPage> {
                           errorsIn: (path) => ws.diagnostics[path]?.where((d) => d.severity == 1).length ?? 0,
                           isOpen: (path) => p.equals(ws.active?.path ?? '', path),
                         ),
-                        SourceControlView(git: _git, onBeforeCommit: ws.saveAll, onDiff: _showDiff),
+                        SourceControlView(git: _git, onBeforeCommit: ws.saveAll, onDiff: _showDiff, visible: _sideOpen && _side == _Side.git, onOpenGraph: _showGitGraph, onPickCommit: (hash) {
+                          _graphSelection.value = hash;
+                          _showGitGraph();
+                        }),
                         _searchView(ws, scheme),
                         DebugPanel(
                           debugger: _debugger,
@@ -2203,7 +2208,7 @@ class _EditorPageState extends State<EditorPage> {
       child: Row(
         children: [
           ..._branchStatus(scheme, style),
-          InkWell(
+          StatusBarItem(
             onTap: () => _showPanel(_Panel.problems),
             child: Row(
               children: [
@@ -2217,7 +2222,7 @@ class _EditorPageState extends State<EditorPage> {
           const SizedBox(width: 10),
           Tooltip(
             message: _notices.isEmpty ? 'No notifications' : (_noticesHidden ? 'Show notifications' : 'Hide notifications'),
-            child: InkWell(
+            child: StatusBarItem(
               onTap: _notices.isEmpty ? null : () => setState(() => _noticesHidden = !_noticesHidden),
               child: Row(
                 children: [
@@ -2254,9 +2259,9 @@ class _EditorPageState extends State<EditorPage> {
               },
             ),
           const SizedBox(width: 14),
-          InkWell(onTap: () => _showPanel(_Panel.terminal), child: Text('Terminal', style: style)),
+          StatusBarItem(onTap: () => _showPanel(_Panel.terminal), child: Text('Terminal', style: style)),
           const SizedBox(width: 10),
-          InkWell(onTap: () => setState(() => _panelOpen = !_panelOpen), child: Icon(_panelOpen ? Icons.expand_more : Icons.expand_less, size: 16)),
+          StatusBarItem(onTap: () => setState(() => _panelOpen = !_panelOpen), child: Icon(_panelOpen ? Icons.expand_more : Icons.expand_less, size: 16)),
                 ],
               ),
             ),

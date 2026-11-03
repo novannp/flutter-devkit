@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:devkit/core/panels.dart';
 import 'package:devkit/core/settings.dart';
 import 'package:devkit/core/theme.dart';
 import 'package:devkit/core/windows.dart';
 import 'package:devkit/modules/editor/dart_settings.dart';
 import 'package:devkit/modules/editor/editor_page.dart';
 import 'package:devkit/modules/editor/editor_workspace.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -204,6 +206,36 @@ void main() {
     expect(matchesLogSearch('anything', '   '), isTrue);
     expect(matchesLogSearch('\x1B[31mError\x1B[0m here', 'error here'), isTrue);
     expect(matchesLogSearch('\x1B[31mError', '31m'), isFalse, reason: 'color codes are not text');
+  });
+
+  testWidgets('a status bar item shows it can be clicked, and one that cannot does not', (tester) async {
+    var tapped = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              StatusBarItem(onTap: () => tapped++, child: const Text('main')),
+              const StatusBarItem(onTap: null, child: Text('off')),
+            ],
+          ),
+        ),
+      ),
+    );
+    MouseCursor cursorOf(String text) => tester.widget<MouseRegion>(find.ancestor(of: find.text(text), matching: find.byType(MouseRegion)).first).cursor;
+    expect(cursorOf('main'), SystemMouseCursors.click);
+    expect(cursorOf('off'), isNot(SystemMouseCursors.click));
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('main')));
+    await tester.pump();
+    final fill = (tester.widget<Container>(find.ancestor(of: find.text('main'), matching: find.byType(Container)).first).decoration! as BoxDecoration).color;
+    expect(fill, isNot(Colors.transparent), reason: 'hover shows');
+
+    await tester.tap(find.text('main'));
+    expect(tapped, 1);
   });
 
   testWidgets('snackbars sit at the bottom right', (tester) async {

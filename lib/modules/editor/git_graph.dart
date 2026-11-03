@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 
 import '../../core/mono_font.dart';
+import '../../core/theme.dart';
 import 'source_control.dart';
+import 'source_control_view.dart' show highlightDiffSide;
 
 class GraphCommit {
   const GraphCommit(this.hash, this.parents, this.refs, this.author, this.when, this.subject);
@@ -153,9 +156,18 @@ class _RowPainter extends CustomPainter {
 }
 
 class GitGraphView extends StatefulWidget {
-  const GitGraphView({super.key, required this.git});
+  const GitGraphView({super.key, required this.git, this.compact = false, this.selection, this.onPick});
 
   final SourceControl git;
+
+  /// For the side panel: commits and their branches, with the rest left to the tooltip.
+  final bool compact;
+
+  /// The commit whose files show below. Kept outside, so the side panel can open one in the full tab.
+  final ValueNotifier<String?>? selection;
+
+  /// Instead of showing the commit here, where the side panel has no room.
+  final ValueChanged<String>? onPick;
 
   @override
   State<GitGraphView> createState() => _GitGraphViewState();
@@ -166,18 +178,26 @@ class _GitGraphViewState extends State<GitGraphView> {
   var _local = const <String>[];
   var _log = '';
   String? _head;
+  late final ValueNotifier<String?> _selection = widget.selection ?? ValueNotifier(null);
 
   @override
   void initState() {
     super.initState();
     widget.git.addListener(_load);
+    _selection.addListener(_onSelection);
     unawaited(_load());
   }
 
   @override
   void dispose() {
     widget.git.removeListener(_load);
+    _selection.removeListener(_onSelection);
+    if (widget.selection == null) _selection.dispose();
     super.dispose();
+  }
+
+  void _onSelection() {
+    if (mounted) setState(() {});
   }
 
   // Follows commits, pulls and branch switches, without redrawing when nothing moved.
@@ -223,7 +243,7 @@ class _GitGraphViewState extends State<GitGraphView> {
         borderRadius: BorderRadius.circular(4),
         border: head ? Border.all(color: color) : null,
       ),
-      child: Text(name, maxLines: 1, style: TextStyle(fontSize: 11, height: 1.4, fontWeight: FontWeight.w600, color: color)),
+      child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, height: 1.4, fontWeight: FontWeight.w600, color: color)),
     );
   }
 
@@ -233,9 +253,10 @@ class _GitGraphViewState extends State<GitGraphView> {
     final rows = _rows;
     if (rows == null) return const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)));
     if (rows.isEmpty) return Center(child: Text('No commits yet.', style: TextStyle(color: scheme.outline, fontSize: 13)));
-    final graphWidth = (rows.fold<int>(0, (most, r) => r.width > most ? r.width : most) * _laneWidth).clamp(_laneWidth, 280.0) + 6;
+    final graphWidth = (rows.fold<int>(0, (most, r) => r.width > most ? r.width : most) * _laneWidth).clamp(_laneWidth, widget.compact ? 84.0 : 280.0) + 6;
     final small = TextStyle(fontSize: 11.5, color: scheme.outline);
-    return ListView.builder(
+    final selected = _selection.value;
+    final list = ListView.builder(
       itemCount: rows.length,
       itemExtent: _rowHeight,
       itemBuilder: (_, i) {
@@ -243,8 +264,10 @@ class _GitGraphViewState extends State<GitGraphView> {
         return GestureDetector(
           onSecondaryTapDown: (d) => unawaited(_menu(d.globalPosition, c)),
           child: InkWell(
-            onTap: () {},
-            child: Row(
+            onTap: () => widget.onPick != null ? widget.onPick!(c.hash) : _selection.value = _selection.value == c.hash ? null : c.hash,
+            child: ColoredBox(
+              color: c.hash == selected ? scheme.primary.withValues(alpha: .14) : Colors.transparent,
+              child: Row(
               children: [
                 ClipRect(
                   child: SizedBox(
@@ -253,14 +276,26 @@ class _GitGraphViewState extends State<GitGraphView> {
                     child: CustomPaint(painter: _RowPainter(row, scheme.surface)),
                   ),
                 ),
-                for (final r in c.refs.take(4)) Flexible(flex: 0, child: _ref(r, scheme)),
+                // All of it shares the room left: a long branch name gets cut before it can push anything out.
                 Expanded(
-                  child: Tooltip(
-                    message: '${c.subject}\n${c.short}  •  ${c.author}  •  ${c.when}',
-                    waitDuration: const Duration(milliseconds: 600),
-                    child: Text(c.subject, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5)),
+                  child: Row(
+                    children: [
+                      for (final r in c.refs.take(widget.compact ? 1 : 4))
+                        Flexible(
+                          child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 170), child: _ref(r, scheme)),
+                        ),
+                      Flexible(
+                        flex: 3,
+                        child: Tooltip(
+                          message: '${c.subject}\n${c.short}  •  ${c.author}  •  ${c.when}',
+                          waitDuration: const Duration(milliseconds: 600),
+                          child: Text(c.subject, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                if (widget.compact) const SizedBox(width: 6) else ...[
                 const SizedBox(width: 12),
                 SizedBox(width: 120, child: Text(c.author, maxLines: 1, overflow: TextOverflow.ellipsis, style: small)),
                 SizedBox(width: 92, child: Text(c.when, maxLines: 1, overflow: TextOverflow.ellipsis, style: small)),
@@ -268,11 +303,190 @@ class _GitGraphViewState extends State<GitGraphView> {
                   width: 62,
                   child: Text(c.short, maxLines: 1, style: small.copyWith(fontFamily: 'Consolas', fontFamilyFallback: monoFallback)),
                 ),
+                ],
               ],
+              ),
             ),
           ),
         );
       },
+    );
+    if (selected == null || widget.compact) return list;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: list),
+        const Divider(height: 1),
+        Expanded(child: _CommitDetails(key: ValueKey(selected), git: widget.git, hash: selected)),
+      ],
+    );
+  }
+}
+
+/// What one commit did: its message and files, and the diff of the file picked.
+class _CommitDetails extends StatefulWidget {
+  const _CommitDetails({super.key, required this.git, required this.hash});
+
+  final SourceControl git;
+  final String hash;
+
+  @override
+  State<_CommitDetails> createState() => _CommitDetailsState();
+}
+
+class _CommitDetailsState extends State<_CommitDetails> {
+  var _message = '';
+  List<CommitFile>? _files;
+  CommitFile? _file;
+  List<DiffRow>? _rows;
+  var _token = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final message = await widget.git.commitMessage(widget.hash);
+    final files = await widget.git.commitFiles(widget.hash);
+    if (!mounted) return;
+    setState(() {
+      _message = message;
+      _files = files;
+    });
+    if (files.isNotEmpty) unawaited(_pick(files.first));
+  }
+
+  Future<void> _pick(CommitFile file) async {
+    final token = ++_token;
+    setState(() {
+      _file = file;
+      _rows = null;
+    });
+    final rows = await widget.git.commitDiff(widget.hash, file);
+    if (mounted && token == _token) setState(() => _rows = rows);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final files = _files;
+    if (files == null) return const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)));
+    Color statusColor(String status) => switch (status) {
+      'A' => const Color(0xFF22C55E),
+      'D' => const Color(0xFFEF4444),
+      'R' => const Color(0xFF8B5CF6),
+      _ => const Color(0xFF3B82F6),
+    };
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          width: 280,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 90),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+                  child: SelectableText(_message, style: const TextStyle(fontSize: 12.5)),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: files.isEmpty
+                    ? Center(child: Text('No files changed', style: TextStyle(fontSize: 12.5, color: scheme.outline)))
+                    : ListView.builder(
+                        itemCount: files.length,
+                        itemExtent: 26,
+                        itemBuilder: (_, i) {
+                          final f = files[i];
+                          return InkWell(
+                            onTap: () => unawaited(_pick(f)),
+                            child: Container(
+                              color: identical(f, _file) ? scheme.primary.withValues(alpha: .14) : null,
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Row(
+                                children: [
+                                  SizedBox(width: 16, child: Text(f.status, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: statusColor(f.status)))),
+                                  Expanded(
+                                    child: Tooltip(
+                                      message: f.from == null ? f.path : '${f.from} → ${f.path}',
+                                      waitDuration: const Duration(milliseconds: 600),
+                                      child: Text(p.basename(f.path), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+        VerticalDivider(width: 1, color: scheme.outlineVariant),
+        Expanded(
+          child: _file == null
+              ? const SizedBox.shrink()
+              : (_rows == null
+                    ? const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+                    : _CommitDiff(rows: _rows!, extension: p.extension(_file!.path))),
+        ),
+      ],
+    );
+  }
+}
+
+class _CommitDiff extends StatelessWidget {
+  const _CommitDiff({required this.rows, required this.extension});
+
+  final List<DiffRow> rows;
+  final String extension;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    if (rows.isEmpty) return Center(child: Text('Nothing to preview. It may be a binary file.', style: TextStyle(fontSize: 12.5, color: scheme.outline)));
+    final base = TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5, color: scheme.onSurface);
+    final syntax = appTheme.value.syntax;
+    final before = highlightDiffSide(rows.map((r) => r.beforeLine == null ? null : r.before), extension, syntax, base);
+    final after = highlightDiffSide(rows.map((r) => r.afterLine == null ? null : r.after), extension, syntax, base);
+    Widget side(int? number, TextSpan text, Color? tint) => Container(
+      color: number == null ? scheme.onSurface.withValues(alpha: .04) : tint,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 40,
+            child: Text(number == null ? '' : '${number + 1}', textAlign: TextAlign.right, style: base.copyWith(fontSize: 12, color: scheme.outline)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text.rich(text)),
+        ],
+      ),
+    );
+    return SelectionArea(
+      child: ListView.builder(
+        itemCount: rows.length,
+        itemBuilder: (_, i) {
+          final r = rows[i];
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: side(r.beforeLine, before[i], r.changed ? const Color(0x26EF4444) : null)),
+                VerticalDivider(width: 1, color: scheme.outlineVariant),
+                Expanded(child: side(r.afterLine, after[i], r.changed ? const Color(0x2622C55E) : null)),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
