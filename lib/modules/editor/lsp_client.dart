@@ -19,7 +19,10 @@ class LspFrameParser {
       final end = _indexOfSeparator(bytes);
       if (end < 0) break;
       final start = end + _separator.length;
-      final header = RegExp(r'Content-Length:\s*(\d+)', caseSensitive: false).firstMatch(ascii.decode(bytes.sublist(0, end), allowInvalid: true));
+      final header = RegExp(
+        r'Content-Length:\s*(\d+)',
+        caseSensitive: false,
+      ).firstMatch(ascii.decode(bytes.sublist(0, end), allowInvalid: true));
       // Anything else the process printed isn't a message; waiting on it would stall the rest.
       if (header == null) {
         bytes = bytes.sublist(start);
@@ -28,7 +31,8 @@ class LspFrameParser {
       final length = int.parse(header[1]!);
       if (bytes.length < start + length) break;
       try {
-        if (jsonDecode(utf8.decode(bytes.sublist(start, start + length), allowMalformed: true)) case final Map<String, dynamic> message) {
+        if (jsonDecode(utf8.decode(bytes.sublist(start, start + length), allowMalformed: true))
+            case final Map<String, dynamic> message) {
           messages.add(message);
         }
       } on FormatException {
@@ -220,7 +224,9 @@ class LspClient {
       case 'workspace/configuration':
         result = [
           for (final item in (params as Map)['items'] as List)
-            (item as Map)['section'] == 'dart' ? (dartConfig?.call() ?? const <String, dynamic>{}) : const <String, dynamic>{},
+            (item as Map)['section'] == 'dart'
+                ? (dartConfig?.call() ?? const <String, dynamic>{})
+                : const <String, dynamic>{},
         ];
     }
     _send({'jsonrpc': '2.0', 'id': id, 'result': result});

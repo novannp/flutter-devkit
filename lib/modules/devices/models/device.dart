@@ -104,5 +104,18 @@ class Device extends Equatable {
   );
 
   @override
-  List<Object?> get props => [id, serial, name, ip, adbPort, model, apps, env, adb, online, lastSeen, sources];
+  List<Object?> get props => [
+    id,
+    serial,
+    name,
+    ip,
+    adbPort,
+    model,
+    apps,
+    env,
+    adb,
+    online,
+    lastSeen,
+    sources,
+  ];
 }

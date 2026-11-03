@@ -42,7 +42,11 @@ void main() {
   "b": [1, 2,],
   "c": "x,]",
 }''');
-      expect(out, {'a': 'http://x', 'b': [1, 2], 'c': 'x,]'});
+      expect(out, {
+        'a': 'http://x',
+        'b': [1, 2],
+        'c': 'x,]',
+      });
     });
 
     test('an empty file is empty, and anything else that is not an object is refused', () {
@@ -69,7 +73,8 @@ void main() {
     });
 
     test('a wrong type or an unknown choice counts as not set, and numbers stay in range', () async {
-      File(global).writeAsStringSync('{"editor.fontSize": "big", "editor.autoSave": "sometimes", "editor.lineHeight": 99}');
+      File(global)
+          .writeAsStringSync('{"editor.fontSize": "big", "editor.autoSave": "sometimes", "editor.lineHeight": 99}');
       await s.load(path: global);
       expect(s.number('editor.fontSize'), 14);
       expect(s.text('editor.autoSave'), 'off');
@@ -112,7 +117,11 @@ void main() {
       s.refresh();
       expect(heard, 1);
       await s.set(SettingScope.project, 'dart.showTodos', true);
-      expect(parseSettingsJson(projectFile().readAsStringSync()), {'dart.lineLength': 90, 'custom': 1, 'dart.showTodos': true});
+      expect(parseSettingsJson(projectFile().readAsStringSync()), {
+        'dart.lineLength': 90,
+        'custom': 1,
+        'dart.showTodos': true,
+      });
       await s.set(SettingScope.project, 'dart.lineLength', null);
       expect(s.value('dart.lineLength'), isNull);
     });
@@ -139,13 +148,17 @@ void main() {
 
   group('run arguments', () {
     test('come from the settings, in order', () async {
-      File(global).writeAsStringSync('{"flutter.mode": "profile", "flutter.target": "lib/dev.dart", "flutter.flavor": "dev", "flutter.dartDefines": ["A=1"], "flutter.runArgs": ["--verbose"]}');
+      File(global).writeAsStringSync(
+        '{"flutter.mode": "profile", "flutter.target": "lib/dev.dart", "flutter.flavor": "dev", "flutter.dartDefines": ["A=1"], "flutter.runArgs": ["--verbose"]}',
+      );
       await s.load(path: global);
       expect(s.runArgs(), ['--profile', '--target=lib/dev.dart', '--flavor=dev', '--dart-define=A=1', '--verbose']);
     });
 
     test('with shell characters are left out, and reported', () async {
-      projectFile().writeAsStringSync(r'{"flutter.runArgs": ["--ok", "& calc", "x|y", "$(id)"], "flutter.flavor": "a;b"}');
+      projectFile().writeAsStringSync(
+        r'{"flutter.runArgs": ["--ok", "& calc", "x|y", "$(id)"], "flutter.flavor": "a;b"}',
+      );
       await s.load(path: global);
       s.openProject(root);
       expect(s.runArgs(), ['--ok']);
@@ -156,12 +169,15 @@ void main() {
   group('Dart settings', () {
     test('a project file wins over what older versions kept', () async {
       SharedPreferences.setMockInitialValues({
-        'editor_dart_settings': '{"${p.normalize(root).replaceAll(r'\', r'\\')}": {"lineLength": 100, "showTodos": true}}',
+        'editor_dart_settings':
+            '{"${p.normalize(root).replaceAll(r'\', r'\\')}": {"lineLength": 100, "showTodos": true}}',
       });
       await s.load(path: global);
       s.openProject(root);
       expect((await DartSettings.load(root)).lineLength, 100);
-      projectFile().writeAsStringSync('{"dart.lineLength": 60, "dart.organizeImportsOnSave": true, "dart.documentation": "none"}');
+      projectFile().writeAsStringSync(
+        '{"dart.lineLength": 60, "dart.organizeImportsOnSave": true, "dart.documentation": "none"}',
+      );
       s.openProject(root);
       final dart = await DartSettings.load(root);
       expect((dart.lineLength, dart.showTodos, dart.organizeImportsOnSave), (60, true, true));
@@ -186,7 +202,9 @@ void main() {
 
   test('the Output panel keeps commands and the log in the order they happened', () {
     // Five log lines, then a two-line command, then more log.
-    List<(bool, int)> rows(int anchor, int tool, int log) => [for (var i = 0; i < tool + log; i++) outputRow(i, anchor, tool)];
+    List<(bool, int)> rows(int anchor, int tool, int log) => [
+      for (var i = 0; i < tool + log; i++) outputRow(i, anchor, tool),
+    ];
     expect(rows(2, 2, 3), [(false, 0), (false, 1), (true, 0), (true, 1), (false, 2)]);
     expect(rows(3, 2, 3).last, (true, 1), reason: 'the command run last is at the end');
     expect(rows(0, 1, 1), [(true, 0), (false, 0)]);
@@ -222,7 +240,8 @@ void main() {
         ),
       ),
     );
-    MouseCursor cursorOf(String text) => tester.widget<MouseRegion>(find.ancestor(of: find.text(text), matching: find.byType(MouseRegion)).first).cursor;
+    MouseCursor cursorOf(String text) =>
+        tester.widget<MouseRegion>(find.ancestor(of: find.text(text), matching: find.byType(MouseRegion)).first).cursor;
     expect(cursorOf('main'), SystemMouseCursors.click);
     expect(cursorOf('off'), isNot(SystemMouseCursors.click));
 
@@ -231,7 +250,12 @@ void main() {
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(tester.getCenter(find.text('main')));
     await tester.pump();
-    final fill = (tester.widget<Container>(find.ancestor(of: find.text('main'), matching: find.byType(Container)).first).decoration! as BoxDecoration).color;
+    final fill =
+        (tester
+                    .widget<Container>(find.ancestor(of: find.text('main'), matching: find.byType(Container)).first)
+                    .decoration!
+                as BoxDecoration)
+            .color;
     expect(fill, isNot(Colors.transparent), reason: 'hover shows');
 
     await tester.tap(find.text('main'));
