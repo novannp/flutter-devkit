@@ -127,7 +127,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 | <kbd>Ctrl</kbd>+<kbd>]</kbd> / <kbd>Ctrl</kbd>+<kbd>[</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>[</kbd> / <kbd>]</kbd> | Indent / outdent / fold / unfold |
 | <kbd>Ctrl</kbd>+<kbd>H</kbd> / <kbd>F3</kbd> | Replace / next match |
 | <kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd> / <kbd>0</kbd> / <kbd>Alt</kbd>+<kbd>Z</kbd> | Zoom in / out / reset / word wrap |
-| <kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Alt</kbd>+<kbd>←→</kbd> / <kbd>F8</kbd> | Next tab / back and forward / next problem |
+| <kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Alt</kbd>+<kbd>←→</kbd> / <kbd>F8</kbd> | Tab used before this one (keep Ctrl held to go further back) / back and forward / next problem |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings |
 | <kbd>Ctrl</kbd>+<kbd>J</kbd> / <kbd>Ctrl</kbd>+<kbd>`</kbd> | Toggle panel / terminal |
 

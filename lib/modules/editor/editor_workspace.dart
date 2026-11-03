@@ -414,7 +414,28 @@ class EditTarget {
 /// One view of the split editor, with its own tabs. A file lives in one group at a time.
 class EditorGroup {
   final docs = <EditorDocument>[];
-  EditorDocument? active;
+  EditorDocument? _active;
+
+  /// The tabs last in front, latest first, for Ctrl+Tab.
+  final recent = <EditorDocument>[];
+
+  EditorDocument? get active => _active;
+
+  set active(EditorDocument? doc) {
+    _active = doc;
+    if (doc == null) return;
+    recent
+      ..remove(doc)
+      ..insert(0, doc);
+  }
+
+  /// The view's tabs, from the one in front back through the ones used before it.
+  List<EditorDocument> get history => [
+    for (final d in recent)
+      if (docs.contains(d)) d,
+    for (final d in docs)
+      if (!recent.contains(d)) d,
+  ];
 
   /// Share of the width, against the other groups.
   double weight = 1;
@@ -526,6 +547,7 @@ class EditorWorkspace extends ChangeNotifier {
     final i = group.docs.indexOf(doc);
     if (i < 0) return;
     group.docs.removeAt(i);
+    group.recent.remove(doc);
     if (group.active == doc) group.active = group.docs.isEmpty ? null : group.docs[i.clamp(0, group.docs.length - 1)];
     if (group.docs.isEmpty && groups.length > 1) {
       final at = groups.indexOf(group);

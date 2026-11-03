@@ -495,6 +495,24 @@ void main() {
       await until(() => tab('other.dart').evaluate().isNotEmpty, 'the second tab');
       await until(() => find.byType(CodePane).evaluate().length == 1, 'the editor');
 
+      // Ctrl+Tab goes back to the tab used before, and pressing it again returns.
+      String shown() => tester.widget<CodePane>(find.byType(CodePane)).doc.name;
+      Future<void> ctrlTab({int presses = 1}) async {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        for (var i = 0; i < presses; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        }
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+        await tester.pump();
+      }
+
+      expect(shown(), 'other.dart');
+      await ctrlTab();
+      expect(shown(), 'main.dart');
+      await ctrlTab();
+      expect(shown(), 'other.dart', reason: 'not next along the strip, but the one before');
+
       final gesture = await tester.startGesture(tester.getCenter(tab('other.dart')), kind: PointerDeviceKind.mouse);
       await gesture.moveBy(const Offset(0, 40));
       await tester.pump();

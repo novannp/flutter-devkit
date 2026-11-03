@@ -439,6 +439,18 @@ void main() {
       dir.deleteSync(recursive: true);
     });
 
+    test('a view remembers the order its tabs were used in', () {
+      final g = ws.groups.single;
+      expect(g.history, [c, b, a]);
+      ws.activate(a);
+      expect(g.history, [a, c, b], reason: 'not the order along the strip');
+      ws.activate(b);
+      expect(g.history.take(2), [b, a]);
+      ws.splitBeside(a, g, right: true);
+      expect(g.history, [b, c], reason: 'what moved away is forgotten here');
+      expect(ws.groups.last.history, [a]);
+    });
+
     test('along the strip, to before the tab it lands on', () {
       final g = ws.groups.single;
       ws.placeTab(c, g, 0);

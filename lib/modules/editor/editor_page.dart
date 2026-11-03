@@ -197,6 +197,7 @@ class _EditorPageState extends State<EditorPage> {
     EditorCommands.openRecent = _openRecent;
     EditorCommands.openPath = _openFile;
     Settings.instance.addListener(_onSettings);
+    HardwareKeyboard.instance.addHandler(_onControlUp);
     EditorCommands.quickOpen = _quickOpen;
     EditorCommands.commandPalette = _commandPalette;
     EditorCommands.goToSymbol = _goToSymbol;
@@ -226,6 +227,7 @@ class _EditorPageState extends State<EditorPage> {
     _flutter?.removeListener(_onFlutter);
     EditorCommands.openPath = null;
     Settings.instance.removeListener(_onSettings);
+    HardwareKeyboard.instance.removeHandler(_onControlUp);
     _ws?.removeListener(_rebuild);
     _ws?.dispose();
     _terminal?.dispose();
@@ -551,7 +553,7 @@ class _EditorPageState extends State<EditorPage> {
       action = EditorCommands.openSettings;
     } else if (hw.isControlPressed && (key == LogicalKeyboardKey.tab || key == LogicalKeyboardKey.pageDown || key == LogicalKeyboardKey.pageUp)) {
       final back = key == LogicalKeyboardKey.pageUp || (key == LogicalKeyboardKey.tab && hw.isShiftPressed);
-      action = () => _cycleTab(back ? -1 : 1);
+      action = key == LogicalKeyboardKey.tab ? () => _walkTabs(back ? -1 : 1) : () => _cycleTab(back ? -1 : 1);
     } else if (hw.isPrimaryPressed && hw.isAltPressed && key == LogicalKeyboardKey.keyM) {
       action = () => setState(() => _mirrorOpen = !_mirrorOpen);
     } else if (hw.isAltPressed && key == LogicalKeyboardKey.keyZ) {
@@ -820,6 +822,28 @@ class _EditorPageState extends State<EditorPage> {
     if (here != null) to.add(here);
     final t = from.removeLast();
     unawaited(_openFile(t.path, line: t.line, column: t.column));
+  }
+
+  // Held for one press of Ctrl, so going on with Tab walks further back rather than flipping between two.
+  List<EditorDocument>? _tabWalk;
+  var _tabWalkAt = 0;
+
+  void _walkTabs(int delta) {
+    final ws = _ws;
+    if (ws == null) return;
+    final walk = _tabWalk ??= ws.focused.history;
+    walk.retainWhere(ws.focused.docs.contains);
+    if (walk.length < 2) return;
+    _tabWalkAt = (_tabWalkAt + delta) % walk.length;
+    ws.activate(walk[_tabWalkAt]);
+  }
+
+  bool _onControlUp(KeyEvent e) {
+    if (e is KeyUpEvent && (e.logicalKey == LogicalKeyboardKey.controlLeft || e.logicalKey == LogicalKeyboardKey.controlRight)) {
+      _tabWalk = null;
+      _tabWalkAt = 0;
+    }
+    return false;
   }
 
   void _cycleTab(int delta) {
