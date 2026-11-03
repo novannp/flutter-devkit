@@ -53,7 +53,7 @@ jobs:
       - if: runner.os == 'Windows'
         run: |
           choco install innosetup --no-progress -y
-          .	ooluild_installer.ps1
+          ./tool/build_installer.ps1
       - if: runner.os != 'Windows'
         run: |
           sh tool/build_macos.sh
