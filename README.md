@@ -19,9 +19,9 @@
 
 ## Install
 
-**Windows:** download and run `HotRestart-Setup.exe` from the [latest release](https://github.com/novannp/slipway/releases/latest). No admin rights needed, and it upgrades over an older version, keeping your settings. The installer isn't code-signed yet: if Windows warns you, choose **More info → Run anyway**.
+**Windows:** download and run `HotRestart-Setup.exe` from the [latest release](https://github.com/novannp/hotrestart/releases/latest). No admin rights needed, and it upgrades over an older version, keeping your settings. The installer isn't code-signed yet: if Windows warns you, choose **More info → Run anyway**.
 
-**macOS:** download the `.dmg` for your Mac from the [latest release](https://github.com/novannp/slipway/releases/latest), or run `sh tool/build_macos.sh` with Flutter and Xcode installed. The first time, right-click the app and choose **Open**. The embedded device screen needs **System Settings → Privacy & Security → Accessibility**.
+**macOS:** download the `.dmg` for your Mac from the [latest release](https://github.com/novannp/hotrestart/releases/latest), or run `sh tool/build_macos.sh` with Flutter and Xcode installed. The first time, right-click the app and choose **Open**. The embedded device screen needs **System Settings → Privacy & Security → Accessibility**.
 
 **Uninstall:** on Windows use **Settings → Apps**, and delete the `HotRestart` firewall rule if you added one. On macOS drag the app to the Trash. Your settings stay in `%APPDATA%\HotRestart` and `~/Library/Application Support/com.novannp.hotrestart`; delete those too to remove everything.
 
@@ -166,7 +166,7 @@ HotRestart stands on the work of these people and projects. Thank you for buildi
 
 [Android Debug Bridge](https://developer.android.com/tools/adb) comes from the Android Open Source Project.
 
-HotRestart is made by <a href="https://github.com/novannp"><img src="https://github.com/novannp.png?size=64" width="32" height="32" alt="Novan Noviansyah Pratama" /></a> [Novan Noviansyah Pratama](https://github.com/novannp) and [its contributors](https://github.com/novannp/slipway/graphs/contributors). Want to help? See [CONTRIBUTING.md](CONTRIBUTING.md).
+HotRestart is made by <a href="https://github.com/novannp"><img src="https://github.com/novannp.png?size=64" width="32" height="32" alt="Novan Noviansyah Pratama" /></a> [Novan Noviansyah Pratama](https://github.com/novannp) and [its contributors](https://github.com/novannp/hotrestart/graphs/contributors). Want to help? See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
