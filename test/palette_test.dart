@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:devkit/modules/editor/palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -76,7 +78,7 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     expect(find.text('A'), findsOneWidget);
-    expect(find.text('Shift'), findsOneWidget);
+    expect(find.textContaining(Platform.isMacOS ? '⇧' : 'Shift'), findsOneWidget);
     expect(tester.getTopLeft(find.text('Three')).dy, lessThan(tester.getTopLeft(find.text('Two')).dy), reason: 'grouped');
 
     // One, then Three: the second row on screen, even though it was third in the list.
