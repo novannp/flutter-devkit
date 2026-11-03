@@ -35,6 +35,7 @@ import 'file_tree.dart';
 import 'fuzzy_files.dart';
 import 'log_style.dart';
 import 'notices.dart';
+import 'project_tools.dart';
 import 'packages_view.dart';
 import 'palette.dart';
 import 'widget_inspector.dart';
@@ -80,6 +81,8 @@ class EditorPage extends StatefulWidget {
 }
 
 const _pickPackageToUpgrade = 'pick';
+const _showFvmItem = 'fvm';
+const _showFirebaseItem = 'firebase';
 const _buildRunnerBuild = 'dart run build_runner build --delete-conflicting-outputs';
 const _buildRunnerWatch = 'dart run build_runner watch --delete-conflicting-outputs';
 const _buildRunnerClean = 'dart run build_runner clean';
@@ -605,6 +608,8 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Step Out', _debugger.stepOut, keys: 'Shift+F11', icon: Icons.north_east, group: 'Debug'),
         PaletteItem('Toggle Line Blame', EditorView.toggleLineBlame, icon: Icons.person_search_outlined, group: 'Git'),
         PaletteItem('Discard All Changes', () => unawaited(confirmDiscardAll(context, _git)), icon: Icons.undo, group: 'Git'),
+        PaletteItem('Flutter Versions (FVM)', () => unawaited(_showFvm()), icon: Icons.layers_outlined, group: 'Flutter'),
+        PaletteItem('Firebase', () => unawaited(_showFirebase()), icon: Icons.local_fire_department_outlined, group: 'Flutter'),
         PaletteItem('Pub Get', () => unawaited(_runTool('pub get')), icon: Icons.download_outlined, group: 'Flutter'),
         PaletteItem('Pub Upgrade', () => unawaited(_runTool('pub upgrade')), icon: Icons.upgrade, group: 'Flutter'),
         PaletteItem('Pub Upgrade Package…', () => unawaited(_upgradeOnePackage()), icon: Icons.upgrade, group: 'Flutter'),
@@ -861,15 +866,26 @@ class _EditorPageState extends State<EditorPage> {
     ]);
   }
 
-  Future<void> _runTool(String args) async {
-    final ws = _ws;
-    if (ws == null || _toolBusy) return;
-    await ws.saveAll();
+  /// [args] is a command for `flutter`, unless it starts with `dart`.
+  Future<bool> _runTool(String args) {
     final words = args.split(' ');
-    final isDart = words.first == 'dart';
-    final command = isDart ? (projectUsesFvm(ws.root) ? DartCommand('fvm', const ['dart'], runInShell: Platform.isWindows) : dartCommand(ws.root)) : flutterCommand(ws.root);
-    final arguments = [...command.args, ...(isDart ? words.skip(1) : words)];
+    return _runCommand(words.first == 'dart' ? words : ['flutter', ...words]);
+  }
+
+  /// Runs in the Output panel, and says whether it worked. Each word is passed as it is.
+  Future<bool> _runCommand(List<String> words) async {
+    final ws = _ws;
+    if (ws == null || _toolBusy) return false;
+    await ws.saveAll();
+    final args = (words.first == 'flutter' ? words.skip(1) : words).join(' ');
+    final DartCommand command = switch (words.first) {
+      'flutter' => flutterCommand(ws.root),
+      'dart' => projectUsesFvm(ws.root) ? DartCommand('fvm', const ['dart'], runInShell: Platform.isWindows) : dartCommand(ws.root),
+      _ => DartCommand(words.first, const [], runInShell: Platform.isWindows),
+    };
+    final arguments = [...command.args, ...words.skip(1)];
     final line = '${command.exe} ${arguments.join(' ')}';
+    var ok = false;
     _toolAnchor = _flutter?.lines.length ?? 0;
     setState(() {
       _toolBusy = true;
@@ -883,6 +899,8 @@ class _EditorPageState extends State<EditorPage> {
     try {
       final process = await Process.start(command.exe, arguments, workingDirectory: ws.root, runInShell: Platform.isWindows);
       _toolProcess = process;
+      // Nobody can answer a question asked here, and a waiting program would never end.
+      if (!args.contains('watch')) unawaited(process.stdin.close());
       void add(String l) {
         if (mounted) setState(() => _tool.add(l));
       }
@@ -891,6 +909,7 @@ class _EditorPageState extends State<EditorPage> {
       final err = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).forEach(add);
       final code = await process.exitCode;
       await Future.wait([out, err]);
+      ok = code == 0 && !_toolStopped;
       add(_toolStopped ? 'Stopped' : (code == 0 ? '✓ Done' : '✗ Exit code $code'));
     } on Exception catch (e) {
       if (mounted) setState(() => _tool.add('Failed: $e'));
@@ -911,8 +930,9 @@ class _EditorPageState extends State<EditorPage> {
     }
     _toolProcess = null;
     // Generated files are new to the tree, and it only looks when asked.
-    if (args.contains('build_runner')) unawaited(_treeKey.currentState?.refresh());
+    if (args.contains('build_runner') || args.contains('flutterfire')) unawaited(_treeKey.currentState?.refresh());
     _checkPackages();
+    return ok;
   }
 
   // Watch mode only ever ends this way.
@@ -944,6 +964,39 @@ class _EditorPageState extends State<EditorPage> {
         for (final x in names)
           PaletteItem(x.name, () => unawaited(_runTool('pub upgrade ${x.name}')), detail: x.current, icon: Icons.inventory_2_outlined),
       ],
+    );
+  }
+
+  Future<void> _showFvm() async {
+    final ws = _ws;
+    if (ws == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => FvmDialog(
+        root: ws.root,
+        onRun: (command) async {
+          final ok = await _runCommand(command);
+          // The analyzer, the terminal and Run all have to move to the new SDK, as reopening does.
+          if (ok && command[1] == 'use' && mounted && identical(ws, _ws)) await _openRoot(ws.root);
+        },
+      ),
+    );
+  }
+
+  Future<void> _showFirebase() async {
+    final ws = _ws;
+    if (ws == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => FirebaseDialog(
+        root: ws.root,
+        onRun: (command) => unawaited(_runCommand(command)),
+        onTerminal: (command) {
+          _showPanel(_Panel.terminal);
+          // The panel starts its terminal when it first shows.
+          WidgetsBinding.instance.addPostFrameCallback((_) => _terminal?.run(command));
+        },
+      ),
     );
   }
 
@@ -1285,8 +1338,8 @@ class _EditorPageState extends State<EditorPage> {
           )),
           if (fvm && !narrow)
             Tooltip(
-              message: 'Flutter SDK pinned by fvm: ${flutterSdkOf(ws.root) ?? 'not installed yet'}',
-              child: Container(
+              message: 'Flutter SDK pinned by fvm: ${flutterSdkOf(ws.root) ?? 'not installed yet'}. Click to change it.',
+              child: GestureDetector(onTap: () => unawaited(_showFvm()), child: Container(
                 margin: const EdgeInsets.only(left: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -1294,7 +1347,7 @@ class _EditorPageState extends State<EditorPage> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text('fvm', style: TextStyle(color: scheme.primary, fontSize: 11, fontWeight: FontWeight.w600)),
-              ),
+              )),
             ),
           ])),
           PopupMenuButton<String>(
@@ -1393,9 +1446,9 @@ class _EditorPageState extends State<EditorPage> {
               onPressed: f?.canReload == true ? () => f!.reload(full: true) : null,
               icon: const Icon(Icons.restart_alt),
             ),
-          if (_toolArgs?.contains('build_runner') == true)
+          if (_toolArgs != null)
             IconButton(
-              tooltip: 'Stop build_runner',
+              tooltip: 'Stop ${_toolArgs!}',
               onPressed: _stopTool,
               icon: Icon(Icons.stop_circle_outlined, color: scheme.error),
             )
@@ -1415,7 +1468,12 @@ class _EditorPageState extends State<EditorPage> {
             tooltip: 'Flutter commands',
             icon: const Icon(Icons.flutter_dash),
             enabled: !_toolBusy,
-            onSelected: (v) => v == _pickPackageToUpgrade ? unawaited(_upgradeOnePackage()) : unawaited(_runTool(v)),
+            onSelected: (v) => switch (v) {
+              _pickPackageToUpgrade => unawaited(_upgradeOnePackage()),
+              _showFvmItem => unawaited(_showFvm()),
+              _showFirebaseItem => unawaited(_showFirebase()),
+              _ => unawaited(_runTool(v)),
+            },
             itemBuilder: (_) => const [
               PopupMenuItem(height: 30, value: 'pub get', child: Text('pub get')),
               PopupMenuItem(height: 30, value: 'pub upgrade', child: Text('pub upgrade')),
@@ -1425,6 +1483,9 @@ class _EditorPageState extends State<EditorPage> {
               PopupMenuItem(height: 30, value: 'analyze', child: Text('analyze')),
               PopupMenuItem(height: 30, value: 'test', child: Text('test')),
               PopupMenuItem(height: 30, value: 'doctor', child: Text('doctor')),
+              PopupMenuDivider(),
+              PopupMenuItem(height: 30, value: _showFvmItem, child: Text('Flutter versions (FVM)…')),
+              PopupMenuItem(height: 30, value: _showFirebaseItem, child: Text('Firebase…')),
             ],
           ),
           PopupMenuButton<String>(
