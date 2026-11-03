@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:window_manager/window_manager.dart';
 
+import 'core/panels.dart';
 import 'core/app_logo.dart';
 import 'core/background.dart';
 import 'core/error_log.dart';
@@ -139,10 +140,10 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: canvasOf(Theme.of(context).colorScheme),
       body: Column(
         children: [
           _TitleBar(active: _tools.active, onSelect: _go),
-          const Divider(height: 1),
           const Expanded(child: EditorPage()),
         ],
       ),
@@ -507,7 +508,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
     final scheme = Theme.of(context).colorScheme;
     final titleBar = Container(
       height: _barHeight,
-      color: scheme.surfaceContainerLow,
+      color: canvasOf(scheme),
       child: Stack(
         children: [
           Row(

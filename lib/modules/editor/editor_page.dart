@@ -9,6 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/panels.dart';
 import '../../core/theme.dart';
 import '../../core/local_builds.dart';
 import '../console/console_session.dart';
@@ -877,7 +878,15 @@ class _EditorPageState extends State<EditorPage> {
   Widget build(BuildContext context) {
     final ws = _ws;
     final scheme = Theme.of(context).colorScheme;
-    if (ws == null) return _workArea(_Welcome(projects: _projects, onOpen: _openRoot, onPick: _pickFolder), scheme);
+    if (ws == null) {
+      return _workArea(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(panelGap, 0, panelGap, panelGap),
+          child: PanelCard(child: _Welcome(projects: _projects, onOpen: _openRoot, onPick: _pickFolder)),
+        ),
+        scheme,
+      );
+    }
     final windowWidth = MediaQuery.sizeOf(context).width;
     final sideWidth = _treeWidth.clamp(0, windowWidth * .4).toDouble();
     return _keepingKeys(Focus(
@@ -886,12 +895,13 @@ class _EditorPageState extends State<EditorPage> {
       child: Column(
         children: [
           _toolbar(ws, scheme),
-          const Divider(height: 1),
           Expanded(
             child: Stack(
               fit: StackFit.expand,
               children: [
-            Row(
+            Padding(
+              padding: const EdgeInsets.only(right: panelGap),
+              child: Row(
               children: [
                 _activityBar(scheme),
                 // Kept mounted when closed, so the tree's open folders survive being hidden.
@@ -915,7 +925,7 @@ class _EditorPageState extends State<EditorPage> {
                   ),
                   child: SizedBox(
                     width: sideWidth,
-                    child: IndexedStack(
+                    child: PanelCard(child: IndexedStack(
                       index: _side.index,
                       sizing: StackFit.expand,
                       children: [
@@ -934,7 +944,7 @@ class _EditorPageState extends State<EditorPage> {
                           onOpen: (path, line, column) => _openFile(path, line: line, column: column),
                         ),
                       ],
-                    ),
+                    )),
                   ),
                 ),
                 if (_sideOpen)
@@ -981,9 +991,10 @@ class _EditorPageState extends State<EditorPage> {
                     axis: Axis.horizontal,
                     onDrag: (d) => setState(() => _mirrorWidth = (_mirrorWidth - d).clamp(220, 900)),
                   ),
-                  SizedBox(width: _mirrorWidth.clamp(0, windowWidth * .4).toDouble(), child: _mirror(scheme)),
+                  SizedBox(width: _mirrorWidth.clamp(0, windowWidth * .4).toDouble(), child: PanelCard(child: _mirror(scheme))),
                 ],
               ],
+            ),
             ),
                 if (_notices.isNotEmpty && !_noticesHidden)
                   Positioned(
@@ -1022,20 +1033,35 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Widget _activityBar(ColorScheme scheme) {
+    final shape = BorderRadius.circular(9);
+    // The count sits under the icon, so no number can ever cover it.
     Widget item(String tip, IconData icon, bool selected, VoidCallback onTap, {String? badge}) => Tooltip(
       message: tip,
       preferBelow: false,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          height: 36,
-          decoration: BoxDecoration(
-            border: Border(left: BorderSide(width: 2, color: selected ? scheme.primary : Colors.transparent)),
-          ),
-          child: Center(
-            child: badge == null
-                ? Icon(icon, size: 19, color: selected ? scheme.primary : scheme.onSurfaceVariant)
-                : Badge(label: Text(badge), child: Icon(icon, size: 19, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        child: Material(
+          color: selected ? scheme.primary.withValues(alpha: .14) : Colors.transparent,
+          borderRadius: shape,
+          child: InkWell(
+            borderRadius: shape,
+            onTap: onTap,
+            child: SizedBox(
+              height: badge == null ? 36 : 46,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 20, color: selected ? scheme.primary : scheme.onSurfaceVariant),
+                  if (badge != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(6)),
+                      child: Text(badge, style: TextStyle(fontSize: 9, height: 1.3, fontWeight: FontWeight.w700, color: scheme.onPrimary)),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -1045,9 +1071,9 @@ class _EditorPageState extends State<EditorPage> {
     void side(_Side which) => _sideOpen && _side == which ? _toggleSide() : _showSide(which);
     final changes = _git.changes.length;
     return Material(
-      color: scheme.surfaceContainerLow,
+      color: canvasOf(scheme),
       child: SizedBox(
-        width: 38,
+        width: 46,
         child: Column(
         children: [
           item(platformKeys('Files (Ctrl+Shift+E)'), Icons.description_outlined, _sideOpen && _side == _Side.files, () => side(_Side.files)),
@@ -1056,7 +1082,7 @@ class _EditorPageState extends State<EditorPage> {
             Icons.call_split,
             _sideOpen && _side == _Side.git,
             () => side(_Side.git),
-            badge: changes == 0 ? null : '$changes',
+            badge: changes == 0 ? null : (changes > 99 ? '99+' : '$changes'),
           ),
           item(platformKeys('Search (Ctrl+Shift+F)'), Icons.search, _sideOpen && _side == _Side.search, () => side(_Side.search)),
           item(
@@ -1086,9 +1112,9 @@ class _EditorPageState extends State<EditorPage> {
     final fvm = projectUsesFvm(ws.root);
     final narrow = MediaQuery.sizeOf(context).width < 760;
     return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      color: scheme.surfaceContainerLow,
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      color: canvasOf(scheme),
       child: Row(
         children: [
           // Takes all the room that's left, instead of sharing it with a Spacer.
@@ -1264,49 +1290,40 @@ class _EditorPageState extends State<EditorPage> {
   Widget _workArea(Widget editor, ColorScheme scheme) {
     final tools = ToolTabs.instance;
     if (tools.open.isEmpty) return editor;
-    Widget tab(String label, IconData icon, bool selected, VoidCallback onTap, {VoidCallback? onClose}) => InkWell(
+    Widget tab(String label, IconData icon, bool selected, VoidCallback onTap, {VoidCallback? onClose}) => PillTab(
+      selected: selected,
       onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.only(left: 10, right: onClose == null ? 10 : 2),
-        decoration: BoxDecoration(
-          color: selected ? scheme.surface : null,
-          border: Border(
-            right: BorderSide(color: scheme.outlineVariant),
-            top: BorderSide(color: selected ? scheme.primary : Colors.transparent, width: 2),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 14, color: selected ? scheme.primary : scheme.outline),
-            const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 12.5)),
-            if (onClose != null)
-              IconButton(
-                tooltip: 'Close',
-                iconSize: 13,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(width: 22, height: 22),
-                onPressed: onClose,
-                icon: const Icon(Icons.close),
-              ),
-          ],
-        ),
+      padding: EdgeInsets.only(left: 10, right: onClose == null ? 10 : 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: selected ? scheme.primary : scheme.outline),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 12.5)),
+          if (onClose != null)
+            IconButton(
+              tooltip: 'Close',
+              iconSize: 13,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 22, height: 22),
+              onPressed: onClose,
+              icon: const Icon(Icons.close),
+            ),
+        ],
       ),
     );
     final active = tools.active;
     return Column(
       children: [
-        Material(
-          color: scheme.surfaceContainer,
-          child: SizedBox(
-          height: 28,
+        SizedBox(
+          height: 34,
           child: ListView(
             scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: panelGap),
             children: [
               tab('Editor', Icons.code, active == null, tools.showEditor),
               for (final m in tools.open) tab(m.label, m.icon, m == active, () => tools.show(m), onClose: () => tools.close(m)),
             ],
-          ),
           ),
         ),
         Expanded(
@@ -1324,7 +1341,14 @@ class _EditorPageState extends State<EditorPage> {
                 TickerMode(
                   key: ObjectKey(m),
                   enabled: m == active,
-                  child: AnimatedOpacity(opacity: m == active ? 1 : 0, duration: const Duration(milliseconds: 120), child: m.page),
+                  child: AnimatedOpacity(
+                    opacity: m == active ? 1 : 0,
+                    duration: const Duration(milliseconds: 120),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(panelGap, 0, panelGap, panelGap),
+                      child: PanelCard(child: m.page),
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -1395,7 +1419,7 @@ class _EditorPageState extends State<EditorPage> {
     final device = _device;
     final android = device != null && device != _desktopDevice;
     return Material(
-      color: scheme.surfaceContainerLow,
+      color: scheme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1457,7 +1481,7 @@ class _EditorPageState extends State<EditorPage> {
     final key = _paneKeys[group] ??= GlobalKey<CodePaneState>();
     return Listener(
       onPointerDown: (_) => ws.focusGroup(group),
-      child: Column(
+      child: PanelCard(child: Column(
         children: [
           if (group.docs.isNotEmpty) _tabs(ws, group, scheme),
           if (doc != null)
@@ -1484,7 +1508,7 @@ class _EditorPageState extends State<EditorPage> {
                   ),
           ),
         ],
-      ),
+      )),
     );
   }
 
@@ -1517,21 +1541,22 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Widget _tabs(EditorWorkspace ws, EditorGroup group, ColorScheme scheme) => Material(
-    color: scheme.surfaceContainerLow,
+    color: scheme.surface,
     child: SizedBox(
-    height: 28,
+    height: 34,
     child: Row(
       children: [
         Expanded(
           child: ReorderableListView.builder(
             scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             buildDefaultDragHandles: false,
             itemCount: group.docs.length,
             onReorderItem: (from, to) {
               ws.moveTab(group, from, to);
               unawaited(_rememberTabs());
             },
-            proxyDecorator: (child, _, _) => Material(elevation: 4, color: scheme.surface, child: child),
+            proxyDecorator: (child, _, _) => Material(elevation: 4, color: scheme.surface, borderRadius: BorderRadius.circular(8), child: child),
             itemBuilder: (_, i) {
               final d = group.docs[i];
               final selected = d == group.active;
@@ -1545,21 +1570,16 @@ class _EditorPageState extends State<EditorPage> {
                     if (e.buttons == 4) _closeTab(d);
                     if (e.buttons == 2) unawaited(_tabMenu(e.position, ws, group, d));
                   },
-                  child: InkWell(
+                  child: PillTab(
+                    selected: selected,
+                    active: identical(group, ws.focused),
                     onTap: () {
                       ws.activate(d);
                       unawaited(_rememberTabs());
                     },
-                    child: Container(
-                      padding: const EdgeInsets.only(left: 10, right: 2),
-                      decoration: BoxDecoration(
-                        color: selected ? scheme.surface : null,
-                        border: Border(
-                          right: BorderSide(color: scheme.outlineVariant),
-                          top: BorderSide(color: selected && identical(group, ws.focused) ? scheme.primary : Colors.transparent, width: 2),
-                        ),
-                      ),
-                      child: Row(
+                    padding: const EdgeInsets.only(left: 10, right: 2),
+                    child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(icon, size: 14, color: color ?? scheme.outline),
                           const SizedBox(width: 5),
@@ -1582,7 +1602,6 @@ class _EditorPageState extends State<EditorPage> {
                             icon: Icon(d.dirty ? Icons.circle : Icons.close),
                           ),
                         ],
-                      ),
                     ),
                   ),
                 ),
@@ -1649,12 +1668,9 @@ class _EditorPageState extends State<EditorPage> {
     final doc = ws.active;
     final style = TextStyle(fontSize: 12, color: scheme.onSurfaceVariant);
     return Container(
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        border: Border(top: BorderSide(color: scheme.outlineVariant)),
-      ),
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      color: canvasOf(scheme),
       child: Row(
         children: [
           InkWell(
@@ -1721,26 +1737,23 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Widget _bottomPanel(EditorWorkspace ws, ColorScheme scheme) {
-    Widget tab(_Panel panel, String label) => TextButton(
-      onPressed: () => setState(() => _panel = panel),
-      style: TextButton.styleFrom(
-        foregroundColor: _panel == panel ? scheme.primary : scheme.onSurfaceVariant,
-        visualDensity: VisualDensity.compact,
-      ),
-      child: Text(label, style: const TextStyle(fontSize: 13)),
+    Widget tab(_Panel panel, String label) => PillTab(
+      selected: _panel == panel,
+      onTap: () => setState(() => _panel = panel),
+      child: Text(label, style: TextStyle(fontSize: 12.5, color: _panel == panel ? scheme.primary : scheme.onSurfaceVariant)),
     );
 
-    return Container(
-      color: scheme.surfaceContainerLowest,
+    return PanelCard(
       child: Column(
         children: [
           SizedBox(
-            height: 26,
+            height: 34,
             child: Row(
               children: [
                 Expanded(
                   child: ListView(
                     scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     children: [
                       tab(_Panel.problems, 'Problems (${ws.allDiagnostics.length})'),
                       tab(_Panel.output, 'Output'),
@@ -1759,7 +1772,6 @@ class _EditorPageState extends State<EditorPage> {
               ],
             ),
           ),
-          const Divider(height: 1),
           Expanded(
             child: switch (_panel) {
               _Panel.problems => _problems(ws, scheme),
@@ -2025,27 +2037,41 @@ class _DartSettingsDialogState extends State<_DartSettingsDialog> {
   );
 }
 
-class _DragHandle extends StatelessWidget {
+class _DragHandle extends StatefulWidget {
   const _DragHandle({required this.axis, required this.onDrag});
 
   final Axis axis;
   final ValueChanged<double> onDrag;
 
   @override
+  State<_DragHandle> createState() => _DragHandleState();
+}
+
+class _DragHandleState extends State<_DragHandle> {
+  var _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.outlineVariant;
-    final horizontal = axis == Axis.horizontal;
+    final horizontal = widget.axis == Axis.horizontal;
+    final color = _hover ? Theme.of(context).colorScheme.primary.withValues(alpha: .6) : Colors.transparent;
     return MouseRegion(
       cursor: horizontal ? SystemMouseCursors.resizeColumn : SystemMouseCursors.resizeRow,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onHorizontalDragUpdate: horizontal ? (d) => onDrag(d.delta.dx) : null,
-        onVerticalDragUpdate: horizontal ? null : (d) => onDrag(d.delta.dy),
-        child: Container(
-          width: horizontal ? 5 : null,
-          height: horizontal ? null : 5,
-          alignment: Alignment.center,
-          child: Container(width: horizontal ? 1 : null, height: horizontal ? null : 1, color: color),
+        onHorizontalDragUpdate: horizontal ? (d) => widget.onDrag(d.delta.dx) : null,
+        onVerticalDragUpdate: horizontal ? null : (d) => widget.onDrag(d.delta.dy),
+        child: SizedBox(
+          width: horizontal ? panelGap : null,
+          height: horizontal ? null : panelGap,
+          child: Center(
+            child: Container(
+              width: horizontal ? 2 : 36,
+              height: horizontal ? 36 : 2,
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(1)),
+            ),
+          ),
         ),
       ),
     );

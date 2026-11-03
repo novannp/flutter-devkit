@@ -195,6 +195,7 @@ class SourceControl extends ChangeNotifier {
   }
 
   Future<GitOutput> _git(List<String> args) async {
+    if (_disposed) return const GitOutput(false, '');
     try {
       final r = await Process.run(
         'git',

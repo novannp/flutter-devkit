@@ -226,7 +226,7 @@ class FileTreeState extends State<FileTree> {
     final scheme = Theme.of(context).colorScheme;
     final rows = _flatten(widget.root, 0);
     return Material(
-      color: scheme.surfaceContainerLow,
+      color: scheme.surface,
       child: Column(
         children: [
           SizedBox(
@@ -235,8 +235,8 @@ class FileTreeState extends State<FileTree> {
               children: [
                 const SizedBox(width: 10),
                 Text(
-                  'FILES',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.outline, letterSpacing: .8),
+                  'Files',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
                 ),
                 const Spacer(),
                 IconButton(
@@ -272,10 +272,15 @@ class FileTreeState extends State<FileTree> {
                   return GestureDetector(
                     onSecondaryTapDown: (d) => _menu(d.globalPosition, r.entity),
                     child: InkWell(
+                      borderRadius: BorderRadius.circular(7),
                       onTap: () => r.isDir ? _toggle(path) : widget.onOpen(path),
                       child: Container(
-                        color: open ? scheme.primary.withValues(alpha: .12) : null,
-                        padding: EdgeInsets.only(left: 6.0 + r.depth * 12, right: 8),
+                        margin: const EdgeInsets.symmetric(horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: open ? scheme.primary.withValues(alpha: .14) : null,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        padding: EdgeInsets.only(left: r.depth * 12.0, right: 8),
                         child: Row(
                           children: [
                             // Files leave the chevron's space empty so names line up with their folder's.

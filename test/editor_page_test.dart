@@ -620,6 +620,10 @@ void main() {
 
       await key(LogicalKeyboardKey.keyG, control: true, shift: true);
       await settle(() => find.text('Changes (1)').evaluate().isNotEmpty, 'the changed file');
+      final railIcon = find.byIcon(Icons.call_split).first;
+      final railItem = find.ancestor(of: railIcon, matching: find.byType(Column)).first;
+      final railCount = tester.getRect(find.descendant(of: railItem, matching: find.text('1')));
+      expect(tester.getRect(railIcon).overlaps(railCount), isFalse, reason: 'the count leaves the icon uncovered');
       final row = find.descendant(of: find.byType(SourceControlView), matching: find.text('main.dart'));
       await settle(() => row.evaluate().isNotEmpty, 'the changed file in the list');
       await tester.tap(row);
