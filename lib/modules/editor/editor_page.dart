@@ -39,6 +39,7 @@ import 'fuzzy_files.dart';
 import 'log_style.dart';
 import 'notices.dart';
 import 'project_tools.dart';
+import 'agent_view.dart';
 import 'git_graph.dart';
 import 'packages_view.dart';
 import 'palette.dart';
@@ -111,7 +112,7 @@ bool matchesLogSearch(String line, String query) {
 enum _Panel { problems, output, terminal, widgets }
 
 /// What the left panel shows. There's one panel, so opening one view replaces the other.
-enum _Side { files, git, search, debug, packages }
+enum _Side { files, git, search, debug, packages, agent }
 
 class _EditorPageState extends State<EditorPage> {
   EditorWorkspace? _ws;
@@ -535,6 +536,8 @@ class _EditorPageState extends State<EditorPage> {
       action = () => _showPanel(_Panel.problems);
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyU) {
       action = () => _showPanel(_Panel.output);
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyA) {
+      action = () => _showSide(_Side.agent);
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyN) {
       action = openProjectWindow;
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyB) {
@@ -673,6 +676,7 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Show Files', () => _showSide(_Side.files), keys: 'Ctrl+Shift+E', icon: Icons.description_outlined, group: 'View'),
         PaletteItem('Show Source Control', () => _showSide(_Side.git), keys: 'Ctrl+Shift+G', icon: Icons.account_tree_outlined, group: 'View'),
         PaletteItem('Show Search', () => _showSide(_Side.search), keys: 'Ctrl+Shift+F', icon: Icons.search, group: 'View'),
+        PaletteItem('Show Agent', () => _showSide(_Side.agent), keys: 'Ctrl+Shift+A', icon: Icons.auto_awesome_outlined, group: 'View'),
         PaletteItem('Show Packages', () => _showSide(_Side.packages), keys: 'Ctrl+Shift+B', icon: Icons.inventory_2_outlined, group: 'View'),
         PaletteItem('Show Run and Debug', () => _showSide(_Side.debug), keys: 'Ctrl+Shift+D', icon: Icons.bug_report_outlined, group: 'View'),
         PaletteItem('Toggle Side Panel', _toggleSide, keys: 'Ctrl+B', icon: Icons.view_sidebar_outlined, group: 'View'),
@@ -1343,6 +1347,14 @@ class _EditorPageState extends State<EditorPage> {
                           onRun: (args) => unawaited(_runTool(args)),
                           onSort: () => unawaited(_sortPubspec()),
                         ),
+                        AgentView(
+                          key: ValueKey('agent:${ws.root}'),
+                          root: ws.root,
+                          visible: _sideOpen && _side == _Side.agent,
+                          activeFile: () => ws.active?.module == null ? ws.active?.path : null,
+                          onBeforeSend: ws.saveAll,
+                          onOpenFile: (path) => unawaited(_openFile(path)),
+                        ),
                       ],
                     )),
                   ),
@@ -1469,6 +1481,7 @@ class _EditorPageState extends State<EditorPage> {
             badge: _debugger.paused ? '!' : null,
           ),
           item(platformKeys('Packages (Ctrl+Shift+B)'), Icons.inventory_2_outlined, _sideOpen && _side == _Side.packages, () => side(_Side.packages)),
+          item(platformKeys('Agent (Ctrl+Shift+A)'), Icons.auto_awesome_outlined, _sideOpen && _side == _Side.agent, () => side(_Side.agent)),
           item('Flutter Versions (FVM)', Icons.layers_outlined, false, () => unawaited(_showFvm())),
           item('Firebase', Icons.local_fire_department_outlined, false, () => unawaited(_showFirebase())),
                   ],

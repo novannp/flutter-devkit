@@ -82,6 +82,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 
 **Project and team**
 
+- **Agent** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>): talk to Claude Code about the open project in a side panel. It runs the `claude` you already have, as the VS Code extension does, so you only sign in there and Flutter DevKit never reads your credentials. It can read only, or edit files; commands stay refused unless your Claude Code settings allow them. Usage counts against your own Claude plan
 - **Git Graph**: every branch as a drawn history, under your changes in Source Control, with a full tab from there, the status bar or the palette. Click a commit to see its files, and a file to see its side-by-side diff: under the commit in Source Control, and with the commit's message in the full tab. Right-click it to switch to its branch or copy its hash
 - **Branch in the status bar**: click it to switch. It shows what's ahead and behind with a button to sync, or **Publish** while the branch is only on your computer
 - **Source Control**: changed files, a side-by-side diff with syntax colors, stage, commit, push and pull, branches, discard one file or everything at once (a copy stays in `git stash`), a side by side before and after diff in its own tab, gutter marks for lines that differ from `HEAD`, and line blame at the end of the current line (**Git: Toggle Line Blame** in the palette or the right-click menu)
@@ -328,6 +329,33 @@ Flutter DevKit already covers editing, running on devices, and package managemen
 - [ ] **Widget inspector** in the debugger, over the VM service
 - [ ] **More git in the editor**: blame, merge conflicts
 - [ ] **Beyond Android, Windows and macOS**: iOS and Linux targets
+
+## 🙏 Thanks
+
+Flutter DevKit stands on the work of these people and projects. Thank you for building and sharing them.
+
+**Packages**
+
+| Package | What it does here | By |
+|---|---|---|
+| [flutter_bloc](https://pub.dev/packages/flutter_bloc) | App state | [Felix Angelov and the Bloc community](https://github.com/felangel/bloc) |
+| [xterm](https://pub.dev/packages/xterm) | The terminal | [TerminalStudio](https://github.com/TerminalStudio/xterm.dart) |
+| [flutter_pty](https://pub.dev/packages/flutter_pty) | The shell behind the terminal | [TerminalStudio](https://github.com/TerminalStudio/flutter_pty) |
+| [bonsoir](https://pub.dev/packages/bonsoir) | Finding apps on the network | [Skyost](https://github.com/Skyost/Bonsoir) |
+| [window_manager](https://pub.dev/packages/window_manager) | The window and its title bar | [LeanFlutter](https://github.com/leanflutter/window_manager) |
+| [vm_service](https://pub.dev/packages/vm_service) | The debugger and widget inspector | [Dart team](https://github.com/dart-lang/sdk/tree/main/pkg/vm_service) |
+| [ffi](https://pub.dev/packages/ffi), [path](https://pub.dev/packages/path) | Native calls and file paths | [Dart team](https://github.com/dart-lang) |
+| [shared_preferences](https://pub.dev/packages/shared_preferences), [file_selector](https://pub.dev/packages/file_selector), [path_provider](https://pub.dev/packages/path_provider), [flutter_lints](https://pub.dev/packages/flutter_lints) | Preferences, file pickers, app folders and code checks | [Flutter team](https://github.com/flutter/packages) |
+
+**Programs it ships with or runs**
+
+- [scrcpy](https://github.com/Genymobile/scrcpy) by Genymobile and Romain Vimont, for device screens
+- [FFmpeg](https://ffmpeg.org), [SDL](https://github.com/libsdl-org/SDL) and [libusb](https://github.com/libusb/libusb), which scrcpy is built on
+- [Android Debug Bridge](https://developer.android.com/tools/adb) from the Android Open Source Project
+- [Flutter](https://flutter.dev) and [Dart](https://dart.dev), with the Dart analysis server behind the editor
+- [FVM](https://fvm.app), [FlutterFire CLI](https://firebase.flutter.dev/docs/cli), [Firebase CLI](https://github.com/firebase/firebase-tools) and [Claude Code](https://claude.com/claude-code), when you use those features
+
+Their licenses are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## 📄 License
 
