@@ -140,7 +140,7 @@ class ExtensionsPage extends StatelessWidget {
         children: [
           Text('Extensions', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text('Built into Slipway. Turn off what you don\'t use: it leaves the menus and stops running.', style: TextStyle(color: scheme.outline)),
+          Text('Built into HotRestart. Turn off what you don\'t use: it leaves the menus and stops running.', style: TextStyle(color: scheme.outline)),
           const SizedBox(height: 16),
           for (final e in builtinExtensions)
             Card(

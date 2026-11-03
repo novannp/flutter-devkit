@@ -92,7 +92,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final valid = MdnsService.isValidType(type);
     if (valid) await (await SharedPreferences.getInstance()).setString(MdnsService.serviceTypeKey, type);
     messenger.showSnackBar(
-      SnackBar(content: Text(valid ? 'Saved. Restart Slipway to apply.' : 'Use a form like _myapp._tcp')),
+      SnackBar(content: Text(valid ? 'Saved. Restart HotRestart to apply.' : 'Use a form like _myapp._tcp')),
     );
   }
 
@@ -282,7 +282,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
           Text(
-            inProject ? 'Saved in .slipway/settings.json, so it can be committed and shared with the team. It wins over your own settings.' : 'Saved on this computer, and used in every project.',
+            inProject ? 'Saved in .hotrestart/settings.json, so it can be committed and shared with the team. It wins over your own settings.' : 'Saved on this computer, and used in every project.',
             style: TextStyle(fontSize: 12, color: scheme.outline),
           ),
           if (error != null)

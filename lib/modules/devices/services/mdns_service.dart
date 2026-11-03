@@ -7,7 +7,7 @@ import '../models/device.dart';
 
 /// TXT record contract broadcast by apps that opt in: app (package), version, serial, model, env, adb_port.
 class MdnsService {
-  static const defaultServiceType = '_slipway._tcp';
+  static const defaultServiceType = '_hotrestart._tcp';
   static const serviceTypeKey = 'mdns_service_type';
 
   static bool isValidType(String type) => RegExp(r'^_[a-z0-9-]+\._(tcp|udp)$').hasMatch(type);

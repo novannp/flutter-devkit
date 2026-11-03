@@ -1,10 +1,10 @@
-; Slipway installer. Build with tool/build_installer.ps1 (it passes AppVersion from pubspec.yaml).
+; HotRestart installer. Build with tool/build_installer.ps1 (it passes AppVersion from pubspec.yaml).
 
 #ifndef AppVersion
   #define AppVersion "0.0.1"
 #endif
-#define AppName "Slipway"
-#define AppExe "slipway.exe"
+#define AppName "HotRestart"
+#define AppExe "hotrestart.exe"
 #define Root "..\.."
 
 [Setup]
@@ -12,7 +12,7 @@ AppId={{8C1E5B3A-6F0D-4C7E-9B52-2D7A1F4E9C10}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
-AppPublisher=Slipway
+AppPublisher=HotRestart
 VersionInfoVersion={#AppVersion}
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
@@ -23,7 +23,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#Root}\dist
-OutputBaseFilename=Slipway-Setup
+OutputBaseFilename=HotRestart-Setup
 SetupIconFile={#Root}\windows\runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
@@ -32,7 +32,7 @@ WizardImageFile=wizard-1x.bmp,wizard-2x.bmp
 WizardSmallImageFile=wizard-small-1x.bmp,wizard-small-2x.bmp
 Compression=lzma2/ultra64
 SolidCompression=yes
-; A running Slipway and its adb/scrcpy lock files during upgrades.
+; A running HotRestart and its adb/scrcpy lock files during upgrades.
 CloseApplications=force
 RestartApplications=no
 
@@ -56,5 +56,5 @@ Name: "{userstartup}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: startup
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-Filename: "{sys}\taskkill.exe"; Parameters: "/f /im {#AppExe}"; Flags: runhidden; RunOnceId: "KillSlipway"
+Filename: "{sys}\taskkill.exe"; Parameters: "/f /im {#AppExe}"; Flags: runhidden; RunOnceId: "KillHotRestart"
 Filename: "{sys}\taskkill.exe"; Parameters: "/f /im scrcpy.exe"; Flags: runhidden; RunOnceId: "KillScrcpy"

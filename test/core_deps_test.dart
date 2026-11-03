@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:slipway/extensions/maintenance/core_deps.dart';
+import 'package:hotrestart/extensions/maintenance/core_deps.dart';
 
 const _pubspec = '''
 name: my_app

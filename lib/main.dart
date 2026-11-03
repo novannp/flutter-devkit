@@ -68,11 +68,11 @@ Future<void> main(List<String> args) async {
   Settings.instance
     ..addListener(applySettings)
     ..watch();
-  runApp(SlipwayApp(tools: tools, workspace: device));
+  runApp(HotRestartApp(tools: tools, workspace: device));
 }
 
-class SlipwayApp extends StatelessWidget {
-  const SlipwayApp({super.key, required this.tools, this.workspace});
+class HotRestartApp extends StatelessWidget {
+  const HotRestartApp({super.key, required this.tools, this.workspace});
 
   final Tools tools;
 
@@ -96,8 +96,8 @@ class SlipwayApp extends StatelessWidget {
                     scanner: NetworkScanner(),
                     store: DeviceStore(),
                   )..init();
-                  // SLIPWAY_DEMO=1 shows sample devices (README screenshots, demos).
-                  if (Platform.environment['SLIPWAY_DEMO'] == '1') cubit.toggleDemo();
+                  // HOTRESTART_DEMO=1 shows sample devices (README screenshots, demos).
+                  if (Platform.environment['HOTRESTART_DEMO'] == '1') cubit.toggleDemo();
                   return cubit;
                 },
               ),
@@ -105,7 +105,7 @@ class SlipwayApp extends StatelessWidget {
           child: ValueListenableBuilder(
             valueListenable: appTheme,
             builder: (_, theme, _) => MaterialApp(
-              title: ws == null ? 'Slipway' : ws.displayName,
+              title: ws == null ? 'HotRestart' : ws.displayName,
               debugShowCheckedModeBanner: false,
               theme: buildTheme(theme),
               builder: snackBarsBottomRight,

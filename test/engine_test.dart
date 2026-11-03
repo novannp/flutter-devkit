@@ -1,7 +1,7 @@
-import 'package:slipway/core/equatable.dart';
-import 'package:slipway/core/theme.dart';
-import 'package:slipway/modules/editor/engine/code_model.dart';
-import 'package:slipway/modules/editor/engine/syntax.dart';
+import 'package:hotrestart/core/equatable.dart';
+import 'package:hotrestart/core/theme.dart';
+import 'package:hotrestart/modules/editor/engine/code_model.dart';
+import 'package:hotrestart/modules/editor/engine/syntax.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 

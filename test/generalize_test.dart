@@ -1,16 +1,16 @@
-import 'package:slipway/core/firewall.dart';
+import 'package:hotrestart/core/firewall.dart';
 import 'dart:io';
 
-import 'package:slipway/core/apps.dart';
-import 'package:slipway/modules/devices/services/network_scanner.dart';
-import 'package:slipway/extensions/maintenance/core_deps.dart';
+import 'package:hotrestart/core/apps.dart';
+import 'package:hotrestart/modules/devices/services/network_scanner.dart';
+import 'package:hotrestart/extensions/maintenance/core_deps.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
   test('the firewall fix touches only its own rules, away from Public networks', () {
-    final script = firewallFixScript('Slipway', [r'C:\Program Files\Slipway\slipway.exe']);
-    expect(script, contains(r'program="C:\Program Files\Slipway\slipway.exe"'));
+    final script = firewallFixScript('HotRestart', [r'C:\Program Files\HotRestart\hotrestart.exe']);
+    expect(script, contains(r'program="C:\Program Files\HotRestart\hotrestart.exe"'));
     expect(script, contains('profile=private,domain'));
     for (final risky in ['Bypass', 'Set-NetConnectionProfile', 'profile=any', 'public']) {
       expect(script, isNot(contains(risky)));

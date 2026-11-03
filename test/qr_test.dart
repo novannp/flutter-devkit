@@ -1,4 +1,4 @@
-import 'package:slipway/core/qr.dart';
+import 'package:hotrestart/core/qr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

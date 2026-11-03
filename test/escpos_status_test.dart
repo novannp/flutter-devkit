@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:slipway/extensions/printer/escpos.dart';
+import 'package:hotrestart/extensions/printer/escpos.dart';
 
 void main() {
   List<int> replies(List<int> input) {

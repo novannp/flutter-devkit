@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:slipway/modules/help/licenses_page.dart';
+import 'package:hotrestart/modules/help/licenses_page.dart';
 
 import 'ink_audit.dart';
 
@@ -32,7 +32,7 @@ void main() {
     });
     await open(tester);
     expect(inksHiddenBehindABox(), isEmpty);
-    expect(find.textContaining('MIT License'), findsOneWidget, reason: "Slipway's own text opens first");
+    expect(find.textContaining('MIT License'), findsOneWidget, reason: "HotRestart's own text opens first");
     for (final name in ['scrcpy', 'FFmpeg', 'SDL2']) {
       expect(find.text(name), findsOneWidget);
     }
@@ -44,7 +44,7 @@ void main() {
     await tester.pump();
     expect(find.text('By Leo Farias and contributors'), findsOneWidget);
     expect(find.text('Open its page'), findsOneWidget);
-    expect(find.textContaining('Not part of Slipway'), findsOneWidget);
+    expect(find.textContaining('Not part of HotRestart'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'some_package');
     await tester.pump();

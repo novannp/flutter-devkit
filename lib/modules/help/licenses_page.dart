@@ -19,7 +19,7 @@ class _Row {
   bool matches(String q) => [title, by ?? '', license ?? ''].any((v) => v.toLowerCase().contains(q));
 }
 
-const _own = 'Slipway';
+const _own = 'HotRestart';
 const _shipped = 'Ships with the app';
 const _installed = 'Runs what you installed';
 const _packages = 'Dart packages';
@@ -27,13 +27,13 @@ const _packages = 'Dart packages';
 _Row _creditRow(String group, Credit c) => _Row(group, c.name, by: c.by, license: c.license, url: c.url, asset: c.asset);
 
 final _fixedRows = [
-  const _Row(_own, 'Slipway', by: 'Novan Noviansyah Pratama and contributors', license: 'MIT', asset: 'LICENSE'),
+  const _Row(_own, 'HotRestart', by: 'Novan Noviansyah Pratama and contributors', license: 'MIT', asset: 'LICENSE'),
   const _Row(_own, 'Third-party notices', asset: 'THIRD_PARTY_NOTICES.md'),
   for (final c in shippedCredits) _creditRow(_shipped, c),
   for (final c in installedCredits) _creditRow(_installed, c),
 ];
 
-/// Everything Slipway ships, runs or is built with, and whose work it is.
+/// Everything HotRestart ships, runs or is built with, and whose work it is.
 class LicensesDialog extends StatefulWidget {
   const LicensesDialog({super.key});
 
@@ -140,7 +140,7 @@ class _LicensesDialogState extends State<LicensesDialog> {
           ),
         const SizedBox(height: 14),
         if (row.group == _installed)
-          Text("Not part of Slipway. It starts the copy you installed, under that project's own license.", style: TextStyle(fontSize: 12.5, color: scheme.outline))
+          Text("Not part of HotRestart. It starts the copy you installed, under that project's own license.", style: TextStyle(fontSize: 12.5, color: scheme.outline))
         else if (_text == null)
           const Align(alignment: Alignment.centerLeft, child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
         else

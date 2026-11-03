@@ -343,8 +343,8 @@ class _EditorPageState extends State<EditorPage> {
         if (mounted) setState(() => _projects = projects);
       }),
     );
-    // SLIPWAY_EDITOR=<file> opens straight on that file (README screenshots, demos).
-    final envFile = Platform.environment['SLIPWAY_EDITOR'];
+    // HOTRESTART_EDITOR=<file> opens straight on that file (README screenshots, demos).
+    final envFile = Platform.environment['HOTRESTART_EDITOR'];
     final startFile = widget.initialFile ?? envFile;
     final startRoot = widget.initialRoot ?? (envFile == null ? null : _projectRootOf(envFile)) ?? startupProject;
     if (startRoot == '') return;

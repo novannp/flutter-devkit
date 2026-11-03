@@ -118,7 +118,7 @@ bool _fits(SettingDef def, Object? value) => switch (def.type) {
 /// A run argument goes through a shell on Windows, and a project's settings come with whatever repo was cloned.
 bool isSafeRunArg(String arg) => !RegExp('[&|<>^"%`;\$\r\n]').hasMatch(arg);
 
-/// Defaults, then your own settings.json, then the project's .slipway/settings.json.
+/// Defaults, then your own settings.json, then the project's .hotrestart/settings.json.
 class Settings extends ChangeNotifier {
   Settings._();
 
@@ -136,7 +136,7 @@ class Settings extends ChangeNotifier {
 
   String? get globalPath => _globalPath;
   String? get root => _root;
-  String? get projectPath => _root == null ? null : p.join(_root!, '.slipway', 'settings.json');
+  String? get projectPath => _root == null ? null : p.join(_root!, '.hotrestart', 'settings.json');
 
   @visibleForTesting
   void reset() {

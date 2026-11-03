@@ -26,8 +26,8 @@ class SyntaxColors {
   final Color type, function, variable, enumMember, keyword, control, string, number, comment;
 }
 
-// Slipway's own colors, built around the emerald of its logo.
-const _slipwayDark = SyntaxColors(
+// HotRestart's own colors, built around the emerald of its logo.
+const _hotrestartDark = SyntaxColors(
   type: Color(0xFF5EEAD4),
   function: Color(0xFF7DD3FC),
   variable: Color(0xFFE5E7EB),
@@ -39,7 +39,7 @@ const _slipwayDark = SyntaxColors(
   comment: Color(0xFF7C8594),
 );
 
-const _slipwayLight = SyntaxColors(
+const _hotrestartLight = SyntaxColors(
   type: Color(0xFF0F766E),
   function: Color(0xFF0369A1),
   variable: Color(0xFF1F2937),
@@ -103,8 +103,8 @@ class AppTheme {
 // An id never changes, because it's what people's saved choice points at. A name can.
 const appThemes = <AppTheme>[
   AppTheme(
-    id: 'slipway-light',
-    name: 'Slipway Light',
+    id: 'hotrestart-light',
+    name: 'HotRestart Light',
     brightness: Brightness.light,
     primary: Color(0xFF059669),
     background: Color(0xFFF6F7F9),
@@ -115,11 +115,11 @@ const appThemes = <AppTheme>[
     high: Color(0xFFEBEEF1),
     outline: Color(0xFF6B7280),
     outlineVariant: Color(0xFFE5E7EB),
-    syntax: _slipwayLight,
+    syntax: _hotrestartLight,
   ),
   AppTheme(
-    id: 'slipway-dark',
-    name: 'Slipway Dark',
+    id: 'hotrestart-dark',
+    name: 'HotRestart Dark',
     brightness: Brightness.dark,
     primary: Color(0xFF34D399),
     background: Color(0xFF101216),
@@ -130,7 +130,7 @@ const appThemes = <AppTheme>[
     high: Color(0xFF262B33),
     outline: Color(0xFF9CA3AF),
     outlineVariant: Color(0xFF2E333B),
-    syntax: _slipwayDark,
+    syntax: _hotrestartDark,
   ),
   AppTheme(
     id: 'dark-plus',
@@ -386,7 +386,7 @@ const appThemes = <AppTheme>[
     outline: Color(0xFFC8C8C8),
     outlineVariant: Color(0xFF6FC3DF),
     text: Colors.white,
-    syntax: _slipwayDark,
+    syntax: _hotrestartDark,
   ),
 ];
 
@@ -395,7 +395,7 @@ final appTheme = ValueNotifier(appThemes.first);
 Future<void> loadAppTheme() async {
   final prefs = await SharedPreferences.getInstance();
   // Before themes there was only light or dark; keep whichever someone had picked.
-  final id = prefs.getString(_prefTheme) ?? (prefs.getString(_prefLegacyMode) == 'dark' ? 'slipway-dark' : null);
+  final id = prefs.getString(_prefTheme) ?? (prefs.getString(_prefLegacyMode) == 'dark' ? 'hotrestart-dark' : null);
   appTheme.value = appThemes.where((t) => t.id == id).firstOrNull ?? appThemes.first;
 }
 

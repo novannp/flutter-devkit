@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:slipway/modules/editor/palette.dart';
+import 'package:hotrestart/modules/editor/palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

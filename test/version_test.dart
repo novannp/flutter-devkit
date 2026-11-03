@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:slipway/core/theme.dart';
+import 'package:hotrestart/core/theme.dart';
 
 void main() {
   test('the version in the app and installer is the one in pubspec.yaml, and not yet 1.0', () {

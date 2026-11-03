@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/logo.png" width="112" alt="Slipway logo" />
+<img src="docs/logo.png" width="112" alt="HotRestart logo" />
 
-# Slipway
+# HotRestart
 
 **An IDE for Flutter projects, with your code, devices, logs and builds in one window.**
 
@@ -10,20 +10,20 @@
 ![macOS](https://img.shields.io/badge/macOS-12%2B-000000)
 ![License](https://img.shields.io/badge/license-MIT-34D399)
 
-<img src="docs/screenshot.png" width="860" alt="Slipway editor with a project open" />
+<img src="docs/screenshot.png" width="860" alt="HotRestart editor with a project open" />
 
 </div>
 
 > [!NOTE]
-> Slipway is an early preview, at version 0.0.x. Expect rough edges, and changes that break things between versions.
+> HotRestart is an early preview, at version 0.0.x. Expect rough edges, and changes that break things between versions.
 
 ## Install
 
-**Windows:** download and run `Slipway-Setup.exe` from the [latest release](https://github.com/novannp/slipway/releases/latest). No admin rights needed, and it upgrades over an older version, keeping your settings. The installer isn't code-signed yet: if Windows warns you, choose **More info → Run anyway**.
+**Windows:** download and run `HotRestart-Setup.exe` from the [latest release](https://github.com/novannp/slipway/releases/latest). No admin rights needed, and it upgrades over an older version, keeping your settings. The installer isn't code-signed yet: if Windows warns you, choose **More info → Run anyway**.
 
 **macOS:** download the `.dmg` for your Mac from the [latest release](https://github.com/novannp/slipway/releases/latest), or run `sh tool/build_macos.sh` with Flutter and Xcode installed. The first time, right-click the app and choose **Open**. The embedded device screen needs **System Settings → Privacy & Security → Accessibility**.
 
-**Uninstall:** on Windows use **Settings → Apps**, and delete the `Slipway` firewall rule if you added one. On macOS drag the app to the Trash. Your settings stay in `%APPDATA%\Slipway` and `~/Library/Application Support/com.novannp.slipway`; delete those too to remove everything.
+**Uninstall:** on Windows use **Settings → Apps**, and delete the `HotRestart` firewall rule if you added one. On macOS drag the app to the Trash. Your settings stay in `%APPDATA%\HotRestart` and `~/Library/Application Support/com.novannp.hotrestart`; delete those too to remove everything.
 
 ## Features
 
@@ -49,7 +49,7 @@
 - Branch, sync and Publish in the status bar
 
 **Agent** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>)
-- Talk to the [Claude Code](https://claude.com/claude-code) you already have installed. Slipway runs it and never reads your credentials, and usage counts against your own plan
+- Talk to the [Claude Code](https://claude.com/claude-code) you already have installed. HotRestart runs it and never reads your credentials, and usage counts against your own plan
 
 **Devices**
 - Finds devices on your own network over USB, Wi-Fi 5555 and Wireless debugging
@@ -87,7 +87,7 @@ Settings are JSON, and apply as soon as the file is saved. A project's file wins
 
 | File | Scope |
 |---|---|
-| `.slipway/settings.json` in a project | That project; commit it to share with your team |
+| `.hotrestart/settings.json` in a project | That project; commit it to share with your team |
 | **Settings → Open settings.json** | You, in every project |
 
 ```jsonc
@@ -137,14 +137,14 @@ fvm flutter run -d windows   # or macos
 ```
 
 ```powershell
-.\tool\build_installer.ps1   # release build + dist/Slipway-Setup.exe, needs Inno Setup 6
+.\tool\build_installer.ps1   # release build + dist/HotRestart-Setup.exe, needs Inno Setup 6
 ```
 
 Keep `--no-tree-shake-icons` when running `flutter build` by hand, or some icons go missing. Every push to `main` that passes CI also builds `dist-windows`, `dist-arm64` and `dist-x64`, under the run's page in **Actions**.
 
 ## Thanks
 
-Slipway stands on the work of these people and projects. Thank you for building and sharing them.
+HotRestart stands on the work of these people and projects. Thank you for building and sharing them.
 
 |  | By | Project | Used for |
 |---|---|---|---|
@@ -166,12 +166,12 @@ Slipway stands on the work of these people and projects. Thank you for building 
 
 [Android Debug Bridge](https://developer.android.com/tools/adb) comes from the Android Open Source Project.
 
-Slipway is made by <a href="https://github.com/novannp"><img src="https://github.com/novannp.png?size=64" width="32" height="32" alt="Novan Noviansyah Pratama" /></a> [Novan Noviansyah Pratama](https://github.com/novannp) and [its contributors](https://github.com/novannp/slipway/graphs/contributors). Want to help? See [CONTRIBUTING.md](CONTRIBUTING.md).
+HotRestart is made by <a href="https://github.com/novannp"><img src="https://github.com/novannp.png?size=64" width="32" height="32" alt="Novan Noviansyah Pratama" /></a> [Novan Noviansyah Pratama](https://github.com/novannp) and [its contributors](https://github.com/novannp/slipway/graphs/contributors). Want to help? See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
 [MIT](LICENSE). Everything it ships stays under its own license: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), or **Help → Licenses** in the app.
 
-Flutter, Dart and the related logos are trademarks of Google LLC. Slipway is not endorsed by or affiliated with Google LLC. Visual Studio Code is a trademark of Microsoft Corporation. Slipway is an independent project, and these names only say what it works with.
+Flutter, Dart and the related logos are trademarks of Google LLC. HotRestart is not endorsed by or affiliated with Google LLC. Visual Studio Code is a trademark of Microsoft Corporation. HotRestart is an independent project, and these names only say what it works with.
 
-**Slipway is not based on Visual Studio Code.** It isn't a fork and contains none of its source, and its editor engine is written from scratch in Flutter. Microsoft has no part in it. The optional VS Code themes only follow that editor's published default colors.
+**HotRestart is not based on Visual Studio Code.** It isn't a fork and contains none of its source, and its editor engine is written from scratch in Flutter. Microsoft has no part in it. The optional VS Code themes only follow that editor's published default colors.

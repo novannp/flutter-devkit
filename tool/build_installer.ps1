@@ -1,4 +1,4 @@
-# Builds the release and dist/Slipway-Setup.exe. Needs Inno Setup 6 (winget install JRSoftware.InnoSetup).
+# Builds the release and dist/HotRestart-Setup.exe. Needs Inno Setup 6 (winget install JRSoftware.InnoSetup).
 param([switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent

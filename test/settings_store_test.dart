@@ -1,12 +1,12 @@
 import 'dart:io';
 
-import 'package:slipway/core/panels.dart';
-import 'package:slipway/core/settings.dart';
-import 'package:slipway/core/theme.dart';
-import 'package:slipway/core/windows.dart';
-import 'package:slipway/modules/editor/dart_settings.dart';
-import 'package:slipway/modules/editor/editor_page.dart';
-import 'package:slipway/modules/editor/editor_workspace.dart';
+import 'package:hotrestart/core/panels.dart';
+import 'package:hotrestart/core/settings.dart';
+import 'package:hotrestart/core/theme.dart';
+import 'package:hotrestart/core/windows.dart';
+import 'package:hotrestart/modules/editor/dart_settings.dart';
+import 'package:hotrestart/modules/editor/editor_page.dart';
+import 'package:hotrestart/modules/editor/editor_workspace.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,7 +31,7 @@ void main() {
     dir.deleteSync(recursive: true);
   });
 
-  File projectFile() => File(p.join(root, '.slipway', 'settings.json'))..parent.createSync(recursive: true);
+  File projectFile() => File(p.join(root, '.hotrestart', 'settings.json'))..parent.createSync(recursive: true);
 
   group('JSON', () {
     test('takes comments and trailing commas, but not inside strings', () {

@@ -30,7 +30,7 @@
 	<array>
 		<string>_adb-tls-connect._tcp</string>
 		<string>_adb-tls-pairing._tcp</string>
-		<string>_slipway._tcp</string>
+		<string>_hotrestart._tcp</string>
 	</array>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Brings a device's workspace window to the front.</string>

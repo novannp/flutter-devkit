@@ -1,4 +1,4 @@
-import 'package:slipway/modules/help/getting_started.dart';
+import 'package:hotrestart/modules/help/getting_started.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

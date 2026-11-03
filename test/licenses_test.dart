@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:slipway/core/licenses.dart';
+import 'package:hotrestart/core/licenses.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -68,7 +68,7 @@ void main() {
     addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMessageHandler('flutter/assets', null));
     registerBundledLicenses();
     final entries = await LicenseRegistry.licenses.toList();
-    expect(entries.any((e) => e.packages.contains('Slipway')), isTrue);
+    expect(entries.any((e) => e.packages.contains('HotRestart')), isTrue);
     expect(entries.any((e) => e.packages.contains('FFmpeg, libusb')), isTrue);
   });
 }

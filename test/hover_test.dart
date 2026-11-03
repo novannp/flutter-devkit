@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:slipway/core/panels.dart';
+import 'package:hotrestart/core/panels.dart';
 
 import 'ink_audit.dart';
 

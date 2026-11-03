@@ -81,7 +81,7 @@ class PrinterServer extends ChangeNotifier {
     final prefix = asker.address.substring(0, asker.address.lastIndexOf('.') + 1);
     final ip = ips.where((i) => i.startsWith(prefix)).firstOrNull ?? ips.firstOrNull ?? '127.0.0.1';
     final gw = ip.contains('.') ? '${ip.substring(0, ip.lastIndexOf('.'))}.1' : ip;
-    return 'IP:$ip;DEVICENAME:Slipway Printer;MAC:02:DE:7C:00:91:00;SUBNETWORK:255.255.255.0;GATEWAY:$gw;';
+    return 'IP:$ip;DEVICENAME:HotRestart Printer;MAC:02:DE:7C:00:91:00;SUBNETWORK:255.255.255.0;GATEWAY:$gw;';
   }
 
   /// Some drivers read printer status from the next port (9101) over LAN.

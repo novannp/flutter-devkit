@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:slipway/modules/editor/git_graph.dart';
-import 'package:slipway/modules/editor/source_control.dart';
+import 'package:hotrestart/modules/editor/git_graph.dart';
+import 'package:hotrestart/modules/editor/source_control.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;

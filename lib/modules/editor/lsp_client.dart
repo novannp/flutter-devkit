@@ -100,7 +100,7 @@ class LspClient {
     final cmd = dartCommand(root);
     final process = await Process.start(
       cmd.exe,
-      [...cmd.args, 'language-server', '--protocol=lsp', '--client-id=slipway', '--client-version=1'],
+      [...cmd.args, 'language-server', '--protocol=lsp', '--client-id=hotrestart', '--client-version=1'],
       workingDirectory: root,
       runInShell: cmd.runInShell,
     );

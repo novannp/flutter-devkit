@@ -80,7 +80,7 @@ List<int>? dpapi(List<int> input, {required bool encrypt}) {
 
 /// macOS: the login Keychain. Fed through stdin so the token never shows in a process listing.
 class _Keychain {
-  static const _service = 'Slipway';
+  static const _service = 'HotRestart';
 
   static Future<String?> read(String name) async {
     final r = await Process.run('security', ['find-generic-password', '-a', name, '-s', _service, '-w']);

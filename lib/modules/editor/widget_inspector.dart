@@ -7,7 +7,7 @@ import '../../core/mono_font.dart';
 import 'debugger.dart';
 import 'editor_workspace.dart' show EditTarget;
 
-const _group = 'slipway-inspector';
+const _group = 'hotrestart-inspector';
 const _service = 'ext.flutter.inspector';
 
 class InspectorNode {

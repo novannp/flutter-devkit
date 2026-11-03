@@ -67,7 +67,7 @@ const _swHide = 0;
 ///
 /// It's an owned popup rather than a child window: cross-process GPU child windows ghost and
 /// resize badly next to Flutter's own surface. An owned window still minimizes, hides and stacks
-/// with Slipway, but composes on its own.
+/// with HotRestart, but composes on its own.
 class EmbedWindow {
   static int? _own;
 

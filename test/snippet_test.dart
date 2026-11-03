@@ -1,6 +1,6 @@
-import 'package:slipway/modules/editor/editor_workspace.dart';
-import 'package:slipway/modules/editor/engine/code_model.dart';
-import 'package:slipway/modules/editor/engine/snippet.dart';
+import 'package:hotrestart/modules/editor/editor_workspace.dart';
+import 'package:hotrestart/modules/editor/engine/code_model.dart';
+import 'package:hotrestart/modules/editor/engine/snippet.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

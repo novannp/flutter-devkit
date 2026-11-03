@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import '../models/device.dart';
 import 'device_adb.dart';
 
-const _labelDir = '/sdcard/Pictures/Slipway';
+const _labelDir = '/sdcard/Pictures/HotRestart';
 
 /// A wallpaper with the device's name, IP, model and serial, so identical tablets can be told apart.
 Future<List<int>> renderDeviceLabel(Device d, {required int width, required int height}) async {
@@ -74,12 +74,12 @@ extension DeviceLabel on DeviceAdb {
       width: int.tryParse(m?[1] ?? '') ?? 1080,
       height: int.tryParse(m?[2] ?? '') ?? 1920,
     );
-    final local = File('${Directory.systemTemp.path}${Platform.pathSeparator}slipway_label.png');
+    final local = File('${Directory.systemTemp.path}${Platform.pathSeparator}hotrestart_label.png');
     await local.writeAsBytes(png);
 
     // A new name each time, so the media store doesn't hand back a stale cached image.
-    final name = 'slipway_label_${DateTime.now().millisecondsSinceEpoch}.png';
-    await shell('rm -f $_labelDir/slipway_label_*.png; mkdir -p $_labelDir');
+    final name = 'hotrestart_label_${DateTime.now().millisecondsSinceEpoch}.png';
+    await shell('rm -f $_labelDir/hotrestart_label_*.png; mkdir -p $_labelDir');
     if (!(await push(local.path, '$_labelDir/$name')).ok) return 'Could not copy the label to ${d.displayName}';
     await shell(
       'am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file://$_labelDir/$name > /dev/null; '
@@ -94,7 +94,7 @@ extension DeviceLabel on DeviceAdb {
       id = RegExp(r'_id=(\d+)').firstMatch(out)?[1];
       if (id == null) await Future<void>.delayed(const Duration(seconds: 1));
     }
-    if (id == null) return 'Label saved to Pictures/Slipway on ${d.displayName}; set it as wallpaper from Gallery';
+    if (id == null) return 'Label saved to Pictures/HotRestart on ${d.displayName}; set it as wallpaper from Gallery';
     await shell(
       'input keyevent KEYCODE_WAKEUP; '
       'am start -a android.intent.action.ATTACH_DATA -d content://media/external/images/media/$id -t image/png -f 1',

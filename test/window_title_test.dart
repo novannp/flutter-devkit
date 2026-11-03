@@ -1,6 +1,6 @@
-import 'package:slipway/core/windows.dart';
-import 'package:slipway/modules/editor/tool_tabs.dart';
-import 'package:slipway/shell.dart';
+import 'package:hotrestart/core/windows.dart';
+import 'package:hotrestart/modules/editor/tool_tabs.dart';
+import 'package:hotrestart/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,7 +12,7 @@ void main() {
 
   test('a tab that is not a module, like a diff, still has a title', () {
     final diff = AppModule('main.dart (diff)', Icons.compare_arrows, const SizedBox());
-    expect(windowTitleFor(diff), 'main.dart (diff) — Slipway');
-    expect(windowTitleFor(null), 'Slipway');
+    expect(windowTitleFor(diff), 'main.dart (diff) — HotRestart');
+    expect(windowTitleFor(null), 'HotRestart');
   });
 }

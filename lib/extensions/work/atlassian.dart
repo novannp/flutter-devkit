@@ -78,7 +78,7 @@ Future<dynamic> _send(
       ..set(HttpHeaders.acceptHeader, 'application/json');
     headers.forEach(req.headers.set);
     if (files.isNotEmpty) {
-      final boundary = 'slipway${Random().nextInt(1 << 32)}';
+      final boundary = 'hotrestart${Random().nextInt(1 << 32)}';
       req.headers.contentType = ContentType('multipart', 'form-data', parameters: {'boundary': boundary});
       for (final f in files) {
         final name = f.uri.pathSegments.last;
@@ -292,7 +292,7 @@ class JiraClient {
   }
 }
 
-/// Plain text from Atlassian Document Format, good enough for reading in Slipway.
+/// Plain text from Atlassian Document Format, good enough for reading in HotRestart.
 String adfToText(Map node) {
   final out = StringBuffer();
   void walk(Map n, String indent) {

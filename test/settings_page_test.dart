@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import 'package:slipway/core/settings.dart';
-import 'package:slipway/core/tools.dart';
-import 'package:slipway/extensions/emulators/avd_service.dart';
-import 'package:slipway/modules/devices/services/adb_service.dart';
-import 'package:slipway/modules/settings/settings_page.dart';
+import 'package:hotrestart/core/settings.dart';
+import 'package:hotrestart/core/tools.dart';
+import 'package:hotrestart/extensions/emulators/avd_service.dart';
+import 'package:hotrestart/modules/devices/services/adb_service.dart';
+import 'package:hotrestart/modules/settings/settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -64,7 +64,7 @@ void main() {
     await tester.pump();
     expect(Settings.instance.valueIn(SettingScope.project, 'dart.showTodos'), isTrue);
     expect(Settings.instance.valueIn(SettingScope.global, 'dart.showTodos'), isNull);
-    expect(File(p.join(dir.path, '.slipway', 'settings.json')).existsSync(), isTrue);
+    expect(File(p.join(dir.path, '.hotrestart', 'settings.json')).existsSync(), isTrue);
     await tester.tap(find.text('Use my setting'));
     await tester.pump();
     expect(Settings.instance.flag('dart.showTodos'), isFalse);

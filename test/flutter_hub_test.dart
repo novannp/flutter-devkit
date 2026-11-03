@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:slipway/core/local_builds.dart';
-import 'package:slipway/modules/devices/services/flutter_hub.dart';
-import 'package:slipway/modules/devices/services/flutter_session.dart';
+import 'package:hotrestart/core/local_builds.dart';
+import 'package:hotrestart/modules/devices/services/flutter_hub.dart';
+import 'package:hotrestart/modules/devices/services/flutter_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

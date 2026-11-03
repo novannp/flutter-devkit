@@ -161,7 +161,7 @@ class SystemImageManager extends ChangeNotifier {
     if (jobs[img.path] case final j? when !j.done && j.error == null) return;
     final job = jobs[img.path] = ImageJob(img);
     notifyListeners();
-    final tmp = Directory([sdk, 'system-images', '.slipway-tmp'].join(_sep))..createSync(recursive: true);
+    final tmp = Directory([sdk, 'system-images', '.hotrestart-tmp'].join(_sep))..createSync(recursive: true);
     final zip = File('${tmp.path}$_sep${img.segments.skip(1).join('_')}.zip');
     final extractDir = Directory('${zip.path}.d');
     final client = HttpClient();
@@ -241,7 +241,7 @@ class SystemImageManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Lets Android Studio's SDK Manager recognise images installed by Slipway.
+  /// Lets Android Studio's SDK Manager recognise images installed by HotRestart.
   static String _packageXml(RemoteImage img) =>
       '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <ns2:repository xmlns:ns2="http://schemas.android.com/repository/android/common/02" xmlns:ns6="http://schemas.android.com/sdk/android/repo/sys-img2/02" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><license id="android-sdk-license" type="text"/><localPackage path="${img.path}" obsolete="false">${img.typeDetails.replaceAll('sys-img:', 'ns6:')}<revision>${img.revision.split('.').indexed.map((e) => '<${['major', 'minor', 'micro'][e.$1]}>${e.$2}</${['major', 'minor', 'micro'][e.$1]}>').join()}</revision><display-name>${img.displayName}</display-name><uses-license ref="android-sdk-license"/></localPackage></ns2:repository>

@@ -26,7 +26,7 @@ class _PairDialogState extends State<_PairDialog> {
   static String _token(int n) => List.generate(n, (_) => 'abcdefghjkmnpqrstuvwxyz23456789'[_rand.nextInt(31)]).join();
 
   // The phone advertises a pairing service with this name after scanning the QR.
-  final _name = 'slipway-${_token(6)}';
+  final _name = 'hotrestart-${_token(6)}';
   final _password = _token(10);
   final _ip = TextEditingController();
   final _port = TextEditingController();
@@ -101,7 +101,7 @@ class _PairDialogState extends State<_PairDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Only needed once per phone. After that Slipway auto-connects whenever Wireless debugging is on. '
+              'Only needed once per phone. After that HotRestart auto-connects whenever Wireless debugging is on. '
               'The phone and laptop must be on the same Wi-Fi.',
               style: muted,
             ),

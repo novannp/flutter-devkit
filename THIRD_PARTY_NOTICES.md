@@ -1,6 +1,6 @@
 # Third-party notices
 
-Slipway itself is under the MIT License, in `LICENSE`. It also ships or downloads the software below, which stays under its own license. Inside the app, **Help → Licenses** lists these and every Dart package.
+HotRestart itself is under the MIT License, in `LICENSE`. It also ships or downloads the software below, which stays under its own license. Inside the app, **Help → Licenses** lists these and every Dart package.
 
 ## Programs shipped with the app
 
@@ -18,20 +18,20 @@ The license texts are in `assets/licenses`.
 
 ### FFmpeg and libusb (LGPL)
 
-Each GitHub release of Slipway carries the source of the versions above beside its downloads. They were built by the scrcpy project, with the scripts in https://github.com/Genymobile/scrcpy/tree/v3.3.4/app/deps and the steps in https://github.com/Genymobile/scrcpy/blob/v3.3.4/doc/build.md.
+Each GitHub release of HotRestart carries the source of the versions above beside its downloads. They were built by the scrcpy project, with the scripts in https://github.com/Genymobile/scrcpy/tree/v3.3.4/app/deps and the steps in https://github.com/Genymobile/scrcpy/blob/v3.3.4/doc/build.md.
 
-You may replace them with your own builds. On Windows they are separate `.dll` files next to `scrcpy.exe`. On macOS they are linked into the `scrcpy` program inside the app, so build scrcpy from its source with your versions and put it in `Contents/Resources/scrcpy`. Slipway only starts that program as a separate process.
+You may replace them with your own builds. On Windows they are separate `.dll` files next to `scrcpy.exe`. On macOS they are linked into the `scrcpy` program inside the app, so build scrcpy from its source with your versions and put it in `Contents/Resources/scrcpy`. HotRestart only starts that program as a separate process.
 
 ### scrcpy (Apache-2.0)
 
 Copyright (C) 2018 Genymobile
 Copyright (C) 2018-2026 Romain Vimont
 
-Licensed under the Apache License, Version 2.0, in `assets/licenses/Apache-2.0.txt`. Slipway ships its program unmodified, and starts it as a separate process. Slipway is not made by, affiliated with or endorsed by the authors of scrcpy, and it names scrcpy only to say what it uses.
+Licensed under the Apache License, Version 2.0, in `assets/licenses/Apache-2.0.txt`. HotRestart ships its program unmodified, and starts it as a separate process. HotRestart is not made by, affiliated with or endorsed by the authors of scrcpy, and it names scrcpy only to say what it uses.
 
 ### Android Debug Bridge
 
-Copyright (C) The Android Open Source Project. Licensed under the Apache License, Version 2.0. These are the prebuilt programs from Android SDK Platform-Tools, as included in the scrcpy release. The notices Google publishes with Platform-Tools are in `assets/licenses/android-platform-tools-NOTICE-windows.txt` and `assets/licenses/android-platform-tools-NOTICE-macos.txt`. They cover the whole Platform-Tools package, of which Slipway carries only the programs named above.
+Copyright (C) The Android Open Source Project. Licensed under the Apache License, Version 2.0. These are the prebuilt programs from Android SDK Platform-Tools, as included in the scrcpy release. The notices Google publishes with Platform-Tools are in `assets/licenses/android-platform-tools-NOTICE-windows.txt` and `assets/licenses/android-platform-tools-NOTICE-macos.txt`. They cover the whole Platform-Tools package, of which HotRestart carries only the programs named above.
 
 ### SDL2 (Zlib)
 
@@ -53,7 +53,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 
 ## Tools it runs, not shipped
 
-Slipway starts the copies of these you installed yourself. They aren't part of it, and each has its own license. Thank you to their authors.
+HotRestart starts the copies of these you installed yourself. They aren't part of it, and each has its own license. Thank you to their authors.
 
 | Software | By | License | Source |
 |---|---|---|---|
@@ -70,8 +70,8 @@ The app is built with the Flutter SDK and packages from pub.dev, under BSD, MIT,
 
 ## Trademarks
 
-Flutter, Dart and the related logos are trademarks of Google LLC. Android is a trademark of Google LLC. Visual Studio Code and Windows are trademarks of Microsoft Corporation. macOS is a trademark of Apple Inc. Slipway is not endorsed by or affiliated with any of them. These names only say what the app works with.
+Flutter, Dart and the related logos are trademarks of Google LLC. Android is a trademark of Google LLC. Visual Studio Code and Windows are trademarks of Microsoft Corporation. macOS is a trademark of Apple Inc. HotRestart is not endorsed by or affiliated with any of them. These names only say what the app works with.
 
-Slipway is not based on Visual Studio Code. It isn't a fork and contains none of its source, and its editor engine is written from scratch in Flutter.
+HotRestart is not based on Visual Studio Code. It isn't a fork and contains none of its source, and its editor engine is written from scratch in Flutter.
 
 Some themes follow color schemes published by others, and carry those names to say which: One Dark, Dracula, Nord and Solarized. The VS Code themes follow the default colors of Visual Studio Code.

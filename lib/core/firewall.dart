@@ -24,7 +24,7 @@ String firewallFixScript(String rule, List<String> programs) => [
 ].join('\r\n');
 
 class Firewall {
-  static const ruleName = 'Slipway';
+  static const ruleName = 'HotRestart';
 
   static List<String> get programs {
     final dir = File(Platform.resolvedExecutable).parent.path;
@@ -63,7 +63,7 @@ class Firewall {
 
   /// Adds inbound allow rules behind one UAC prompt, for what the banner asked to confirm.
   static Future<bool> fix() async {
-    final script = File('${Directory.systemTemp.path}${Platform.pathSeparator}slipway_network_fix.cmd');
+    final script = File('${Directory.systemTemp.path}${Platform.pathSeparator}hotrestart_network_fix.cmd');
     await script.writeAsString(firewallFixScript(ruleName, programs));
     final r = await Tools.run('powershell', [
       '-NoProfile',

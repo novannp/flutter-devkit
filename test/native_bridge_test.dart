@@ -1,10 +1,10 @@
-import 'package:slipway/core/native_bridge.dart';
+import 'package:hotrestart/core/native_bridge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  const channel = MethodChannel('slipway/native');
+  const channel = MethodChannel('hotrestart/native');
 
   Future<void> fromRunner(String method, [Object? arguments]) => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
     channel.name,

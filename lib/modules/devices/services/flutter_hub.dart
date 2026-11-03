@@ -9,7 +9,7 @@ import '../../../core/local_builds.dart';
 import '../../../core/settings.dart';
 import 'flutter_session.dart';
 
-const _hubVariable = 'SLIPWAY_FLUTTER_HUB';
+const _hubVariable = 'HOTRESTART_FLUTTER_HUB';
 
 Map<String, Object?> _projectToJson(FlutterProject? p) => p == null
     ? const {}

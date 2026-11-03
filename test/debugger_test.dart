@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:slipway/modules/editor/dart_sdk.dart';
-import 'package:slipway/modules/editor/debugger.dart';
+import 'package:hotrestart/modules/editor/dart_sdk.dart';
+import 'package:hotrestart/modules/editor/debugger.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:vm_service/vm_service.dart' as vm;
@@ -61,7 +61,7 @@ void main() {
   });
 
   test('stops at breakpoints, steps, reads variables and evaluates in a real VM', () async {
-    final dir = await Directory.systemTemp.createTemp('slipway_debugger');
+    final dir = await Directory.systemTemp.createTemp('hotrestart_debugger');
     final file = p.join(dir.path, 'main.dart');
     await File(file).writeAsString(_script);
     final dart = dartCommand(Directory.current.path);

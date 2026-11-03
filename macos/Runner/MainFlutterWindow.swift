@@ -101,7 +101,7 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     // For lib/core/native_bridge.dart.
-    let channel = FlutterMethodChannel(name: "slipway/native", binaryMessenger: flutterViewController.engine.binaryMessenger)
+    let channel = FlutterMethodChannel(name: "hotrestart/native", binaryMessenger: flutterViewController.engine.binaryMessenger)
     let dropView = FileDropView(frame: flutterViewController.view.bounds, channel: channel)
     dropView.autoresizingMask = [.width, .height]
     flutterViewController.view.addSubview(dropView)

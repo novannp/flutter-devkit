@@ -48,7 +48,7 @@ class DeviceAdb {
         r'sleep 0.4; settings put system screen_brightness 1; sleep 0.4; i=$((i+1)); done; '
         r'settings put system screen_brightness $b; settings put system screen_brightness_mode $a';
     return shell(
-      "input keyevent KEYCODE_WAKEUP; cmd notification post -S bigtext -t 'Here I am' slipway_find '$m' > /dev/null 2>&1; "
+      "input keyevent KEYCODE_WAKEUP; cmd notification post -S bigtext -t 'Here I am' hotrestart_find '$m' > /dev/null 2>&1; "
       "nohup sh -c '$blink' > /dev/null 2>&1 &",
     );
   }

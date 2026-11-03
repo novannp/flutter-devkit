@@ -112,7 +112,7 @@ class _Connect extends StatelessWidget {
         Text(
           what == 'Jira'
               ? 'See your tickets, start a branch and send test evidence without opening the browser.'
-              : 'Review, check out and approve pull requests from Slipway.',
+              : 'Review, check out and approve pull requests from HotRestart.',
         ),
         const SizedBox(height: 12),
         FilledButton.icon(onPressed: onConnect, icon: const Icon(Icons.link), label: Text('Connect $what')),

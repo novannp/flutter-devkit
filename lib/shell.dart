@@ -195,7 +195,7 @@ class _LogoState extends State<_Logo> {
 }
 
 /// Not every tab is one of the modules: a diff opens as a tab of its own.
-String windowTitleFor(AppModule? active) => active == null || active == _editor ? 'Slipway' : '${active.label} — Slipway';
+String windowTitleFor(AppModule? active) => active == null || active == _editor ? 'HotRestart' : '${active.label} — HotRestart';
 
 const _barHeight = 30.0;
 const _menusFoldBelow = 900.0;
@@ -433,7 +433,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
       const _MenuDivider(),
       _item('Settings', Icons.settings_outlined, () => _openModule(_settings), keys: 'Ctrl+,'),
       const _MenuDivider(),
-      _item('Quit Slipway', Icons.power_settings_new, BackgroundRunner.instance.quit),
+      _item('Quit HotRestart', Icons.power_settings_new, BackgroundRunner.instance.quit),
     ],
     child: const Text('File'),
   );
@@ -464,7 +464,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
       context: context,
       builder: (ctx) => AlertDialog(
         icon: const AppLogo(size: 48),
-        title: const Text('Slipway'),
+        title: const Text('HotRestart'),
         content: SizedBox(
           width: 420,
           child: Column(
@@ -477,7 +477,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
               const SizedBox(height: 10),
               Text('Dart ${Platform.version.split(' ').first}  •  ${Platform.operatingSystemVersion}', style: TextStyle(fontSize: 12, color: scheme.outline)),
               const SizedBox(height: 10),
-              Text('MIT License. Flutter, Dart and the related logos are trademarks of Google LLC. Slipway is not endorsed by or affiliated with Google LLC.', style: TextStyle(fontSize: 12, color: scheme.outline)),
+              Text('MIT License. Flutter, Dart and the related logos are trademarks of Google LLC. HotRestart is not endorsed by or affiliated with Google LLC.', style: TextStyle(fontSize: 12, color: scheme.outline)),
             ],
           ),
         ),
@@ -507,7 +507,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
       _item('Take a break 🎮', Icons.sports_esports_outlined, () => _takeABreak(context)),
       const _MenuDivider(),
       _item('Licenses', Icons.gavel_outlined, () => unawaited(showLicenses(context))),
-      _item('About Slipway', Icons.info_outline, _about),
+      _item('About HotRestart', Icons.info_outline, _about),
     ],
     child: const Text('Help'),
   );
@@ -530,8 +530,8 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
   );
 
   List<PlatformMenuItem> _nativeMenus() => [
-    PlatformMenu(label: 'Slipway', menus: [
-      _nativeItem('About Slipway', _about),
+    PlatformMenu(label: 'HotRestart', menus: [
+      _nativeItem('About HotRestart', _about),
       PlatformMenuItemGroup(members: [
         _nativeItem('Settings…', () => _openModule(_settings), key: LogicalKeyboardKey.comma),
         PlatformMenu(label: 'Theme', menus: [
@@ -546,7 +546,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
         PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.showAllApplications),
       ]),
       // Keep the save/cleanup path used by the in-app Quit command.
-      _nativeItem('Quit Slipway', BackgroundRunner.instance.quit, key: LogicalKeyboardKey.keyQ),
+      _nativeItem('Quit HotRestart', BackgroundRunner.instance.quit, key: LogicalKeyboardKey.keyQ),
     ]),
     PlatformMenu(label: 'File', menus: [
       _nativeItem('Open File…', () {

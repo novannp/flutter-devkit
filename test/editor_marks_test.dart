@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:slipway/modules/editor/code_pane.dart';
-import 'package:slipway/modules/editor/editor_workspace.dart';
-import 'package:slipway/modules/editor/engine/code_editor.dart';
+import 'package:hotrestart/modules/editor/code_pane.dart';
+import 'package:hotrestart/modules/editor/editor_workspace.dart';
+import 'package:hotrestart/modules/editor/engine/code_editor.dart';
 
 void main() {
   group('occurrencesOf', () {

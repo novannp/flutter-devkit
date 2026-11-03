@@ -95,9 +95,9 @@ class _GuideDialogState extends State<_GuideDialog> {
         'Connect the phone and laptop to the same Wi-Fi.',
         'On the phone: Settings → About phone → tap "Build number" 7 times to enable Developer options.',
         'Developer options → turn on "Wireless debugging".',
-        'If the device shows "Needs pairing" in Slipway (or doesn\'t show up at all), click "Pair device".',
-        'On the phone: Wireless debugging → "Pair device with QR code", then scan the QR in Slipway. Or use "Pair device with pairing code" and enter the code.',
-        'Done. Slipway will auto-connect whenever Wireless debugging is on, even if the port changes.',
+        'If the device shows "Needs pairing" in HotRestart (or doesn\'t show up at all), click "Pair device".',
+        'On the phone: Wireless debugging → "Pair device with QR code", then scan the QR in HotRestart. Or use "Pair device with pairing code" and enter the code.',
+        'Done. HotRestart will auto-connect whenever Wireless debugging is on, even if the port changes.',
       ],
       action: FilledButton.icon(
         onPressed: () {
@@ -109,7 +109,7 @@ class _GuideDialogState extends State<_GuideDialog> {
       ),
       notes: const [
         'Skip pairing: plug the phone in by USB once and tap "Always allow from this computer". '
-            'Wireless debugging trusts the same key, so Slipway then connects over Wi-Fi with no QR or code.',
+            'Wireless debugging trusts the same key, so HotRestart then connects over Wi-Fi with no QR or code.',
         'Then use the device menu → "Enable port 5555" so it stays on ip:5555 (until the phone reboots).',
         'Office Wi-Fi that blocks device-to-device traffic (AP isolation) prevents devices from being detected.',
       ],
@@ -132,21 +132,21 @@ class _GuideDialogState extends State<_GuideDialog> {
       steps: const [
         'Connect the device via USB first (see the USB guide).',
         'Run the command below once (e.g. from the Shell tab in the device workspace).',
-        'Unplug the cable, then click "Scan network" in Slipway.',
+        'Unplug the cable, then click "Scan network" in HotRestart.',
       ],
       code: 'adb tcpip 5555',
       notes: const ['After the device restarts, run this command again.'],
     ),
     GuideTopic.printer => const _Steps(
       title: 'Printer emulator (paperless receipts)',
-      intro: 'Slipway acts as a network thermal printer. Receipts printed by your app show up in the Printer menu.',
+      intro: 'HotRestart acts as a network thermal printer. Receipts printed by your app show up in the Printer menu.',
       steps: [
-        'Open the Printer menu in Slipway and make sure the status is "Ready". Note the PC IP shown there.',
+        'Open the Printer menu in HotRestart and make sure the status is "Ready". Note the PC IP shown there.',
         'In your app, set the printer to a network (Wi-Fi or LAN) ESC/POS printer with '
             'IP = the PC IP and port 9100.',
         'Restart the app if it only reads printer settings at launch.',
-        'Apps with a network printer search on the same Wi-Fi find "Slipway Printer" in the list.',
-        'Print anything; the receipt appears in Slipway right away and can be copied as an image.',
+        'Apps with a network printer search on the same Wi-Fi find "HotRestart Printer" in the list.',
+        'Print anything; the receipt appears in HotRestart right away and can be copied as an image.',
       ],
       notes: [
         'Emulators (MEmu, Android Studio): use the PC IP, not 10.0.2.2 (that reaches Dart DevTools on port 9100). '

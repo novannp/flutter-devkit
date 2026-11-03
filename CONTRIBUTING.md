@@ -1,8 +1,8 @@
-# Contributing to Slipway
+# Contributing to HotRestart
 
 ## License of your contribution
 
-Slipway is under the [MIT License](LICENSE). By sending a pull request, you agree that your contribution is under that license too, and that you have the right to contribute it.
+HotRestart is under the [MIT License](LICENSE). By sending a pull request, you agree that your contribution is under that license too, and that you have the right to contribute it.
 
 You keep the copyright to your work. Your name stays in the git history.
 

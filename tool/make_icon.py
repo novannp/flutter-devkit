@@ -12,12 +12,12 @@ S = 1024  # draw large, downscale for crisp edges
 TOP = (167, 139, 250)  # violet-400
 BOTTOM = (59, 29, 143)  # deep violet
 
-# A chamfered S, kept far from Flutter's blue facets on purpose.
+# An H, kept far from Flutter's blue facets on purpose.
 LETTER = [
-    (350, 200), (744, 200), (744, 330), (410, 330), (410, 447), (674, 447), (744, 517), (744, 754),
-    (674, 824), (280, 824), (280, 694), (614, 694), (614, 577), (350, 577), (280, 507), (280, 270),
+    (316, 200), (428, 200), (428, 440), (596, 440), (596, 200), (708, 200), (744, 236), (744, 824),
+    (596, 824), (596, 584), (428, 584), (428, 824), (280, 824), (280, 236),
 ]
-TIP = (280, 694, 392, 824)
+TIP = (428, 440, 596, 584)
 
 
 def render() -> Image.Image:
@@ -39,7 +39,7 @@ def render() -> Image.Image:
     shine = Image.composite(shine, Image.new('L', (S, S), 0), mask)
     icon = Image.alpha_composite(icon, Image.merge('RGBA', [Image.new('L', (S, S), 255)] * 3 + [shine]))
 
-    # The S, with its tail picked out.
+    # The H, with its bar picked out.
     letter = Image.new('L', (S, S), 0)
     draw = ImageDraw.Draw(letter)
     draw.polygon(LETTER, fill=255)

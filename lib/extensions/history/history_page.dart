@@ -87,7 +87,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 children: [
                   Text('History', style: text.headlineSmall),
                   Text(
-                    'Kept on this PC for ${History.retention.inDays} days, from every Slipway window',
+                    'Kept on this PC for ${History.retention.inDays} days, from every HotRestart window',
                     style: text.bodySmall?.copyWith(color: scheme.outline),
                   ),
                 ],
