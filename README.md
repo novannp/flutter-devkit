@@ -183,8 +183,8 @@ Each device opens in **its own window**, made for multi-device testing.
 ### 🧾 Printer emulator
 
 - A network thermal printer on **TCP 9100**, the standard raw printing port
-- Answers **Epson** and **Star** status checks and shows up in the **SNBC printer search**, so your app sees it online
-- Renders ESC/POS on 58 / 80 mm paper, including SNBC raster logos and signatures
+- Answers common **ESC/POS status checks** and shows up in **network printer searches**, so your app sees it online
+- Renders ESC/POS on 58 / 80 mm paper, including raster logos and signatures
 - Copy a receipt as an **image** (paste into Jira) or text; view raw hex or the raw file of the last 30 receipts
 
 ### 🧹 Maintenance
@@ -236,7 +236,7 @@ To set up devices and the printer:
 1. **Settings → Projects**: add the folder where you clone repos. Repos are matched by their Android `applicationId`, up to 3 levels deep, and become **My apps**. For apps you don't have cloned, add a package prefix in **Settings → Projects**.
 2. **Devices**: if the orange **Network scan may miss devices** banner appears, click **Fix network access** once.
 3. **Devices → Scan network**: phones with Wireless debugging show up. If one says **Needs pairing**, click its QR icon once.
-4. **Printer**: in your app, set a network printer (**SNBC over Wi-Fi** works best) with this PC's IP, then print. On emulators like MEmu, use the PC IP (not `10.0.2.2`).
+4. **Printer**: in your app, set a network **ESC/POS** printer with this PC's IP, then print. On emulators like MEmu, use the PC IP (not `10.0.2.2`).
 
 ## 🛟 Troubleshooting
 

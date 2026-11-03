@@ -15,7 +15,7 @@ void main() {
   test('branch name from issue', () {
     final issue = JiraIssue(
       key: 'POS-12',
-      summary: 'Receipt: logo is cut off on 58mm paper (SNBC) and other printers too',
+      summary: 'Receipt: logo is cut off on 58mm paper and other printers too',
       status: 'To Do',
       group: StatusGroup.todo,
       type: 'Bug',

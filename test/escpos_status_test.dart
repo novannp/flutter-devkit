@@ -8,14 +8,14 @@ void main() {
     return out;
   }
 
-  test('Epson: GS a enables ASB → 4-byte OK status', () {
-    expect(replies([0x1D, 0x61, 0xFF]), epsonAsbOk);
+  test('GS a enables automatic status → 4-byte OK status', () {
+    expect(replies([0x1D, 0x61, 0xFF]), autoStatusOk);
     expect(replies([0x1D, 0x61, 0x00]), isEmpty);
   });
 
-  test('Epson: DLE EOT → online', () => expect(replies([0x10, 0x04, 0x01]), [0x12]));
+  test('DLE EOT → online', () => expect(replies([0x10, 0x04, 0x01]), [0x12]));
 
-  test('Star: ESC ACK SOH → ASB OK', () => expect(replies([0x1B, 0x06, 0x01]), starAsbOk));
+  test('ESC ACK SOH → long status OK', () => expect(replies([0x1B, 0x06, 0x01]), longStatusOk));
 
   test('status commands mixed with text still print', () {
     final elements = <Object>[];

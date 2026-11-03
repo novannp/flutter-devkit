@@ -89,11 +89,11 @@ class EventElement extends ReceiptElement {
 }
 
 /// Streaming ESC/POS parser. Bytes may arrive in chunks; incomplete trailing commands are buffered.
-/// Epson ASB: online, cover closed, paper OK, no errors.
-const epsonAsbOk = [0x14, 0x00, 0x00, 0x0F];
+/// 4-byte automatic status: online, cover closed, paper OK, no errors.
+const autoStatusOk = [0x14, 0x00, 0x00, 0x0F];
 
-/// Star ASB (9-byte form): online, no errors, paper OK.
-const starAsbOk = [0x23, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+/// 9-byte automatic status: online, no errors, paper OK.
+const longStatusOk = [0x23, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 
 class EscPosParser {
   EscPosParser({required this.onCut, required this.respond});
@@ -165,26 +165,26 @@ class EscPosParser {
     _ => ReceiptAlign.left,
   };
 
-  // SNBC line raster (GS D 1 … GS D 0): SYN n <n bytes> prints a dot line, NAK n advances n lines.
-  var _snbcRaster = false;
-  final _snbcRows = <Uint8List>[];
+  // Line raster (GS D 1 … GS D 0): SYN n <n bytes> prints a dot line, NAK n advances n lines.
+  var _lineRaster = false;
+  final _rasterRows = <Uint8List>[];
 
   void _flushSnbcRaster() {
-    if (_snbcRows.isEmpty) return;
-    final bytesPerRow = _snbcRows.map((r) => r.length).fold(0, max);
-    final bits = Uint8List(bytesPerRow * _snbcRows.length);
-    for (var y = 0; y < _snbcRows.length; y++) {
-      final row = _snbcRows[y];
+    if (_rasterRows.isEmpty) return;
+    final bytesPerRow = _rasterRows.map((r) => r.length).fold(0, max);
+    final bits = Uint8List(bytesPerRow * _rasterRows.length);
+    for (var y = 0; y < _rasterRows.length; y++) {
+      final row = _rasterRows[y];
       for (var x = 0; x < bytesPerRow; x++) {
-        // SNBC sends 1 = paper (white); blank lines/padding stay white.
+        // This mode sends 1 = paper (white); blank lines/padding stay white.
         bits[y * bytesPerRow + x] = x < row.length ? (~row[x] & 0xFF) : 0;
       }
     }
     // Row padding (width rounded up to whole bytes) comes out black after inverting; drop columns of the
     // last byte that are black on every non-empty row.
     final rows = [
-      for (var y = 0; y < _snbcRows.length; y++)
-        if (_snbcRows[y].length == bytesPerRow) y,
+      for (var y = 0; y < _rasterRows.length; y++)
+        if (_rasterRows[y].length == bytesPerRow) y,
     ];
     for (var bit = 0; bit < 8 && rows.isNotEmpty; bit++) {
       final mask = 0x80 >> bit;
@@ -195,22 +195,22 @@ class EscPosParser {
       }
     }
     _endLine(force: false);
-    elements.add(RasterImage(bytesPerRow * 8, _snbcRows.length, bits, _align));
-    _snbcRows.clear();
+    elements.add(RasterImage(bytesPerRow * 8, _rasterRows.length, bits, _align));
+    _rasterRows.clear();
   }
 
-  int _snbcStep(int i) {
+  int _lineRasterStep(int i) {
     final b = _buf[i];
     final n = _at(i + 1);
     if (b == 0x16) {
       if (n == null || _buf.length < i + 2 + n) return 0;
-      _snbcRows.add(Uint8List.fromList(_buf.sublist(i + 2, i + 2 + n)));
+      _rasterRows.add(Uint8List.fromList(_buf.sublist(i + 2, i + 2 + n)));
       return 2 + n;
     }
     if (b == 0x15) {
       if (n == null) return 0;
       for (var k = 1; k < n; k++) {
-        _snbcRows.add(Uint8List(0));
+        _rasterRows.add(Uint8List(0));
       }
       return 2;
     }
@@ -220,8 +220,8 @@ class EscPosParser {
   /// Processes one command/char at [i]; returns bytes consumed, or 0 if incomplete.
   int _step(int i) {
     final b = _buf[i];
-    if (_snbcRaster) {
-      final used = _snbcStep(i);
+    if (_lineRaster) {
+      final used = _lineRasterStep(i);
       if (used >= 0) return used;
     }
     switch (b) {
@@ -270,11 +270,11 @@ class EscPosParser {
     if (c == null) return 0;
     final n = _at(i + 2);
     switch (c) {
-      case 0x06: // ESC ACK SOH: Star status request
+      case 0x06: // ESC ACK SOH: status request
         if (n == null) return 0;
-        if (n == 0x01) respond(starAsbOk);
+        if (n == 0x01) respond(longStatusOk);
         return 3;
-      case 0x1D when n == 0x03: // ESC GS ETX: Star checked-block / status commands
+      case 0x1D when n == 0x03: // ESC GS ETX: checked-block and status commands
         return _at(i + 4) == null ? 0 : 5;
       case 0x40: // ESC @
         _style = const TextStyleState();
@@ -348,10 +348,10 @@ class EscPosParser {
     if (c == null) return 0;
     final n = _at(i + 2);
     switch (c) {
-      case 0x44: // GS D n: SNBC line raster mode on/off
+      case 0x44: // GS D n: line raster mode on/off
         if (n == null) return 0;
         if (n == 0) _flushSnbcRaster();
-        _snbcRaster = n == 1;
+        _lineRaster = n == 1;
         return 3;
       case 0x21: // GS ! character size
         if (n == null) return 0;
@@ -400,9 +400,9 @@ class EscPosParser {
         if (n == null) return 0;
         respond([0x00]);
         return 3;
-      case 0x61: // GS a: auto status back — Epson ePOS2 waits for this 4-byte "all OK" status
+      case 0x61: // GS a: auto status back; some drivers wait for this 4-byte "all OK" status
         if (n == null) return 0;
-        if (n != 0) respond(epsonAsbOk);
+        if (n != 0) respond(autoStatusOk);
         return 3;
       case 0x48 || 0x68 || 0x77 || 0x66 || 0x62 || 0x2F:
         return n == null ? 0 : 3;

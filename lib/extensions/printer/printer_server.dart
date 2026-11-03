@@ -52,12 +52,12 @@ class PrinterServer extends ChangeNotifier {
 
   RawDatagramSocket? _discovery;
 
-  /// SNBC printer search: the POS broadcasts "BG" / "B[]G" to UDP 3000 and lists whoever answers.
-  static const snbcDiscoveryPort = 3000;
+  /// Network printer search: the POS broadcasts "BG" / "B[]G" to UDP 3000 and lists whoever answers.
+  static const discoveryPort = 3000;
 
   Future<void> _startDiscovery() async {
     try {
-      _discovery = await RawDatagramSocket.bind(InternetAddress.anyIPv4, snbcDiscoveryPort, reuseAddress: true)
+      _discovery = await RawDatagramSocket.bind(InternetAddress.anyIPv4, discoveryPort, reuseAddress: true)
         ..broadcastEnabled = true
         ..listen((e) async {
           if (e != RawSocketEvent.read) return;
@@ -65,7 +65,7 @@ class PrinterServer extends ChangeNotifier {
           if (d == null) return;
           final msg = String.fromCharCodes(d.data);
           if (msg != 'BG' && msg != 'B[]G') return;
-          final reply = await _snbcReply(d.address);
+          final reply = await _discoveryReply(d.address);
           try {
             _discovery?.send(reply.codeUnits, d.address, d.port);
           } catch (_) {}
@@ -76,7 +76,7 @@ class PrinterServer extends ChangeNotifier {
   }
 
   /// Answer with the LAN address in the asker's subnet (or the first one, e.g. for NAT'd emulators).
-  Future<String> _snbcReply(InternetAddress asker) async {
+  Future<String> _discoveryReply(InternetAddress asker) async {
     final ips = await localIps();
     final prefix = asker.address.substring(0, asker.address.lastIndexOf('.') + 1);
     final ip = ips.where((i) => i.startsWith(prefix)).firstOrNull ?? ips.firstOrNull ?? '127.0.0.1';
@@ -84,7 +84,7 @@ class PrinterServer extends ChangeNotifier {
     return 'IP:$ip;DEVICENAME:DevKit Printer;MAC:02:DE:7C:00:91:00;SUBNETWORK:255.255.255.0;GATEWAY:$gw;';
   }
 
-  /// Star StarIO reads printer status from the next port (9101) over LAN.
+  /// Some drivers read printer status from the next port (9101) over LAN.
   static const statusPortOffset = 1;
   static const defaultPort = 9100;
   final receipts = <Receipt>[];
@@ -163,7 +163,7 @@ class PrinterServer extends ChangeNotifier {
       error = "Port $port is in use on this PC's network address. Close the app using it, or check Windows Firewall.";
     } else {
       error = null;
-      // Status port is optional; Epson only needs the data port.
+      // Status port is optional; most drivers only need the data port.
       _statusServers.addAll(await _bindAll(port + statusPortOffset, _onStatusClient));
       await _startDiscovery();
     }
@@ -242,7 +242,7 @@ class PrinterServer extends ChangeNotifier {
   void _onStatusClient(Socket socket) {
     void reply() {
       try {
-        socket.add(starAsbOk);
+        socket.add(longStatusOk);
       } catch (_) {}
     }
 

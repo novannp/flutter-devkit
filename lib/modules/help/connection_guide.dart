@@ -139,20 +139,20 @@ class _GuideDialogState extends State<_GuideDialog> {
     ),
     GuideTopic.printer => const _Steps(
       title: 'Printer emulator (paperless receipts)',
-      intro: 'Flutter DevKit acts as a LAN SNBC thermal printer. Receipts printed by your app show up in the Printer menu.',
+      intro: 'Flutter DevKit acts as a network thermal printer. Receipts printed by your app show up in the Printer menu.',
       steps: [
         'Open the Printer menu in Flutter DevKit and make sure the status is "Ready". Note the PC IP shown there.',
-        'In your app, set the printer to a network printer (SNBC over Wi-Fi works best) with '
+        'In your app, set the printer to a network (Wi-Fi or LAN) ESC/POS printer with '
             'IP = the PC IP and port 9100.',
         'Restart the app if it only reads printer settings at launch.',
-        'Apps with an SNBC printer search on the same Wi-Fi find "DevKit Printer" in the list.',
+        'Apps with a network printer search on the same Wi-Fi find "DevKit Printer" in the list.',
         'Print anything; the receipt appears in Flutter DevKit right away and can be copied as an image.',
       ],
       notes: [
         'Emulators (MEmu, Android Studio): use the PC IP, not 10.0.2.2 (that reaches Dart DevTools on port 9100). '
             "Printer search may not work through the emulator's NAT, so enter the IP by hand.",
-        'If the app logs "SNBCUsb connection failed", it is still set to USB: switch it to Wi-Fi.',
-        'Epson/Star use their own SDKs; status checks are answered, but SNBC is the reliable choice.',
+        'If the app logs a USB connection failure, it is still set to USB: switch it to Wi-Fi.',
+        'Printer SDKs differ. Common ESC/POS status checks are answered, but a driver with its own protocol may not connect.',
       ],
     ),
   };

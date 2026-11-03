@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:devkit/extensions/printer/escpos.dart';
 
 void main() {
-  test('SNBC line raster (GS D 1, SYN n data, NAK n) becomes one image, 1 = white', () {
+  test('Line raster (GS D 1, SYN n data, NAK n) becomes one image, 1 = white', () {
     final out = <ReceiptElement>[];
     final p = EscPosParser(onCut: out.addAll, respond: (_) {});
     p.add([
