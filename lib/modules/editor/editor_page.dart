@@ -1041,11 +1041,6 @@ class _EditorPageState extends State<EditorPage> {
       builder: (_) => FirebaseDialog(
         root: ws.root,
         onRun: (command) => unawaited(_runCommand(command)),
-        onTerminal: (command) {
-          _showPanel(_Panel.terminal);
-          // The panel starts its terminal when it first shows.
-          WidgetsBinding.instance.addPostFrameCallback((_) => _terminal?.run(command));
-        },
       ),
     );
   }

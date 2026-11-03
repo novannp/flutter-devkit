@@ -29,6 +29,16 @@ ToolProbe probeIn(String root) => (command) async {
   }
 };
 
+/// Opens a terminal window of its own, for what needs a real console. Only for fixed commands.
+Future<void> openInSystemTerminal(List<String> command) async {
+  if (Platform.isWindows) {
+    // The first quoted word is start's window title, and /k leaves the window up to read the result.
+    await Process.start('cmd', ['/c', 'start', 'Flutter DevKit', 'cmd', '/k', ...command], mode: ProcessStartMode.detached);
+  } else if (Platform.isMacOS) {
+    await Process.run('osascript', ['-e', 'tell application "Terminal" to do script "${command.join(' ')}"', '-e', 'tell application "Terminal" to activate']);
+  }
+}
+
 Object? _jsonIn(String output) {
   final start = output.indexOf('{');
   if (start < 0) return null;
@@ -330,13 +340,13 @@ const _flutterfire = ['dart', 'pub', 'global', 'run', 'flutterfire_cli:flutterfi
 
 /// Connects a project to Firebase in the order it has to happen, showing what's done already.
 class FirebaseDialog extends StatefulWidget {
-  const FirebaseDialog({super.key, required this.root, required this.onRun, required this.onTerminal, this.probe});
+  const FirebaseDialog({super.key, required this.root, required this.onRun, this.onSignIn = openInSystemTerminal, this.probe});
 
   final String root;
   final void Function(List<String> command) onRun;
 
-  /// For what needs a person at the keyboard, such as signing in.
-  final void Function(String command) onTerminal;
+  /// Signing in insists on a real console: the Firebase CLI refuses to run inside the app's terminal.
+  final Future<void> Function(List<String> command) onSignIn;
   final ToolProbe? probe;
 
   @override
@@ -500,12 +510,9 @@ class _FirebaseDialogState extends State<FirebaseDialog> {
                         ), scheme),
                         _step(2, 'Sign in', _account != null, Row(
                           children: [
-                            Expanded(child: Text(_account == null ? 'Your browser opens to sign in with Google. Then press Check again.' : 'Signed in as $_account.', style: small)),
+                            Expanded(child: Text(_account == null ? 'A terminal window opens to sign in with Google. When it says you are in, press Check again here.' : 'Signed in as $_account.', style: small)),
                             OutlinedButton(
-                              onPressed: !_hasFirebase ? null : () {
-                                Navigator.pop(context);
-                                widget.onTerminal(_account == null ? 'firebase login' : 'firebase login:add');
-                              },
+                              onPressed: !_hasFirebase ? null : () => unawaited(widget.onSignIn(['firebase', if (_account == null) 'login' else 'login:add'])),
                               child: Text(_account == null ? 'Sign in' : 'Add account'),
                             ),
                           ],

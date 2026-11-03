@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -35,6 +36,12 @@ const _theme = TerminalTheme(
 );
 
 /// Terminal widget: right-click copies the selection, or pastes when nothing is selected.
+/// Ctrl+C copies while text is selected, as in Windows Terminal. With nothing selected it still interrupts.
+bool copiesSelection(KeyEvent event, {required bool hasSelection}) {
+  final keys = HardwareKeyboard.instance;
+  return hasSelection && event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.keyC && keys.isPrimaryPressed && !keys.isShiftPressed;
+}
+
 class ConsoleView extends StatelessWidget {
   const ConsoleView({super.key, required this.session, this.autofocus = true});
 
@@ -68,6 +75,11 @@ class ConsoleView extends StatelessWidget {
         autofocus: autofocus,
         textStyle: const TerminalStyle(fontSize: 13, fontFamily: 'Cascadia Mono', fontFamilyFallback: ['Consolas', ...monoFallback]),
         onSecondaryTapDown: (_, _) => _copyOrPaste(),
+        onKeyEvent: (_, event) {
+          if (!copiesSelection(event, hasSelection: session.controller.selection != null)) return KeyEventResult.ignored;
+          unawaited(_copyOrPaste());
+          return KeyEventResult.handled;
+        },
       ),
     ),
   );

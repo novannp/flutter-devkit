@@ -131,7 +131,7 @@ void main() {
       return (1, '');
     }
 
-    Widget dialog(ToolProbe probe, List<String> terminal) => FirebaseDialog(root: dir.path, onRun: ran.add, onTerminal: terminal.add, probe: probe);
+    Widget dialog(ToolProbe probe, List<List<String>> terminal) => FirebaseDialog(root: dir.path, onRun: ran.add, onSignIn: (c) async => terminal.add(c), probe: probe);
 
     testWidgets('configures the chosen project for the chosen platforms', (tester) async {
       await show(tester, dialog(ready, []));
@@ -173,7 +173,7 @@ void main() {
     });
 
     testWidgets('without the tools or an account it says what to do first', (tester) async {
-      final terminal = <String>[];
+      final terminal = <List<String>>[];
       await show(tester, dialog((command) async {
         final line = command.join(' ');
         if (line == 'firebase --version') return (0, '15.0.0');
@@ -183,7 +183,8 @@ void main() {
       expect(find.text('Install FlutterFire CLI'), findsOneWidget);
       await tester.tap(find.widgetWithText(OutlinedButton, 'Sign in'));
       await tester.pump();
-      expect(terminal.single, 'firebase login');
+      expect(terminal.single, ['firebase', 'login']);
+      expect(find.text('Firebase'), findsOneWidget, reason: 'the dialog stays, for Check again');
     });
   });
 }
