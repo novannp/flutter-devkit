@@ -144,6 +144,7 @@ class _EditorPageState extends State<EditorPage> {
   Timer? _gitPoll;
   var _side = _Side.files;
   var _pubRevision = 0;
+  Timer? _terminalWarmup;
   EditorDocument? _draggingTab;
   var _restoringTabs = false;
   List<Avd> _avds = const [];
@@ -219,6 +220,7 @@ class _EditorPageState extends State<EditorPage> {
     EditorCommands.openRecent = EditorCommands.openDartSettings = EditorCommands.commandPalette = EditorCommands.goToSymbol = null;
     _revealSub?.cancel();
     _stopTool();
+    _terminalWarmup?.cancel();
     _flutter?.removeListener(_onFlutter);
     EditorCommands.openPath = null;
     Settings.instance.removeListener(_onSettings);
@@ -392,6 +394,11 @@ class _EditorPageState extends State<EditorPage> {
       _hits = const [];
       _syncTools();
     });
+    // A login shell takes seconds to reach its prompt. Getting that over with early makes the panel open at once.
+    _terminalWarmup?.cancel();
+    if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+      _terminalWarmup = Timer(const Duration(seconds: 3), () => _startTerminal(ws));
+    }
     unawaited(_git.open(root));
     // A diff belongs to the project it was opened from.
     for (final tab in _diffTabs.values) {
@@ -2340,13 +2347,25 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
+  // Starting a console blocks until the shell process exists, so it never happens while a frame is being built.
+  void _startTerminal(EditorWorkspace ws) {
+    if (!mounted || _terminal != null || !identical(ws, _ws)) return;
+    setState(() {
+      _terminal = ConsoleSession(
+        shell: ShellKind.available().first,
+        cwd: ws.root,
+        environment: projectEnvironment(ws.root),
+        title: p.basename(ws.root),
+      );
+    });
+  }
+
   Widget _terminalView(EditorWorkspace ws) {
-    final session = _terminal ??= ConsoleSession(
-      shell: ShellKind.available().first,
-      cwd: ws.root,
-      environment: projectEnvironment(ws.root),
-      title: p.basename(ws.root),
-    );
+    final session = _terminal;
+    if (session == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startTerminal(ws));
+      return const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)));
+    }
     return ConsoleView(key: ObjectKey(session), session: session, autofocus: false);
   }
 
