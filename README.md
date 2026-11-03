@@ -19,9 +19,9 @@
 
 ## Install
 
-**Windows:** download and run `Slipway-Setup.exe` from the [latest release](https://github.com/novannp/flutter-devkit/releases/latest). No admin rights needed, and it upgrades over an older version, keeping your settings. The installer isn't code-signed yet: if Windows warns you, choose **More info → Run anyway**.
+**Windows:** download and run `Slipway-Setup.exe` from the [latest release](https://github.com/novannp/slipway/releases/latest). No admin rights needed, and it upgrades over an older version, keeping your settings. The installer isn't code-signed yet: if Windows warns you, choose **More info → Run anyway**.
 
-**macOS:** download the `.dmg` for your Mac from the [latest release](https://github.com/novannp/flutter-devkit/releases/latest), or run `sh tool/build_macos.sh` with Flutter and Xcode installed. The first time, right-click the app and choose **Open**. The embedded device screen needs **System Settings → Privacy & Security → Accessibility**.
+**macOS:** download the `.dmg` for your Mac from the [latest release](https://github.com/novannp/slipway/releases/latest), or run `sh tool/build_macos.sh` with Flutter and Xcode installed. The first time, right-click the app and choose **Open**. The embedded device screen needs **System Settings → Privacy & Security → Accessibility**.
 
 **Uninstall:** on Windows use **Settings → Apps**, and delete the `Slipway` firewall rule if you added one. On macOS drag the app to the Trash. Your settings stay in `%APPDATA%\Slipway` and `~/Library/Application Support/com.novannp.slipway`; delete those too to remove everything.
 
@@ -166,7 +166,7 @@ Slipway stands on the work of these people and projects. Thank you for building 
 
 [Android Debug Bridge](https://developer.android.com/tools/adb) comes from the Android Open Source Project.
 
-Slipway is made by <a href="https://github.com/novannp"><img src="https://github.com/novannp.png?size=64" width="32" height="32" alt="Novan Noviansyah Pratama" /></a> [Novan Noviansyah Pratama](https://github.com/novannp) and [its contributors](https://github.com/novannp/flutter-devkit/graphs/contributors).
+Slipway is made by <a href="https://github.com/novannp"><img src="https://github.com/novannp.png?size=64" width="32" height="32" alt="Novan Noviansyah Pratama" /></a> [Novan Noviansyah Pratama](https://github.com/novannp) and [its contributors](https://github.com/novannp/slipway/graphs/contributors).
 
 ## License
 
