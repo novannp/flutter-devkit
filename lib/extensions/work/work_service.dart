@@ -47,7 +47,7 @@ class WorkService extends ChangeNotifier {
   void forget(String key) => _issues.remove(key);
 }
 
-void openUrl(String url) => Process.run('rundll32', ['url.dll,FileProtocolHandler', url]);
+void openUrl(String url) => Platform.isMacOS ? Process.run('open', [url]) : Process.run('rundll32', ['url.dll,FileProtocolHandler', url]);
 
 Future<void> openInVsCode(String path) async {
   try {

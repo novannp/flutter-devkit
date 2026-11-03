@@ -28,6 +28,7 @@ import 'debug_panel.dart';
 import 'debugger.dart';
 import 'editor_view.dart';
 import 'editor_workspace.dart';
+import 'file_preview.dart';
 import 'file_tree.dart';
 import 'fuzzy_files.dart';
 import 'log_style.dart';
@@ -412,6 +413,9 @@ class _EditorPageState extends State<EditorPage> {
       action = () => _showPanel(_Panel.problems);
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyU) {
       action = () => _showPanel(_Panel.output);
+    } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyV) {
+      final doc = _ws?.active;
+      action = doc != null && doc.canPreview ? doc.togglePreview : null;
     } else if (hw.isPrimaryPressed && hw.isShiftPressed && key == LogicalKeyboardKey.keyX) {
       action = EditorCommands.openExtensions;
     } else if (hw.isPrimaryPressed && key == LogicalKeyboardKey.comma) {
@@ -532,6 +536,8 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Reset Zoom', EditorView.resetZoom, keys: 'Ctrl+0', icon: Icons.zoom_out_map),
         PaletteItem('Show Files', () => _showSide(_Side.files), keys: 'Ctrl+Shift+E', icon: Icons.description_outlined),
         PaletteItem('Show Source Control', () => _showSide(_Side.git), keys: 'Ctrl+Shift+G', icon: Icons.account_tree_outlined),
+        if (_ws?.active case final doc? when doc.canPreview)
+          PaletteItem(doc.previewing ? 'Show Code' : 'Open Preview', doc.togglePreview, keys: 'Ctrl+Shift+V', icon: Icons.visibility_outlined),
         PaletteItem('Show Search', () => _showSide(_Side.search), keys: 'Ctrl+Shift+F', icon: Icons.search),
         PaletteItem('Show Run and Debug', () => _showSide(_Side.debug), keys: 'Ctrl+Shift+D', icon: Icons.bug_report_outlined),
         PaletteItem('Toggle Side Panel', _toggleSide, keys: 'Ctrl+B', icon: Icons.view_sidebar_outlined),
@@ -1496,6 +1502,8 @@ class _EditorPageState extends State<EditorPage> {
           Expanded(
             child: doc == null
                 ? (group.settling ? const SizedBox.shrink() : _EmptyEditor(onQuickOpen: _quickOpen))
+                : doc.binary || doc.previewing
+                ? FilePreview(key: ObjectKey(doc), doc: doc)
                 : CodePane(
                     key: key,
                     workspace: ws,
@@ -1609,6 +1617,15 @@ class _EditorPageState extends State<EditorPage> {
             },
           ),
         ),
+        if (group.active case final active? when active.canPreview)
+          IconButton(
+            tooltip: platformKeys(active.previewing ? 'Show Code (Ctrl+Shift+V)' : 'Open Preview (Ctrl+Shift+V)'),
+            iconSize: 15,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+            onPressed: active.togglePreview,
+            icon: Icon(active.previewing ? Icons.code : Icons.visibility_outlined),
+          ),
         IconButton(
           tooltip: platformKeys('Split Editor (Ctrl+\\)'),
           iconSize: 15,

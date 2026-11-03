@@ -10,6 +10,7 @@ add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
   "main.cpp"
   "native_bridge.cpp"
+  "pdf_render.cpp"
   "utils.cpp"
   "win32_window.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
@@ -34,7 +35,9 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 # Add dependency libraries and include directories. Add any application-specific
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
-target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "ole32.lib" "shell32.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "ole32.lib" "shell32.lib" "windowsapp.lib")
+# C++/WinRT's headers need coroutines and exceptions, and warn more than the rest of the runner allows.
+set_source_files_properties("pdf_render.cpp" PROPERTIES COMPILE_OPTIONS "/await:strict;/EHsc;/WX-;/W3" COMPILE_DEFINITIONS "_HAS_EXCEPTIONS=1")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.

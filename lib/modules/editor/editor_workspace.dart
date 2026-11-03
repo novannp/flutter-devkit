@@ -10,6 +10,7 @@ import 'dart_settings.dart';
 import 'engine/code_editor.dart';
 import 'engine/snippet.dart';
 import 'lsp_client.dart';
+import 'preview_kind.dart';
 
 const _maxFileBytes = 20 * 1024 * 1024;
 
@@ -244,6 +245,21 @@ class EditorDocument extends ChangeNotifier {
   /// The file changed on disk while this tab had unsaved edits.
   bool changedOnDisk = false;
 
+  /// No text to edit, so the tab is a preview: an image, a PDF, a font.
+  bool binary = false;
+
+  /// A text file showing its rendered form instead of its code.
+  late bool previewing = previewKindOf(path) == PreviewKind.svg;
+
+  DateTime get modified => _modified;
+
+  bool get canPreview => !binary && previewKindOf(path) != PreviewKind.none;
+
+  void togglePreview() {
+    previewing = !previewing;
+    notifyListeners();
+  }
+
   var diagnostics = const <Diagnostic>[];
   Map<int, List<SemanticToken>> semantics = const {};
   List<DocSymbol> symbols = const [];
@@ -262,15 +278,16 @@ class EditorDocument extends ChangeNotifier {
 
   static Future<EditorDocument> open(String path, {CodeLineSpanBuilder? spanBuilder}) async {
     final file = File(path);
+    if (previewKindOf(path).onlyPreview) return _binary(path, await file.lastModified());
     final length = await file.length();
     if (length > _maxFileBytes) throw const FileSystemException('File is too large to edit (over 20 MB)');
     final bytes = await file.readAsBytes();
-    if (bytes.contains(0)) throw const FileSystemException('Binary file');
+    if (bytes.contains(0)) return _binary(path, await file.lastModified());
     final String text;
     try {
       text = utf8.decode(bytes);
     } on FormatException {
-      throw const FileSystemException('Not a UTF-8 text file');
+      return _binary(path, await file.lastModified());
     }
     final crlf = text.contains('\r\n');
     final controller = CodeLineEditingController(
@@ -283,6 +300,9 @@ class EditorDocument extends ChangeNotifier {
     controller.addListener(doc._onControllerChanged);
     return doc;
   }
+
+  static EditorDocument _binary(String path, DateTime modified) =>
+      EditorDocument._(path, CodeLineEditingController(codeLines: CodeLines.fromText('')), '', modified)..binary = true;
 
   void _onControllerChanged() {
     if (identical(controller.codeLines, _lastLines) || controller.codeLines == _lastLines) return;
@@ -316,6 +336,7 @@ class EditorDocument extends ChangeNotifier {
   }
 
   Future<void> save() async {
+    if (binary) return;
     final text = controller.text;
     await File(path).writeAsString(text, flush: true);
     _saved = text;
@@ -332,6 +353,10 @@ class EditorDocument extends ChangeNotifier {
     final modified = await file.lastModified();
     if (modified == _modified) return false;
     _modified = modified;
+    if (binary) {
+      notifyListeners();
+      return true;
+    }
     final text = await file.readAsString();
     if (text == _saved) return false;
     if (dirty) {

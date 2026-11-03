@@ -10,7 +10,7 @@
 
 class FileDropTarget;
 
-// Files dragged onto the window, for lib/core/native_bridge.dart.
+// Files dragged onto the window and PDF pages, for lib/core/native_bridge.dart.
 class NativeBridge {
  public:
   NativeBridge(flutter::BinaryMessenger* messenger, HWND view);
@@ -19,8 +19,11 @@ class NativeBridge {
  private:
   using Channel = flutter::MethodChannel<flutter::EncodableValue>;
 
+  void RenderPdf(const flutter::MethodCall<flutter::EncodableValue>& call, std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+
   std::unique_ptr<Channel> channel_;
   HWND view_;
+  HWND mailbox_ = nullptr;
   FileDropTarget* drop_target_ = nullptr;
 };
 

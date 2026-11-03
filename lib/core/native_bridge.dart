@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Files dragged onto the window, which the runner receives natively.
+/// Files dragged onto the window and PDF pages, which only the runner can do.
 /// The other side is windows/runner/native_bridge.cpp and macos/Runner/MainFlutterWindow.swift.
 class NativeBridge {
   static const _channel = MethodChannel('devkit/native');
 
   static final _areas = <_FileDropAreaState>{};
   static var _listening = false;
+
+  /// One page as a PNG, drawn by the operating system's own PDF engine.
+  static Future<({int pages, Uint8List png})> renderPdf(String path, int page, int width) async {
+    final out = (await _channel.invokeMapMethod<String, Object?>('renderPdf', {'path': path, 'page': page, 'width': width}))!;
+    return (pages: out['pages']! as int, png: out['png']! as Uint8List);
+  }
 
   static void _listen() {
     if (_listening) return;
