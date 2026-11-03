@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:devkit/modules/console/console_view.dart';
+import 'package:slipway/modules/console/console_view.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

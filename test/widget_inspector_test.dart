@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:devkit/core/child_processes.dart';
-import 'package:devkit/modules/editor/dart_sdk.dart';
-import 'package:devkit/modules/editor/debugger.dart';
-import 'package:devkit/modules/editor/widget_inspector.dart';
+import 'package:slipway/core/child_processes.dart';
+import 'package:slipway/modules/editor/dart_sdk.dart';
+import 'package:slipway/modules/editor/debugger.dart';
+import 'package:slipway/modules/editor/widget_inspector.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

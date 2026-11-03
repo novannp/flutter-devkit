@@ -327,8 +327,8 @@ class _EditorPageState extends State<EditorPage> {
         if (mounted) setState(() => _projects = projects);
       }),
     );
-    // DEVKIT_EDITOR=<file> opens straight on that file (README screenshots, demos).
-    final envFile = Platform.environment['DEVKIT_EDITOR'];
+    // SLIPWAY_EDITOR=<file> opens straight on that file (README screenshots, demos).
+    final envFile = Platform.environment['SLIPWAY_EDITOR'];
     final startFile = widget.initialFile ?? envFile;
     final startRoot = widget.initialRoot ?? (envFile == null ? null : _projectRootOf(envFile)) ?? startupProject;
     if (startRoot == '') return;
@@ -1693,7 +1693,7 @@ class _EditorPageState extends State<EditorPage> {
             ),
           PopupMenuButton<String>(
             tooltip: 'Flutter commands',
-            icon: const Icon(Icons.flutter_dash),
+            icon: const Icon(Icons.bolt_outlined),
             enabled: !_toolBusy,
             onSelected: (v) => v == _pickPackageToUpgrade ? unawaited(_upgradeOnePackage()) : unawaited(_runTool(v)),
             itemBuilder: (_) => const [
@@ -2778,7 +2778,7 @@ class _Welcome extends StatelessWidget {
         for (final pr in projects)
           Card(
             child: ListTile(
-              leading: Icon(pr.usesFvm ? Icons.layers_outlined : Icons.flutter_dash),
+              leading: Icon(pr.usesFvm ? Icons.layers_outlined : Icons.bolt_outlined),
               title: Text(pr.name),
               subtitle: Text(pr.path),
               trailing: pr.usesFvm ? const Chip(label: Text('fvm'), visualDensity: VisualDensity.compact) : null,

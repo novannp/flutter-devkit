@@ -87,7 +87,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 children: [
                   Text('History', style: text.headlineSmall),
                   Text(
-                    'Kept on this PC for ${History.retention.inDays} days, from every Flutter DevKit window',
+                    'Kept on this PC for ${History.retention.inDays} days, from every Slipway window',
                     style: text.bodySmall?.copyWith(color: scheme.outline),
                   ),
                 ],
@@ -192,7 +192,7 @@ String _when(DateTime t) {
 IconData _iconFor(String kind) => switch (kind) {
   'crash' => Icons.bug_report_outlined,
   'device' => Icons.phone_android,
-  'flutter' => Icons.flutter_dash,
+  'flutter' => Icons.bolt_outlined,
   'task' => Icons.download_done,
   'screenshot' => Icons.photo_camera_outlined,
   'bugreport' => Icons.assignment_outlined,
@@ -336,7 +336,7 @@ class _LogList extends StatelessWidget {
           leading: Icon(
             switch (kind) {
               'logcat' => Icons.receipt_long_outlined,
-              'flutter' => Icons.flutter_dash,
+              'flutter' => Icons.bolt_outlined,
               _ => Icons.terminal,
             },
             color: scheme.primary,

@@ -1,17 +1,17 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:devkit/extensions/printer/escpos.dart';
-import 'package:devkit/modules/editor/brackets.dart';
-import 'package:devkit/modules/editor/editor_workspace.dart';
-import 'package:devkit/modules/editor/engine/code_model.dart';
-import 'package:devkit/modules/editor/engine/snippet.dart';
-import 'package:devkit/modules/editor/engine/syntax.dart';
-import 'package:devkit/modules/editor/fuzzy_files.dart';
-import 'package:devkit/modules/editor/log_style.dart';
-import 'package:devkit/modules/editor/lsp_client.dart';
-import 'package:devkit/modules/editor/markdown_view.dart';
-import 'package:devkit/modules/editor/source_control.dart';
+import 'package:slipway/extensions/printer/escpos.dart';
+import 'package:slipway/modules/editor/brackets.dart';
+import 'package:slipway/modules/editor/editor_workspace.dart';
+import 'package:slipway/modules/editor/engine/code_model.dart';
+import 'package:slipway/modules/editor/engine/snippet.dart';
+import 'package:slipway/modules/editor/engine/syntax.dart';
+import 'package:slipway/modules/editor/fuzzy_files.dart';
+import 'package:slipway/modules/editor/log_style.dart';
+import 'package:slipway/modules/editor/lsp_client.dart';
+import 'package:slipway/modules/editor/markdown_view.dart';
+import 'package:slipway/modules/editor/source_control.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

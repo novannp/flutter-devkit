@@ -46,7 +46,7 @@ class _NetworkAccessBannerState extends State<NetworkAccessBanner> {
     final a = _access;
     if (a == null || a.ok || _dismissed) return const SizedBox.shrink();
     final problems = [
-      if (a.missingRules.isNotEmpty) 'Windows Firewall blocks Flutter DevKit from receiving discovery replies',
+      if (a.missingRules.isNotEmpty) 'Windows Firewall blocks Slipway from receiving discovery replies',
       if (a.publicNetworks.isNotEmpty) '"${a.publicNetworks.join(', ')}" is a Public network (blocks local discovery)',
     ];
 

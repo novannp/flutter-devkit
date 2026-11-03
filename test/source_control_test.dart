@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:devkit/core/theme.dart';
-import 'package:devkit/modules/editor/source_control.dart';
-import 'package:devkit/modules/editor/source_control_view.dart';
+import 'package:slipway/core/theme.dart';
+import 'package:slipway/modules/editor/source_control.dart';
+import 'package:slipway/modules/editor/source_control_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -102,7 +102,7 @@ filename a.dart
   });
 
   test('a repo opened through a link keeps its marks', () async {
-    final base = await Directory.systemTemp.createTemp('devkit_link');
+    final base = await Directory.systemTemp.createTemp('slipway_link');
     addTearDown(() => base.delete(recursive: true).catchError((_) => base));
     final real = await Directory(p.join(base.path, 'real')).create();
     final link = await Link(p.join(base.path, 'link')).create(real.path);
@@ -126,7 +126,7 @@ filename a.dart
   });
 
   test('stages, diffs, commits, branches and discards in a real repo', () async {
-    final dir = await Directory.systemTemp.createTemp('devkit_git');
+    final dir = await Directory.systemTemp.createTemp('slipway_git');
     addTearDown(() => dir.delete(recursive: true).catchError((_) => dir));
     Future<void> git(List<String> args) async {
       final r = await Process.run('git', args, workingDirectory: dir.path);
@@ -214,7 +214,7 @@ filename a.dart
   });
 
   test('a folder outside any repo reports that, without errors', () async {
-    final dir = await Directory.systemTemp.createTemp('devkit_nogit');
+    final dir = await Directory.systemTemp.createTemp('slipway_nogit');
     addTearDown(() => dir.delete(recursive: true).catchError((_) => dir));
     final sc = SourceControl();
     addTearDown(sc.dispose);

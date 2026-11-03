@@ -57,7 +57,7 @@ jobs:
       - if: runner.os != 'Windows'
         run: |
           sh tool/build_macos.sh
-          mv dist/FlutterDevKit.dmg "dist/FlutterDevKit-${{ matrix.arch }}.dmg"
+          mv dist/Slipway.dmg "dist/Slipway-${{ matrix.arch }}.dmg"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist-${{ matrix.arch }}

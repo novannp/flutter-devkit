@@ -9,15 +9,15 @@ from PIL import Image, ImageDraw, ImageFilter
 ROOT = Path(__file__).resolve().parent.parent
 S = 1024  # draw large, downscale for crisp edges
 
-TOP = (56, 189, 248)  # sky-400
-BOTTOM = (3, 74, 150)  # deep blue
+TOP = (167, 139, 250)  # violet-400
+BOTTOM = (59, 29, 143)  # deep violet
 
-
+# A chamfered S, kept far from Flutter's blue facets on purpose.
 LETTER = [
-    [(300, 200), (800, 200), (652, 348), (300, 348)],
-    [(300, 200), (448, 200), (448, 824), (300, 824)],
-    [(300, 432), (652, 432), (504, 580), (300, 580)],
+    (350, 200), (744, 200), (744, 330), (410, 330), (410, 447), (674, 447), (744, 517), (744, 754),
+    (674, 824), (280, 824), (280, 694), (614, 694), (614, 577), (350, 577), (280, 507), (280, 270),
 ]
+TIP = (280, 694, 392, 824)
 
 
 def render() -> Image.Image:
@@ -39,17 +39,15 @@ def render() -> Image.Image:
     shine = Image.composite(shine, Image.new('L', (S, S), 0), mask)
     icon = Image.alpha_composite(icon, Image.merge('RGBA', [Image.new('L', (S, S), 255)] * 3 + [shine]))
 
-    # An F with chamfered arms, and a small diamond where its lower right would be.
-    diamond = [(640, 590), (760, 710), (640, 830), (520, 710)]
-    shadow = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(shadow)
-    for shape in [*LETTER, diamond]:
-        draw.polygon([(x + 12, y + 20) for x, y in shape], fill=(1, 40, 90, 110))
+    # The S, with its tail picked out.
+    letter = Image.new('L', (S, S), 0)
+    draw = ImageDraw.Draw(letter)
+    draw.polygon(LETTER, fill=255)
+    shadow = Image.new('RGBA', (S, S), (20, 8, 60, 0))
+    shadow.putalpha(letter.point(lambda v: v * 110 // 255).transform((S, S), Image.AFFINE, (1, 0, -12, 0, 1, -20)))
     icon = Image.alpha_composite(icon, shadow.filter(ImageFilter.GaussianBlur(16)))
-    draw = ImageDraw.Draw(icon)
-    for shape in LETTER:
-        draw.polygon(shape, fill=(255, 255, 255, 255))
-    draw.polygon(diamond, fill=(125, 232, 255, 255))
+    icon.paste((255, 255, 255, 255), (0, 0), letter)
+    ImageDraw.Draw(icon).rectangle(TIP, fill=(110, 231, 183, 255))
     return icon
 
 

@@ -46,7 +46,7 @@ class ProjectFolders {
 
   static Future<void> remove(String folder) async => set((await get()).where((f) => f != folder).toList());
 
-  /// Initial guess: the DevKit repo's parent folder, if DevKit runs from a repo build.
+  /// Initial guess: the Slipway repo's parent folder, if Slipway runs from a repo build.
   static String? guess() {
     var dir = File(Platform.resolvedExecutable).parent;
     for (var i = 0; i < 8; i++) {

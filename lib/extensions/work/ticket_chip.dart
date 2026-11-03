@@ -35,7 +35,7 @@ class _TicketChipState extends State<TicketChip> {
   void initState() {
     super.initState();
     _check();
-    // Branches change outside DevKit (VS Code, terminal), so look again now and then.
+    // Branches change outside Slipway (VS Code, terminal), so look again now and then.
     _poll = Timer.periodic(const Duration(seconds: 20), (_) => _check());
   }
 

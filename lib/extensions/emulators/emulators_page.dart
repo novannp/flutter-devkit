@@ -31,7 +31,7 @@ class _EmulatorsPageState extends State<EmulatorsPage> {
   void initState() {
     super.initState();
     _load();
-    // Picks up emulators started/stopped outside DevKit.
+    // Picks up emulators started/stopped outside Slipway.
     _poll = Timer.periodic(const Duration(seconds: 5), (_) => _load());
   }
 

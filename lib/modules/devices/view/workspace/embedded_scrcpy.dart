@@ -48,7 +48,7 @@ void _watch(_EmbeddedScrcpyState s) {
   });
 }
 
-/// scrcpy's window kept exactly over this widget's area: smooth 60 fps, still inside DevKit.
+/// scrcpy's window kept exactly over this widget's area: smooth 60 fps, still inside Slipway.
 ///
 /// scrcpy only scales its picture to the size it was created with, so it's started at the exact
 /// area and restarted when that size changes; moves just reposition the window.
@@ -68,7 +68,7 @@ class EmbeddedScrcpy extends StatefulWidget {
 }
 
 const _permissionNeeded =
-    'To keep the device screen inside this window, allow Flutter DevKit under System Settings → Privacy & Security → Accessibility, then press Retry.';
+    'To keep the device screen inside this window, allow Slipway under System Settings → Privacy & Security → Accessibility, then press Retry.';
 
 class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
   String _title = '';
@@ -216,7 +216,7 @@ class _EmbeddedScrcpyState extends State<EmbeddedScrcpy> {
     final scrcpy = widget.adb.tools.scrcpy;
     if (scrcpy == null) return _fail('scrcpy not found');
     _starting = true;
-    _title = 'devkit-embed-$pid-${_counter++}';
+    _title = 'slipway-embed-$pid-${_counter++}';
     setState(() => _hwnd = null);
     final Process p;
     try {

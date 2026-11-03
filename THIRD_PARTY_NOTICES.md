@@ -1,29 +1,37 @@
 # Third-party notices
 
-Flutter DevKit itself is under the MIT License, in `LICENSE`. It also ships or downloads the software below, which stays under its own license. Inside the app, **Help → About Flutter DevKit → View licenses** lists these and every Dart package.
+Slipway itself is under the MIT License, in `LICENSE`. It also ships or downloads the software below, which stays under its own license. Inside the app, **Help → About Slipway → View licenses** lists these and every Dart package.
 
 ## Programs shipped with the app
 
-The Windows build carries these in `windows/third_party/scrcpy`. On macOS, `tool/bundle_scrcpy_macos.sh` downloads the matching scrcpy release when the app is built.
+The Windows build carries these in `windows/third_party/scrcpy`, unmodified from the scrcpy 3.3.4 release. On macOS, `tool/bundle_scrcpy_macos.sh` downloads the matching scrcpy release when the app is built.
 
 | Software | Version | License | Source |
 |---|---|---|---|
-| scrcpy | 3.3.4 | Apache-2.0 | https://github.com/Genymobile/scrcpy |
-| Android Debug Bridge (adb, AdbWinApi, AdbWinUsbApi) | 36.0.0 | Apache-2.0; distributed by Google in Android SDK Platform-Tools, as part of the scrcpy release | https://android.googlesource.com/platform/packages/modules/adb |
-| FFmpeg (avcodec, avformat, avutil, swresample) | as in scrcpy 3.3.4 | LGPL-2.1-or-later | https://ffmpeg.org/download.html |
-| SDL2 | as in scrcpy 3.3.4 | Zlib | https://github.com/libsdl-org/SDL |
-| libusb | as in scrcpy 3.3.4 | LGPL-2.1-or-later | https://github.com/libusb/libusb |
-
-FFmpeg and libusb are separate libraries (`.dll` files next to `scrcpy.exe`), unmodified from the scrcpy release. You may replace them with your own builds. Their source is at the links above, and the scrcpy project documents how its builds are made at https://github.com/Genymobile/scrcpy/blob/master/doc/build.md.
+| scrcpy | 3.3.4 | Apache-2.0 | https://github.com/Genymobile/scrcpy/tree/v3.3.4 |
+| Android Debug Bridge (adb, and AdbWinApi and AdbWinUsbApi on Windows) | 36.0.0 | Apache-2.0, with the notices below | https://android.googlesource.com/platform/packages/modules/adb |
+| FFmpeg (avcodec, avformat, avutil, swresample) | 7.1.1 | LGPL-2.1-or-later | https://ffmpeg.org/releases/ffmpeg-7.1.1.tar.xz |
+| libusb | 1.0.29 | LGPL-2.1-or-later | https://github.com/libusb/libusb/archive/refs/tags/v1.0.29.tar.gz |
+| SDL2 | 2.32.8 | Zlib | https://github.com/libsdl-org/SDL/archive/refs/tags/release-2.32.8.tar.gz |
 
 The license texts are in `assets/licenses`.
+
+### FFmpeg and libusb (LGPL)
+
+Each GitHub release of Slipway carries the source of the versions above beside its downloads. They were built by the scrcpy project, with the scripts in https://github.com/Genymobile/scrcpy/tree/v3.3.4/app/deps and the steps in https://github.com/Genymobile/scrcpy/blob/v3.3.4/doc/build.md.
+
+You may replace them with your own builds. On Windows they are separate `.dll` files next to `scrcpy.exe`. On macOS they are linked into the `scrcpy` program inside the app, so build scrcpy from its source with your versions and put it in `Contents/Resources/scrcpy`. Slipway only starts that program as a separate process.
 
 ### scrcpy (Apache-2.0)
 
 Copyright (C) 2018 Genymobile
 Copyright (C) 2018-2026 Romain Vimont
 
-Licensed under the Apache License, Version 2.0, in `assets/licenses/Apache-2.0.txt`. Flutter DevKit ships its program unmodified, and starts it as a separate process. Flutter DevKit is not made by, affiliated with or endorsed by the authors of scrcpy, and it names scrcpy only to say what it uses.
+Licensed under the Apache License, Version 2.0, in `assets/licenses/Apache-2.0.txt`. Slipway ships its program unmodified, and starts it as a separate process. Slipway is not made by, affiliated with or endorsed by the authors of scrcpy, and it names scrcpy only to say what it uses.
+
+### Android Debug Bridge
+
+Copyright (C) The Android Open Source Project. Licensed under the Apache License, Version 2.0. These are the prebuilt programs from Android SDK Platform-Tools, as included in the scrcpy release. The notices Google publishes with Platform-Tools are in `assets/licenses/android-platform-tools-NOTICE-windows.txt` and `assets/licenses/android-platform-tools-NOTICE-macos.txt`. They cover the whole Platform-Tools package, of which Slipway carries only the programs named above.
 
 ### SDL2 (Zlib)
 
@@ -45,10 +53,10 @@ Permission is granted to anyone to use this software for any purpose, including 
 
 ## Dart and Flutter packages
 
-The app is built with Flutter and packages from pub.dev, including flutter_bloc, bonsoir, shared_preferences, file_selector, path_provider, ffi, window_manager, tray_manager, xterm and vm_service. Their licenses are included in the app, and shown in its licenses page.
+The app is built with the Flutter SDK and packages from pub.dev, under BSD, MIT, Apache-2.0 and, for dbus, MPL-2.0 licenses. dbus is used unmodified, and its source is at https://pub.dev/packages/dbus. All of their licenses are included in the app, and shown on its licenses page.
 
 ## Trademarks
 
-Flutter and Dart are trademarks of Google LLC. Android is a trademark of Google LLC. Visual Studio Code is a trademark of Microsoft Corporation. macOS is a trademark of Apple Inc. Windows is a trademark of Microsoft Corporation. Flutter DevKit is an independent project and isn't affiliated with, endorsed by or sponsored by any of them. These names only say what the app works with.
+Flutter, Dart and the related logos are trademarks of Google LLC. Android is a trademark of Google LLC. Visual Studio Code and Windows are trademarks of Microsoft Corporation. macOS is a trademark of Apple Inc. Slipway is not endorsed by or affiliated with any of them. These names only say what the app works with.
 
 Some themes follow color schemes published by others, and carry those names to say which: One Dark, Dracula, Nord and Solarized. The VS Code themes follow the default colors of Visual Studio Code.

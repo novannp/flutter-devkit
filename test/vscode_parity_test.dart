@@ -1,18 +1,18 @@
 import 'dart:io';
 
-import 'package:devkit/core/theme.dart';
-import 'package:devkit/extensions/registry.dart';
-import 'package:devkit/modules/editor/brackets.dart';
-import 'package:devkit/modules/editor/breadcrumbs.dart';
-import 'package:devkit/modules/editor/dart_sdk.dart';
-import 'package:devkit/modules/editor/editor_view.dart';
-import 'package:devkit/modules/editor/editor_workspace.dart';
-import 'package:devkit/modules/editor/log_style.dart';
-import 'package:devkit/modules/editor/notices.dart';
+import 'package:slipway/core/theme.dart';
+import 'package:slipway/extensions/registry.dart';
+import 'package:slipway/modules/editor/brackets.dart';
+import 'package:slipway/modules/editor/breadcrumbs.dart';
+import 'package:slipway/modules/editor/dart_sdk.dart';
+import 'package:slipway/modules/editor/editor_view.dart';
+import 'package:slipway/modules/editor/editor_workspace.dart';
+import 'package:slipway/modules/editor/log_style.dart';
+import 'package:slipway/modules/editor/notices.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:devkit/modules/editor/editor_page.dart';
-import 'package:devkit/modules/editor/tool_tabs.dart';
+import 'package:slipway/modules/editor/editor_page.dart';
+import 'package:slipway/modules/editor/tool_tabs.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -334,7 +334,7 @@ void main() {
     test('an old dark mode choice carries over, and the pick is remembered', () async {
       SharedPreferences.setMockInitialValues({'theme_mode': 'dark'});
       await loadAppTheme();
-      expect(appTheme.value.id, 'devkit-dark');
+      expect(appTheme.value.id, 'slipway-dark');
       await setAppTheme(appThemes.firstWhere((t) => t.id == 'nord'));
       appTheme.value = appThemes.first;
       await loadAppTheme();

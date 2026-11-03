@@ -36,10 +36,10 @@ const _killOnJobClose = 0x2000;
 const _processSetQuota = 0x0100;
 const _processTerminate = 0x0001;
 
-/// (scrcpy pid, pid of the DevKit that started it) from `ps -axo pid=,command=`.
+/// (scrcpy pid, pid of the Slipway that started it) from `ps -axo pid=,command=`.
 Iterable<(int, int)> embeddedScrcpyIn(String ps) sync* {
   final line = RegExp(
-    r'^\s*(\d+)\s+.*scrcpy\b.*devkit-embed-(\d+)-',
+    r'^\s*(\d+)\s+.*scrcpy\b.*slipway-embed-(\d+)-',
     multiLine: true,
   );
   for (final m in line.allMatches(ps)) {
@@ -47,7 +47,7 @@ Iterable<(int, int)> embeddedScrcpyIn(String ps) sync* {
   }
 }
 
-/// Child processes that must die with DevKit (embedded scrcpy windows would otherwise float orphaned).
+/// Child processes that must die with Slipway (embedded scrcpy windows would otherwise float orphaned).
 class ChildProcesses {
   static int? _job;
 
@@ -74,7 +74,7 @@ class ChildProcesses {
     } finally {
       calloc.free(info);
     }
-    // Never closed on purpose: the OS closes it when DevKit exits, which kills every assigned child.
+    // Never closed on purpose: the OS closes it when Slipway exits, which kills every assigned child.
     return _job = job;
   }
 
@@ -110,7 +110,7 @@ class ChildProcesses {
     _closeHandle(h);
   }
 
-  /// Kills embedded scrcpy left by DevKit runs that are gone (title `devkit-embed-<pid>-n`).
+  /// Kills embedded scrcpy left by Slipway runs that are gone (title `slipway-embed-<pid>-n`).
   static Future<void> killOrphans() async {
     if (Platform.isMacOS) {
       final listed = await Tools.run('ps', ['-axo', 'pid=,command=']);
@@ -125,7 +125,7 @@ class ChildProcesses {
       '-NoProfile',
       '-NonInteractive',
       '-Command',
-      r"Get-CimInstance Win32_Process -Filter 'Name=''scrcpy.exe''' | Where-Object { $_.CommandLine -match 'devkit-embed-(\d+)-' -and -not (Get-Process -Id ([int]$Matches[1]) -ErrorAction SilentlyContinue) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }",
+      r"Get-CimInstance Win32_Process -Filter 'Name=''scrcpy.exe''' | Where-Object { $_.CommandLine -match 'slipway-embed-(\d+)-' -and -not (Get-Process -Id ([int]$Matches[1]) -ErrorAction SilentlyContinue) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }",
     ], timeout: const Duration(seconds: 20));
   }
 }

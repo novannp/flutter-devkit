@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'legacy.dart';
 import 'tools.dart';
 import 'history.dart';
 
@@ -17,7 +16,7 @@ class NetworkAccess {
 }
 
 class Firewall {
-  static const ruleName = 'DevKit';
+  static const ruleName = 'Slipway';
 
   static List<String> get programs {
     final dir = File(Platform.resolvedExecutable).parent.path;
@@ -57,13 +56,12 @@ class Firewall {
   /// Adds inbound allow rules (and optionally makes Public networks Private) behind one UAC prompt.
   static Future<bool> fix({required bool makePrivate}) async {
     final lines = [
-      'netsh advfirewall firewall delete rule name="$legacyFirewallRule" | Out-Null',
       'netsh advfirewall firewall delete rule name="$ruleName" | Out-Null',
       for (final p in programs)
         'netsh advfirewall firewall add rule name="$ruleName" dir=in action=allow program="$p" enable=yes profile=any | Out-Null',
       if (makePrivate) "Get-NetConnectionProfile | Where-Object NetworkCategory -eq 'Public' | Set-NetConnectionProfile -NetworkCategory Private",
     ];
-    final script = File('${Directory.systemTemp.path}${Platform.pathSeparator}devkit_network_fix.ps1');
+    final script = File('${Directory.systemTemp.path}${Platform.pathSeparator}slipway_network_fix.ps1');
     await script.writeAsString(lines.join('\r\n'));
     final r = await Tools.run('powershell', [
       '-NoProfile',

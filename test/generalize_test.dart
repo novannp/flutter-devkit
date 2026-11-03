@@ -1,9 +1,8 @@
 import 'dart:io';
 
-import 'package:devkit/core/apps.dart';
-import 'package:devkit/core/legacy.dart';
-import 'package:devkit/modules/devices/services/network_scanner.dart';
-import 'package:devkit/extensions/maintenance/core_deps.dart';
+import 'package:slipway/core/apps.dart';
+import 'package:slipway/modules/devices/services/network_scanner.dart';
+import 'package:slipway/extensions/maintenance/core_deps.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -83,39 +82,5 @@ dependencies:
     expect(await CoreDeps.gitPackages(dir.path), ['long_form', 'short_form']);
     final deps = await CoreDeps.read(dir.path, ['long_form', 'short_form']);
     expect(deps.map((d) => d.repo), ['long-repo', 'short-repo']);
-  });
-
-  group('copyLegacyData', () {
-    late Directory from, to;
-
-    setUp(() async {
-      final root = await Directory.systemTemp.createTemp('legacy');
-      addTearDown(() => root.delete(recursive: true));
-      from = Directory(p.join(root.path, 'old'));
-      to = Directory(p.join(root.path, 'new'));
-      File(p.join(from.path, 'history', 'a.log'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync('log');
-      File(p.join(from.path, 'shared_preferences.json')).writeAsStringSync('{}');
-    });
-
-    test('copies everything and leaves the old folder', () async {
-      expect(await copyLegacyData(from, to), isTrue);
-      expect(File(p.join(to.path, 'history', 'a.log')).readAsStringSync(), 'log');
-      expect(File(p.join(to.path, 'shared_preferences.json')).existsSync(), isTrue);
-      expect(File(p.join(from.path, 'shared_preferences.json')).existsSync(), isTrue);
-    });
-
-    test('never overwrites existing data', () async {
-      File(p.join(to.path, 'shared_preferences.json'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync('new');
-      expect(await copyLegacyData(from, to), isFalse);
-      expect(File(p.join(to.path, 'shared_preferences.json')).readAsStringSync(), 'new');
-    });
-
-    test('does nothing without old data', () async {
-      expect(await copyLegacyData(Directory(p.join(from.path, 'missing')), to), isFalse);
-    });
   });
 }

@@ -96,7 +96,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final valid = MdnsService.isValidType(type);
     if (valid) await (await SharedPreferences.getInstance()).setString(MdnsService.serviceTypeKey, type);
     messenger.showSnackBar(
-      SnackBar(content: Text(valid ? 'Saved. Restart Flutter DevKit to apply.' : 'Use a form like _myapp._tcp')),
+      SnackBar(content: Text(valid ? 'Saved. Restart Slipway to apply.' : 'Use a form like _myapp._tcp')),
     );
   }
 
@@ -113,7 +113,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _Section('General', Icons.tune, _generated('app')),
       _Section('Editor', Icons.code, _generated('editor')),
       _Section('Dart', Icons.data_object, _generated('dart')),
-      _Section('Flutter', Icons.flutter_dash, _generated('flutter')),
+      _Section('Flutter', Icons.bolt_outlined, _generated('flutter')),
       _Section('Projects', Icons.folder_outlined, [
         _Setting(
           'Project folders',
@@ -300,7 +300,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
           Text(
-            inProject ? 'Saved in .devkit/settings.json, so it can be committed and shared with the team. It wins over your own settings.' : 'Saved on this computer, and used in every project.',
+            inProject ? 'Saved in .slipway/settings.json, so it can be committed and shared with the team. It wins over your own settings.' : 'Saved on this computer, and used in every project.',
             style: TextStyle(fontSize: 12, color: scheme.outline),
           ),
           if (error != null)

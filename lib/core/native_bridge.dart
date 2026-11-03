@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 /// Files dragged onto the window and PDF pages, which only the runner can do.
 /// The other side is windows/runner/native_bridge.cpp and macos/Runner/MainFlutterWindow.swift.
 class NativeBridge {
-  static const _channel = MethodChannel('devkit/native');
+  static const _channel = MethodChannel('slipway/native');
 
   static final _areas = <_FileDropAreaState>{};
   static var _listening = false;

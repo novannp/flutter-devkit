@@ -9,7 +9,7 @@ final _libc = DynamicLibrary.process();
 final _setenv = _libc.lookupFunction<Int32 Function(Pointer<Utf8>, Pointer<Utf8>, Int32), int Function(Pointer<Utf8>, Pointer<Utf8>, int)>('setenv');
 final _getenv = _libc.lookupFunction<Pointer<Utf8> Function(Pointer<Utf8>), Pointer<Utf8> Function(Pointer<Utf8>)>('getenv');
 
-const _marker = '__DEVKIT_PATH__';
+const _marker = '__SLIPWAY_PATH__';
 
 String? _env(String name) {
   final key = name.toNativeUtf8();

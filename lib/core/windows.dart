@@ -48,7 +48,7 @@ Future<void> openWorkspaceWindow(Device d) async {
   final payload = base64Url.encode(utf8.encode(jsonEncode(d.toJson())));
   final p = await Process.start(Platform.resolvedExecutable, [
     '$workspaceArg$payload',
-    '--title=${d.displayName} · Flutter DevKit',
+    '--title=${d.displayName} · Slipway',
     '--cascade=${_open.length + 1}',
   ], environment: FlutterHub.instance.childEnvironment);
   // Child window output is unused; drained so the pipe buffer doesn't fill up.

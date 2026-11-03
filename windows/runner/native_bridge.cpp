@@ -20,7 +20,7 @@ std::string ToUtf8(const std::wstring& text) {
 }
 
 constexpr UINT kPdfDone = WM_APP + 1;
-constexpr wchar_t kMailboxClass[] = L"DevKitNativeBridgeMailbox";
+constexpr wchar_t kMailboxClass[] = L"SlipwayNativeBridgeMailbox";
 
 struct PdfJob {
   std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result;
@@ -125,7 +125,7 @@ class FileDropTarget : public IDropTarget {
 };
 
 NativeBridge::NativeBridge(flutter::BinaryMessenger* messenger, HWND view) : view_(view) {
-  channel_ = std::make_unique<Channel>(messenger, "devkit/native", &flutter::StandardMethodCodec::GetInstance());
+  channel_ = std::make_unique<Channel>(messenger, "slipway/native", &flutter::StandardMethodCodec::GetInstance());
   drop_target_ = new FileDropTarget(channel_.get());
   ::RegisterDragDrop(view_, drop_target_);
 

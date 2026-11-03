@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:devkit/core/licenses.dart';
+import 'package:slipway/core/licenses.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,6 +15,28 @@ void main() {
     expect(pubspec, contains('- LICENSE'));
     expect(pubspec, contains('- THIRD_PARTY_NOTICES.md'));
     expect(pubspec, contains('- assets/licenses/'));
+  });
+
+  test('adb carries its notices, and the LGPL source is offered at the versions shipped', () {
+    final notices = File('THIRD_PARTY_NOTICES.md').readAsStringSync();
+    final release = File('.github/workflows/release.yml').readAsStringSync();
+    for (final name in ['windows', 'macos']) {
+      final file = 'assets/licenses/android-platform-tools-NOTICE-$name.txt';
+      expect(File(file).existsSync(), isTrue, reason: file);
+      expect(notices, contains(file));
+    }
+    for (final (name, version) in [('ffmpeg', '7.1.1'), ('libusb', '1.0.29')]) {
+      expect(notices, contains(version), reason: name);
+      expect(release, contains('assets/$name-$version'), reason: name);
+    }
+  });
+
+  test('no product name or logo borrows from the Flutter or Dart marks', () {
+    expect(Directory('assets/fonts').existsSync(), isFalse);
+    for (final file in Directory('lib').listSync(recursive: true).whereType<File>()) {
+      if (!file.path.endsWith('.dart')) continue;
+      expect(file.readAsStringSync(), isNot(contains('Icons.flutter_dash')), reason: file.path);
+    }
   });
 
   test('every library next to scrcpy is accounted for', () {
@@ -37,7 +59,7 @@ void main() {
     addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMessageHandler('flutter/assets', null));
     registerBundledLicenses();
     final entries = await LicenseRegistry.licenses.toList();
-    expect(entries.any((e) => e.packages.contains('Flutter DevKit')), isTrue);
+    expect(entries.any((e) => e.packages.contains('Slipway')), isTrue);
     expect(entries.any((e) => e.packages.contains('FFmpeg, libusb')), isTrue);
   });
 }

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:devkit/modules/console/console_session.dart';
+import 'package:slipway/modules/console/console_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

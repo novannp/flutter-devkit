@@ -8,8 +8,8 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'windows' / 'installer'
-TOP = (7, 62, 122)  # deep blue
-BOTTOM = (3, 32, 74)  # darker blue
+TOP = (59, 29, 143)  # deep violet
+BOTTOM = (30, 14, 82)  # darker violet
 
 logo = Image.open(ROOT / 'docs' / 'logo.png').convert('RGBA')
 

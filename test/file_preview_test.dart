@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:devkit/modules/editor/editor_workspace.dart';
-import 'package:devkit/modules/editor/file_preview.dart';
-import 'package:devkit/modules/editor/markdown_view.dart';
-import 'package:devkit/modules/editor/preview_kind.dart';
-import 'package:devkit/modules/editor/svg_view.dart';
+import 'package:slipway/modules/editor/editor_workspace.dart';
+import 'package:slipway/modules/editor/file_preview.dart';
+import 'package:slipway/modules/editor/markdown_view.dart';
+import 'package:slipway/modules/editor/preview_kind.dart';
+import 'package:slipway/modules/editor/svg_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;

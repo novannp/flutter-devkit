@@ -23,7 +23,7 @@ class HistoryEntry {
 
 /// Local, append-only history so past activity, crashes and session logs can be reviewed later.
 ///
-/// Every DevKit window (main + workspace windows) appends to the same files; entries are small JSON
+/// Every Slipway window (main + workspace windows) appends to the same files; entries are small JSON
 /// lines, so concurrent appends don't interleave in practice.
 class History {
   static const retention = Duration(days: 30);

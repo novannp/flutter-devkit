@@ -36,7 +36,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows
-          path: dist/DevKit-Setup.exe
+          path: dist/Slipway-Setup.exe
           if-no-files-found: error
 
   macos:
@@ -54,11 +54,11 @@ jobs:
       - uses: ./.github/actions/setup
       - run: |
           sh tool/build_macos.sh
-          mv dist/FlutterDevKit.dmg "dist/FlutterDevKit-${{ matrix.arch }}.dmg"
+          mv dist/Slipway.dmg "dist/Slipway-${{ matrix.arch }}.dmg"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: macos-${{ matrix.arch }}
-          path: dist/FlutterDevKit-${{ matrix.arch }}.dmg
+          path: dist/Slipway-${{ matrix.arch }}.dmg
           if-no-files-found: error
 
   publish:
@@ -71,6 +71,12 @@ jobs:
         with:
           path: assets
           merge-multiple: true
+      # The source of the LGPL libraries in the build, so it's on offer from the same place.
+      - run: |
+          curl -fsSL -o assets/ffmpeg-7.1.1.tar.xz https://ffmpeg.org/releases/ffmpeg-7.1.1.tar.xz
+          curl -fsSL -o assets/libusb-1.0.29.tar.gz https://github.com/libusb/libusb/archive/refs/tags/v1.0.29.tar.gz
+          echo "733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1  assets/ffmpeg-7.1.1.tar.xz" | sha256sum -c
+          echo "7c2dd39c0b2589236e48c93247c986ae272e27570942b4163cb00a060fcf1b74  assets/libusb-1.0.29.tar.gz" | sha256sum -c
       - run: gh release create "$GITHUB_REF_NAME" assets/* --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}

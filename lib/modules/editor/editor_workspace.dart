@@ -314,7 +314,7 @@ class EditorDocument extends ChangeNotifier {
   }
 
   /// Its path is only an identity: no file has it, so nothing on disk can ever match.
-  static EditorDocument tool(AppModule module) => _binary('devkit-tool-${identityHashCode(module)}', DateTime(0))..module = module;
+  static EditorDocument tool(AppModule module) => _binary('slipway-tool-${identityHashCode(module)}', DateTime(0))..module = module;
 
   static EditorDocument _binary(String path, DateTime modified) =>
       EditorDocument._(path, CodeLineEditingController(codeLines: CodeLines.fromText('')), '', modified)..binary = true;

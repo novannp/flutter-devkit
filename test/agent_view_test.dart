@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:devkit/modules/editor/agent_view.dart';
-import 'package:devkit/modules/editor/project_tools.dart';
+import 'package:slipway/modules/editor/agent_view.dart';
+import 'package:slipway/modules/editor/project_tools.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

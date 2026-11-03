@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:devkit/core/secrets.dart';
-import 'package:devkit/extensions/work/atlassian.dart';
-import 'package:devkit/extensions/work/git_repo.dart';
+import 'package:slipway/core/secrets.dart';
+import 'package:slipway/extensions/work/atlassian.dart';
+import 'package:slipway/extensions/work/git_repo.dart';
 
 void main() {
   test('ticket key from branch names', () {

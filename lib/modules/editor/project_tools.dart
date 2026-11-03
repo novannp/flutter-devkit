@@ -33,7 +33,7 @@ ToolProbe probeIn(String root) => (command) async {
 Future<void> openInSystemTerminal(List<String> command) async {
   if (Platform.isWindows) {
     // The first quoted word is start's window title, and /k leaves the window up to read the result.
-    await Process.start('cmd', ['/c', 'start', 'Flutter DevKit', 'cmd', '/k', ...command], mode: ProcessStartMode.detached);
+    await Process.start('cmd', ['/c', 'start', 'Slipway', 'cmd', '/k', ...command], mode: ProcessStartMode.detached);
   } else if (Platform.isMacOS) {
     await Process.run('osascript', ['-e', 'tell application "Terminal" to do script "${command.join(' ')}"', '-e', 'tell application "Terminal" to activate']);
   }

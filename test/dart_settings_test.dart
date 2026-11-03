@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:devkit/modules/editor/code_pane.dart';
-import 'package:devkit/modules/editor/dart_sdk.dart';
-import 'package:devkit/modules/editor/dart_settings.dart';
-import 'package:devkit/modules/editor/editor_workspace.dart';
+import 'package:slipway/modules/editor/code_pane.dart';
+import 'package:slipway/modules/editor/dart_sdk.dart';
+import 'package:slipway/modules/editor/dart_settings.dart';
+import 'package:slipway/modules/editor/editor_workspace.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;

@@ -1,5 +1,5 @@
-name: devkit
-description: "Flutter DevKit: an IDE for Flutter on Windows, with devices, logs and builds in one window."
+name: slipway
+description: "Slipway: an IDE for Flutter projects on Windows and macOS, with devices, logs and builds in one window."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -71,10 +71,6 @@ flutter:
     - LICENSE
     - THIRD_PARTY_NOTICES.md
 
-  fonts:
-    - family: DevKitIcons
-      fonts:
-        - asset: assets/fonts/devkit_icons.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:
