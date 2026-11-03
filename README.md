@@ -166,7 +166,7 @@ Slipway stands on the work of these people and projects. Thank you for building 
 
 [Android Debug Bridge](https://developer.android.com/tools/adb) comes from the Android Open Source Project.
 
-Slipway is made by <a href="https://github.com/novannp"><img src="https://github.com/novannp.png?size=64" width="32" height="32" alt="Novan Noviansyah Pratama" /></a> [Novan Noviansyah Pratama](https://github.com/novannp) and [its contributors](https://github.com/novannp/slipway/graphs/contributors).
+Slipway is made by <a href="https://github.com/novannp"><img src="https://github.com/novannp.png?size=64" width="32" height="32" alt="Novan Noviansyah Pratama" /></a> [Novan Noviansyah Pratama](https://github.com/novannp) and [its contributors](https://github.com/novannp/slipway/graphs/contributors). Want to help? See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
