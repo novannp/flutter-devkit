@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:devkit/core/theme.dart';
 import 'package:devkit/modules/editor/source_control.dart';
+import 'package:devkit/modules/editor/source_control_view.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -218,5 +221,34 @@ filename a.dart
     await sc.open(dir.path);
     expect(sc.isRepo, isFalse);
     expect(await sc.marksOf(p.join(dir.path, 'a.dart')), isEmpty);
+  });
+
+  group('diff colors', () {
+    const base = TextStyle(fontSize: 12);
+    final syntax = appThemes.first.syntax;
+    Set<Color?> colors(InlineSpan span) {
+      final found = <Color?>{};
+      span.visitChildren((s) {
+        if (s is TextSpan && (s.text ?? '').trim().isNotEmpty) found.add(s.style?.color);
+        return true;
+      });
+      return found;
+    }
+
+    test('code keeps its syntax colors', () {
+      final spans = highlightDiffSide(["const a = 'x';"], '.dart', syntax, base);
+      expect(colors(spans.single), containsAll([syntax.string]));
+      expect(spans.single.toPlainText(), "const a = 'x';");
+    });
+
+    test('a comment carries on past a row missing on this side', () {
+      final spans = highlightDiffSide(['/* open', null, 'still comment */'], '.dart', syntax, base);
+      expect(colors(spans[2]), {syntax.comment});
+      expect(spans[1].toPlainText(), '');
+    });
+
+    test('an unknown file type stays plain', () {
+      expect(highlightDiffSide(['class A'], '.nope', syntax, base).single.toPlainText(), 'class A');
+    });
   });
 }

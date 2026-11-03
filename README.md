@@ -82,7 +82,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 
 **Project and team**
 
-- **Source Control**: changed files, stage, commit, push and pull, branches, discard one file or everything at once (a copy stays in `git stash`), a side by side before and after diff in its own tab, gutter marks for lines that differ from `HEAD`, and line blame at the end of the current line (**Git: Toggle Line Blame** in the palette or the right-click menu)
+- **Source Control**: changed files, a side-by-side diff with syntax colors, stage, commit, push and pull, branches, discard one file or everything at once (a copy stays in `git stash`), a side by side before and after diff in its own tab, gutter marks for lines that differ from `HEAD`, and line blame at the end of the current line (**Git: Toggle Line Blame** in the palette or the right-click menu)
 - **Move tabs around**: drag any tab along its strip, drop a file's tab in another view to move it there, or on the left or right edge of a view to split it in two
 - **Open Recent** under File lists your project folders, and reopens each with the tabs it had
 - **Find things**: fuzzy quick open (`online payment` finds `online_payment.dart`, `main.dart:42` jumps to the line), search in files as you type, Open File and Open Recent

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/theme.dart';
+import 'engine/syntax.dart';
 import 'source_control.dart';
 import '../../core/mono_font.dart';
 
@@ -286,6 +288,24 @@ Future<void> confirmDiscardAll(BuildContext context, SourceControl git) async {
 }
 
 /// Before and after next to each other, in one scroll so their lines stay level.
+/// One side of a diff, read in order, so a comment that opens on one line still colors the next.
+/// A row missing on this side has nothing to read, and gets an empty span.
+List<TextSpan> highlightDiffSide(Iterable<String?> lines, String extension, SyntaxColors syntax, TextStyle base) {
+  final spec = languageForExtension(extension);
+  var state = const LexState.code();
+  return [
+    for (final line in lines)
+      if (line == null || spec == null)
+        TextSpan(text: line ?? '', style: base)
+      else
+        () {
+          final (tokens, next) = tokenizeLine(line, spec, state);
+          state = next;
+          return spanForLine(line, tokens, syntax, base);
+        }(),
+  ];
+}
+
 class SideBySideDiff extends StatefulWidget {
   const SideBySideDiff({super.key, required this.git, required this.change, required this.staged, required this.onLine});
 
@@ -303,6 +323,20 @@ class SideBySideDiff extends StatefulWidget {
 class _SideBySideDiffState extends State<SideBySideDiff> {
   List<DiffRow>? _rows;
   var _onlyChanges = false;
+
+  List<DiffRow>? _colored;
+  SyntaxColors? _coloredWith;
+  var _spans = const <DiffRow, (TextSpan, TextSpan)>{};
+
+  void _colorRows(List<DiffRow> rows, SyntaxColors syntax, TextStyle base) {
+    if (identical(rows, _colored) && identical(syntax, _coloredWith)) return;
+    _colored = rows;
+    _coloredWith = syntax;
+    final extension = p.extension(widget.change.path);
+    final before = highlightDiffSide(rows.map((r) => r.beforeLine == null ? null : r.before), extension, syntax, base);
+    final after = highlightDiffSide(rows.map((r) => r.afterLine == null ? null : r.after), extension, syntax, base);
+    _spans = {for (final (i, r) in rows.indexed) r: (before[i], after[i])};
+  }
 
   @override
   void initState() {
@@ -326,7 +360,7 @@ class _SideBySideDiffState extends State<SideBySideDiff> {
     if (!same) setState(() => _rows = rows);
   }
 
-  Widget _side(ColorScheme scheme, int? number, String text, Color? tint, {VoidCallback? onTap}) {
+  Widget _side(ColorScheme scheme, int? number, TextSpan text, Color? tint, {VoidCallback? onTap}) {
     final content = Container(
       color: number == null ? scheme.onSurface.withValues(alpha: .04) : tint,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -343,7 +377,7 @@ class _SideBySideDiffState extends State<SideBySideDiff> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(text, style: TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5, color: scheme.onSurface)),
+            child: Text.rich(text),
           ),
         ],
       ),
@@ -356,6 +390,7 @@ class _SideBySideDiffState extends State<SideBySideDiff> {
     final scheme = Theme.of(context).colorScheme;
     final all = _rows;
     if (all == null) return const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)));
+    _colorRows(all, appTheme.value.syntax, TextStyle(fontFamily: 'Consolas', fontFamilyFallback: monoFallback, fontSize: 12.5, color: scheme.onSurface));
     final rows = _onlyChanges ? all.where((r) => r.changed).toList() : all;
     Widget heading(String text) => Expanded(
       child: Padding(
@@ -393,17 +428,18 @@ class _SideBySideDiffState extends State<SideBySideDiff> {
                       itemBuilder: (_, i) {
                         final r = rows[i];
                         final after = r.afterLine;
+                        final spans = _spans[r]!;
                         return IntrinsicHeight(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Expanded(child: _side(scheme, r.beforeLine, r.before, r.changed ? const Color(0x26EF4444) : null)),
+                              Expanded(child: _side(scheme, r.beforeLine, spans.$1, r.changed ? const Color(0x26EF4444) : null)),
                               VerticalDivider(width: 1, color: scheme.outlineVariant),
                               Expanded(
                                 child: _side(
                                   scheme,
                                   after,
-                                  r.after,
+                                  spans.$2,
                                   r.changed ? const Color(0x2622C55E) : null,
                                   onTap: after == null ? null : () => widget.onLine(after),
                                 ),
