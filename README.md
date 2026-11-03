@@ -14,6 +14,9 @@
 
 </div>
 
+> [!NOTE]
+> Slipway is an early preview, at version 0.0.x. Expect rough edges, and changes that break things between versions.
+
 ## Install
 
 **Windows:** download and run [`dist/Slipway-Setup.exe`](dist/Slipway-Setup.exe). No admin rights needed, and it upgrades over an older version, keeping your settings. The installer isn't code-signed yet: if Windows warns you, choose **More info → Run anyway**.

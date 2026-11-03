@@ -8,7 +8,7 @@ const _prefLegacyMode = 'theme_mode';
 const brandColor = Color(0xFF10B981);
 
 /// Same as `version` in pubspec.yaml; a test holds them together.
-const appVersion = '1.0.0';
+const appVersion = '0.0.1';
 
 class SyntaxColors {
   const SyntaxColors({

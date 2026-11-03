@@ -1,7 +1,7 @@
 ; Slipway installer. Build with tool/build_installer.ps1 (it passes AppVersion from pubspec.yaml).
 
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "0.0.1"
 #endif
 #define AppName "Slipway"
 #define AppExe "slipway.exe"
