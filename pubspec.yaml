@@ -70,6 +70,9 @@ flutter:
     - assets/tray.ico
     - assets/tray_mac.png
     - assets/logo.png
+    - assets/licenses/
+    - LICENSE
+    - THIRD_PARTY_NOTICES.md
 
   fonts:
     - family: DevKitIcons

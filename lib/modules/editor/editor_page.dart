@@ -828,7 +828,8 @@ class _EditorPageState extends State<EditorPage> {
     final since = _toolBusy ? null : packagesOutOfSyncSince(ws.root);
     final show = since != null && since != _dismissedPackages;
     final showing = _notices.any((n) => n.id == 'packages');
-    if (show == showing) return;
+    // Once up, it waits to be closed, even if the packages catch up by themselves meanwhile.
+    if (!show || showing) return;
     setState(() {
       _notices = [
         for (final n in _notices)
@@ -897,7 +898,14 @@ class _EditorPageState extends State<EditorPage> {
       setState(() {
         _toolBusy = false;
         _toolArgs = null;
-        if (args.startsWith('pub')) _pubRevision++;
+        if (args.startsWith('pub')) {
+          _pubRevision++;
+          // Done what it asked. If that didn't help, the check below brings it back.
+          _notices = [
+            for (final n in _notices)
+              if (n.id != 'packages') n,
+          ];
+        }
       });
     }
     _toolProcess = null;

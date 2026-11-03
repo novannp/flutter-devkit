@@ -149,16 +149,22 @@ class _PaletteState extends State<_Palette> {
             child: Row(
               children: [
                 SizedBox(width: 24, child: item.icon == null ? null : Icon(item.icon, size: 16, color: selected ? scheme.primary : scheme.outline)),
-                Flexible(child: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))),
-                if (item.detail != null) ...[
-                  const SizedBox(width: 10),
-                  Flexible(child: Text(item.detail!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: scheme.outline))),
-                ],
-                if (!_grouped && item.group != null) ...[
-                  const SizedBox(width: 8),
-                  Text(item.group!, style: TextStyle(fontSize: 11.5, color: scheme.outline)),
-                ],
-                const Spacer(),
+                // All in one Expanded: a Flexible next to a Spacer would split the room in half.
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(child: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))),
+                      if (item.detail != null) ...[
+                        const SizedBox(width: 10),
+                        Flexible(child: Text(item.detail!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: scheme.outline))),
+                      ],
+                      if (!_grouped && item.group != null) ...[
+                        const SizedBox(width: 8),
+                        Text(item.group!, style: TextStyle(fontSize: 11.5, color: scheme.outline)),
+                      ],
+                    ],
+                  ),
+                ),
                 if (item.keys != null) _keys(item.keys!, scheme),
               ],
             ),

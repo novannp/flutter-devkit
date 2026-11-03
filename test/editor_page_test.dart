@@ -478,6 +478,14 @@ void main() {
       expect(find.textContaining('missing or out of sync'), findsOneWidget);
       expect(find.text('Run pub get'), findsOneWidget);
 
+      // The packages catching up by themselves doesn't take it away from under you.
+      final config = File(p.join(dir.path, '.dart_tool', 'package_config.json'))
+        ..createSync(recursive: true)
+        ..setLastModifiedSync(DateTime.now().add(const Duration(minutes: 1)));
+      await tester.pump(const Duration(seconds: 11));
+      expect(find.byType(NoticeCard), findsOneWidget);
+      config.deleteSync();
+
       await tester.tap(find.byTooltip('Dismiss'));
       await tester.pump();
       expect(find.byType(NoticeCard), findsNothing);

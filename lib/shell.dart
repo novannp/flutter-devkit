@@ -378,6 +378,7 @@ class _TitleBarState extends State<_TitleBar> with WindowListener {
       applicationName: 'Flutter DevKit',
       applicationVersion: 'Version $appVersion',
       applicationIcon: const AppLogo(size: 48),
+      applicationLegalese: 'MIT License. Flutter and Dart are trademarks of Google LLC. This project is independent, and not affiliated with or endorsed by Google.',
       children: [
         const Text('A Flutter IDE with the device tools you test on right beside the code.'),
         const SizedBox(height: 10),

@@ -320,6 +320,12 @@ Flutter DevKit already covers editing, running on devices, and package managemen
 - [ ] **More git in the editor**: blame, merge conflicts
 - [ ] **Beyond Android, Windows and macOS**: iOS and Linux targets
 
+## 📄 License
+
+[MIT](LICENSE). The programs and packages it ships with stay under their own licenses, listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and in the app under **Help → About → View licenses**.
+
+Flutter and Dart are trademarks of Google LLC, and Visual Studio Code is a trademark of Microsoft Corporation. This is an independent project, not affiliated with or endorsed by either.
+
 ---
 
 <div align="center">

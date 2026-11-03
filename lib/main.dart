@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'core/licenses.dart';
 import 'core/settings.dart';
 import 'modules/settings/apply_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -59,6 +60,7 @@ Future<void> main(List<String> args) async {
     if (ExtensionManager.instance.isEnabled('printer')) unawaited(printerServer.init());
     await BackgroundRunner.instance.init();
   }
+  registerBundledLicenses();
   applySettings();
   Settings.instance
     ..addListener(applySettings)
