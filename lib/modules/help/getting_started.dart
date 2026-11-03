@@ -19,7 +19,7 @@ const _steps = [
     'Write code',
     [
       ('Ctrl+Shift+P', 'finds any command, so you never need to remember a shortcut.'),
-      ('Ctrl+P', 'finds a file. Words can come in any order, so "online payment" finds online_payment.'),
+      ('Ctrl+P', 'finds a file. Words can come in any order, so "online payment" finds online_payment. Start with @ to find a method in the open file.'),
       ('Ctrl+Space', 'suggests code. Type stless or stful and press Enter for a widget, then Tab between its fields.'),
       ('Ctrl+click', 'goes to a definition. On a declaration it lists every usage.'),
       ('Ctrl+D', 'selects the word, then adds a cursor at each next match.'),

@@ -189,6 +189,15 @@ void main() {
     expect(rows(0, 1, 1), [(true, 0), (false, 0)]);
   });
 
+  test('searching the Output panel', () {
+    expect(matchesLogSearch('I/flutter: Payment failed', 'payment'), isTrue);
+    expect(matchesLogSearch('I/flutter: Payment failed', 'failed flutter'), isTrue);
+    expect(matchesLogSearch('I/flutter: Payment failed', 'refund'), isFalse);
+    expect(matchesLogSearch('anything', '   '), isTrue);
+    expect(matchesLogSearch('\x1B[31mError\x1B[0m here', 'error here'), isTrue);
+    expect(matchesLogSearch('\x1B[31mError', '31m'), isFalse, reason: 'color codes are not text');
+  });
+
   testWidgets('snackbars sit at the bottom right', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;

@@ -86,6 +86,16 @@ const _buildRunnerBuild = 'dart run build_runner build --delete-conflicting-outp
 const _buildRunnerWatch = 'dart run build_runner watch --delete-conflicting-outputs';
 const _buildRunnerClean = 'dart run build_runner clean';
 
+final _ansi = RegExp('\x1B\\[[0-9;]*[A-Za-z]');
+
+/// Every word has to be on the line, in any case. Colors in the log don't count as text.
+bool matchesLogSearch(String line, String query) {
+  final words = query.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
+  if (words.isEmpty) return true;
+  final text = line.replaceAll(_ansi, '').toLowerCase();
+  return words.every(text.contains);
+}
+
 /// The Output panel holds the app's log and the last command, in the order they happened:
 /// the command's lines start where the log had got to when it started.
 (bool isTool, int index) outputRow(int row, int anchor, int toolLines) {
@@ -148,6 +158,7 @@ class _EditorPageState extends State<EditorPage> {
   var _toolStopped = false;
   var _buildRunner = false;
   final _outputScroll = ScrollController();
+  final _outputSearch = TextEditingController();
 
   final _searchCtrl = TextEditingController();
   Timer? _searchDebounce;
@@ -225,6 +236,7 @@ class _EditorPageState extends State<EditorPage> {
     _searchDebounce?.cancel();
     _searchCtrl.dispose();
     _outputScroll.dispose();
+    _outputSearch.dispose();
     super.dispose();
   }
 
@@ -604,15 +616,18 @@ class _EditorPageState extends State<EditorPage> {
       context: context,
       builder: (_) => _QuickOpen(root: ws.root, files: files, recent: [for (final d in ws.documents) if (d.module == null) d.path]),
     );
-    if (picked != null) await _openFile(picked.$1, line: picked.$2, column: picked.$2 == null ? null : 0);
+    if (picked == null) return;
+    if (picked.$1.startsWith('@')) return _goToSymbol(query: picked.$1.substring(1));
+    await _openFile(picked.$1, line: picked.$2, column: picked.$2 == null ? null : 0);
   }
 
   Future<void> _commandPalette() {
     final ws = _ws;
     return showPalette(
       context,
-      hint: 'Type a command',
+      hint: 'Type a command, or @ to find a method in this file',
       empty: 'No commands match',
+      prefixes: {'@': (rest) => unawaited(_goToSymbol(query: rest))},
       items: [
         PaletteItem('Go to File', _quickOpen, keys: 'Ctrl+P', icon: Icons.search, group: 'Go'),
         PaletteItem('Go to Line', _goToLine, keys: 'Ctrl+G', icon: Icons.format_list_numbered, group: 'Go'),
@@ -679,7 +694,7 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
-  Future<void> _goToSymbol() async {
+  Future<void> _goToSymbol({String query = ''}) async {
     final ws = _ws;
     final doc = ws?.active;
     if (doc == null) return _toast('Open a file first');
@@ -700,7 +715,8 @@ class _EditorPageState extends State<EditorPage> {
 
     return showPalette(
       context,
-      hint: 'Go to symbol in ${p.basename(path)}',
+      hint: 'Go to method or symbol in ${p.basename(path)}',
+      query: query,
       empty: doc.symbols.isEmpty ? 'No symbols yet. The analyzer may still be reading this file.' : 'No symbols match',
       items: flatten(doc.symbols, null).toList(),
     );
@@ -2203,16 +2219,66 @@ class _EditorPageState extends State<EditorPage> {
     if (total == 0) {
       return Center(child: Text('Run the app or a Flutter command to see output here.', style: TextStyle(color: scheme.outline)));
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_outputScroll.hasClients) _outputScroll.jumpTo(_outputScroll.position.maxScrollExtent);
-    });
-    return SelectionArea(
+    final query = _outputSearch.text.trim();
+    String textAt(int row) {
+      final (isTool, index) = outputRow(row, anchor, tool.length);
+      return isTool ? tool[index] : lines[index].text;
+    }
+
+    final rows = [
+      for (var i = 0; i < total; i++)
+        if (matchesLogSearch(textAt(i), query)) i,
+    ];
+    // New lines shouldn't pull you away from what you searched for.
+    if (query.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_outputScroll.hasClients) _outputScroll.jumpTo(_outputScroll.position.maxScrollExtent);
+      });
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
+          child: TextField(
+            controller: _outputSearch,
+            onChanged: (_) => setState(() {}),
+            style: const TextStyle(fontSize: 12.5),
+            decoration: InputDecoration(
+              hintText: 'Search the output',
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              prefixIcon: const Icon(Icons.search, size: 15),
+              prefixIconConstraints: const BoxConstraints.tightFor(width: 28, height: 28),
+              suffixIconConstraints: const BoxConstraints(minHeight: 24),
+              suffixIcon: query.isEmpty
+                  ? null
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('${rows.length} of $total', style: TextStyle(fontSize: 11.5, color: scheme.outline)),
+                        IconButton(
+                          tooltip: 'Clear',
+                          iconSize: 14,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+                          onPressed: () => setState(_outputSearch.clear),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+        Expanded(child: rows.isEmpty
+            ? Center(child: Text('No lines match', style: TextStyle(fontSize: 12.5, color: scheme.outline)))
+            : SelectionArea(
       child: ListView.builder(
         controller: _outputScroll,
         padding: const EdgeInsets.all(8),
-        itemCount: total,
+        itemCount: rows.length,
         itemBuilder: (_, i) {
-          final (isTool, index) = outputRow(i, anchor, tool.length);
+          final (isTool, index) = outputRow(rows[i], anchor, tool.length);
           final text = isTool ? tool[index] : lines[index].text;
           final kind = isTool ? FlutterLineKind.log : lines[index].kind;
           final level = levelOf(text);
@@ -2238,6 +2304,8 @@ class _EditorPageState extends State<EditorPage> {
           );
         },
       ),
+    )),
+      ],
     );
   }
 
@@ -2670,15 +2738,19 @@ class _QuickOpenState extends State<_QuickOpen> {
                 },
                 child: TextField(
                   autofocus: true,
-                  decoration: const InputDecoration(hintText: 'Search files: online payment, or main.dart:42', isDense: true),
-                  onChanged: (v) => setState(() {
+                  decoration: const InputDecoration(hintText: 'Search files: online payment, main.dart:42, or @method', isDense: true),
+                  onChanged: (v) {
+                    // Hands over to the symbols of the open file, where the rest of the typing goes.
+                    if (v.startsWith('@')) return Navigator.pop(context, (v, null));
+                    setState(() {
                     final (text, line) = splitLineSuffix(v);
                     _query = text;
                     _line = line;
                     _index = 0;
                     _matches = _rank();
                     if (_scroll.hasClients) _scroll.jumpTo(0);
-                  }),
+                    });
+                  },
                   onSubmitted: (_) {
                     if (matches.isNotEmpty) _open(matches[index]);
                   },

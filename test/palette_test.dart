@@ -88,4 +88,44 @@ void main() {
     await tester.pumpAndSettle();
     expect(ran, 'three');
   });
+
+  testWidgets('a prefix hands over to another search, with what was typed', (tester) async {
+    void none() {}
+    var handed = '';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showPalette(context, hint: 'h', empty: 'e', items: [PaletteItem('One', none)], prefixes: {'@': (rest) => handed = rest}),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '@bui');
+    await tester.pumpAndSettle();
+    expect(handed, 'bui');
+    expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('a palette can open already searching', (tester) async {
+    void none() {}
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showPalette(context, hint: 'h', empty: 'e', query: 'bui', items: [PaletteItem('build', none), PaletteItem('dispose', none)]),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('build'), findsOneWidget);
+    expect(find.text('dispose'), findsNothing);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'bui');
+  });
 }

@@ -49,19 +49,28 @@ List<PaletteItem> filterPalette(List<PaletteItem> items, String query) {
 }
 
 /// A searchable list at the top of the window; the picked item runs once it has closed.
-Future<void> showPalette(BuildContext context, {required String hint, required String empty, required List<PaletteItem> items}) async {
+/// [prefixes] hand over to another search when the query starts with one, as `@` goes to symbols.
+Future<void> showPalette(
+  BuildContext context, {
+  required String hint,
+  required String empty,
+  required List<PaletteItem> items,
+  String query = '',
+  Map<String, void Function(String rest)> prefixes = const {},
+}) async {
   final picked = await showDialog<PaletteItem>(
     context: context,
-    builder: (_) => _Palette(hint: hint, empty: empty, items: items),
+    builder: (_) => _Palette(hint: hint, empty: empty, items: items, query: query, prefixes: prefixes),
   );
   picked?.onPick();
 }
 
 class _Palette extends StatefulWidget {
-  const _Palette({required this.hint, required this.empty, required this.items});
+  const _Palette({required this.hint, required this.empty, required this.items, required this.query, required this.prefixes});
 
-  final String hint, empty;
+  final String hint, empty, query;
   final List<PaletteItem> items;
+  final Map<String, void Function(String rest)> prefixes;
 
   @override
   State<_Palette> createState() => _PaletteState();
@@ -70,12 +79,14 @@ class _Palette extends StatefulWidget {
 class _PaletteState extends State<_Palette> {
   static const _rowHeight = 34.0, _headingHeight = 28.0;
   var _index = 0;
-  var _query = '';
-  late var _shown = widget.items;
+  late var _query = widget.query.trim();
+  late var _shown = filterPalette(widget.items, widget.query);
+  late final _field = TextEditingController(text: widget.query)..selection = TextSelection.collapsed(offset: widget.query.length);
   final _scroll = ScrollController();
 
   @override
   void dispose() {
+    _field.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -207,6 +218,7 @@ class _PaletteState extends State<_Palette> {
                   return KeyEventResult.ignored;
                 },
                 child: TextField(
+                  controller: _field,
                   autofocus: true,
                   style: const TextStyle(fontSize: 14),
                   decoration: InputDecoration(
@@ -219,12 +231,19 @@ class _PaletteState extends State<_Palette> {
                     prefixIcon: Icon(Icons.search, size: 18, color: scheme.outline),
                     prefixIconConstraints: const BoxConstraints.tightFor(width: 28, height: 32),
                   ),
-                  onChanged: (v) => setState(() {
+                  onChanged: (v) {
+                    for (final e in widget.prefixes.entries) {
+                      if (!v.startsWith(e.key)) continue;
+                      final rest = v.substring(e.key.length);
+                      return Navigator.pop(context, PaletteItem(v, () => e.value(rest)));
+                    }
+                    setState(() {
                     _query = v.trim();
                     _shown = filterPalette(widget.items, v);
                     _index = 0;
                     if (_scroll.hasClients) _scroll.jumpTo(0);
-                  }),
+                    });
+                  },
                   onSubmitted: (_) {
                     final items = _items;
                     if (_index < items.length) Navigator.pop(context, items[_index]);

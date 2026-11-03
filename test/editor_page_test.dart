@@ -310,7 +310,7 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyUpEvent(_primary);
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.widgetWithText(TextField, 'Go to symbol in main.dart'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Go to method or symbol in main.dart'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -507,6 +507,17 @@ void main() {
       await until(() => find.byType(CodePane).evaluate().length == 2, 'the second view');
       final left = tester.getCenter(tab('main.dart')).dx, right = tester.getCenter(tab('other.dart')).dx;
       expect(left, lessThan(right));
+
+      // In Go to File, @ goes on to the methods of the open file.
+      await tester.sendKeyDownEvent(_primary);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(_primary);
+      await until(() => find.textContaining('Search files').evaluate().isNotEmpty, 'Go to File');
+      await tester.enterText(find.byType(TextField).last, '@ma');
+      await until(() => find.textContaining('Go to method or symbol').evaluate().isNotEmpty, 'the symbols');
+      expect(tester.widget<TextField>(find.byType(TextField).last).controller!.text, 'ma');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await until(() => find.textContaining('Go to method or symbol').evaluate().isEmpty, 'the symbols to close');
 
       // A tool's tab is the same kind of tab: it opens beside the files, and can go beside them.
       final tool = AppModule('Probe', Icons.devices_other, const Text('probe page'));
