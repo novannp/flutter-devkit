@@ -227,6 +227,65 @@ void main() {
     }
   });
 
+  testWidgets('in the side panel a commit opens up its files, and a file can be opened', (tester) async {
+    final dir = Directory.systemTemp.createTempSync('graphside');
+    addTearDown(() => dir.delete(recursive: true).catchError((_) => dir));
+    await tester.runAsync(() async {
+      await _git(dir.path, ['init', '-b', 'main']);
+      await _git(dir.path, ['config', 'user.email', 'test@example.com']);
+      await _git(dir.path, ['config', 'user.name', 'Test']);
+      await _commit(dir.path, 'first.txt');
+      await _commit(dir.path, 'second.txt');
+    });
+    final sc = SourceControl();
+    addTearDown(sc.dispose);
+    await tester.runAsync(() => sc.open(dir.path));
+    final opened = <(String, String)>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: GitGraphView(git: sc, compact: true, onOpenFile: (c, f) => opened.add((c.subject, f.path))),
+          ),
+        ),
+      ),
+    );
+    Future<void> until(bool Function() ok) async {
+      for (var i = 0; i < 300 && !ok(); i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+    }
+
+    await until(() => find.text('add first.txt').evaluate().isNotEmpty);
+    await tester.tap(find.text('add first.txt'));
+    await until(() => find.text('first.txt').evaluate().isNotEmpty);
+    expect(find.text('first.txt'), findsOneWidget, reason: 'under its commit');
+    expect(find.text('second.txt'), findsNothing);
+    expect(tester.getTopLeft(find.text('first.txt')).dy, greaterThan(tester.getTopLeft(find.text('add first.txt')).dy));
+
+    await tester.tap(find.text('first.txt'));
+    await tester.pump();
+    expect(opened.single, ('add first.txt', 'first.txt'));
+
+    // Another commit moves the opening there, keeping the rows right.
+    await tester.tap(find.text('add second.txt'));
+    await until(() => find.text('second.txt').evaluate().isNotEmpty);
+    expect(find.text('first.txt'), findsNothing);
+    expect(find.text('add first.txt'), findsOneWidget);
+    await tester.tap(find.text('add second.txt'));
+    await tester.pump();
+    expect(find.text('second.txt'), findsNothing, reason: 'a second click folds it');
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox());
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+  });
+
   testWidgets('the view lists commits with their branches', (tester) async {
     final dir = Directory.systemTemp.createTempSync('graphview');
     addTearDown(() => dir.delete(recursive: true).catchError((_) => dir));

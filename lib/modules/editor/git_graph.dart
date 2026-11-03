@@ -106,6 +106,38 @@ const _laneColors = [
 
 const _laneWidth = 14.0, _rowHeight = 26.0;
 
+Color commitStatusColor(String status) => switch (status) {
+  'A' => const Color(0xFF22C55E),
+  'D' => const Color(0xFFEF4444),
+  'R' => const Color(0xFF8B5CF6),
+  _ => const Color(0xFF3B82F6),
+};
+
+/// The lanes running on past a commit, beside the files that opened under it.
+class _ThroughPainter extends CustomPainter {
+  const _ThroughPainter(this.row);
+
+  final GraphRow row;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final (column, joins) in row.below) {
+      // A lane the commit starts leaves from its own column until the next commit's row.
+      final x = (joins ? row.column : column) * _laneWidth + _laneWidth / 2;
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        Paint()
+          ..color = _laneColors[column % _laneColors.length]
+          ..strokeWidth = 1.6,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ThroughPainter old) => !identical(old.row, row);
+}
+
 class _RowPainter extends CustomPainter {
   const _RowPainter(this.row, this.background);
 
@@ -156,18 +188,15 @@ class _RowPainter extends CustomPainter {
 }
 
 class GitGraphView extends StatefulWidget {
-  const GitGraphView({super.key, required this.git, this.compact = false, this.selection, this.onPick});
+  const GitGraphView({super.key, required this.git, this.compact = false, this.onOpenFile});
 
   final SourceControl git;
 
   /// For the side panel: commits and their branches, with the rest left to the tooltip.
   final bool compact;
 
-  /// The commit whose files show below. Kept outside, so the side panel can open one in the full tab.
-  final ValueNotifier<String?>? selection;
-
-  /// Instead of showing the commit here, where the side panel has no room.
-  final ValueChanged<String>? onPick;
+  /// For a file of a commit in the side panel, where there's no room for its diff.
+  final void Function(GraphCommit commit, CommitFile file)? onOpenFile;
 
   @override
   State<GitGraphView> createState() => _GitGraphViewState();
@@ -178,26 +207,64 @@ class _GitGraphViewState extends State<GitGraphView> {
   var _local = const <String>[];
   var _log = '';
   String? _head;
-  late final ValueNotifier<String?> _selection = widget.selection ?? ValueNotifier(null);
+  String? _selected;
+
+  /// The picked commit's files, for the side panel to show under it. Null while they load.
+  List<CommitFile>? _files;
 
   @override
   void initState() {
     super.initState();
     widget.git.addListener(_load);
-    _selection.addListener(_onSelection);
     unawaited(_load());
   }
 
   @override
   void dispose() {
     widget.git.removeListener(_load);
-    _selection.removeListener(_onSelection);
-    if (widget.selection == null) _selection.dispose();
     super.dispose();
   }
 
-  void _onSelection() {
-    if (mounted) setState(() {});
+  Future<void> _pick(GraphCommit c) async {
+    final picked = _selected == c.hash ? null : c.hash;
+    setState(() {
+      _selected = picked;
+      _files = null;
+    });
+    if (picked == null || !widget.compact) return;
+    final files = await widget.git.commitFiles(picked);
+    if (mounted && _selected == picked) setState(() => _files = files);
+  }
+
+  Widget _fileRow(GraphRow row, CommitFile? file, double graphWidth, ColorScheme scheme) {
+    final content = SizedBox(
+      height: _rowHeight,
+      child: Row(
+        children: [
+          ClipRect(
+            child: SizedBox(
+              width: graphWidth,
+              height: _rowHeight,
+              child: CustomPaint(painter: _ThroughPainter(row)),
+            ),
+          ),
+          if (file == null)
+            const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5))
+          else ...[
+            SizedBox(width: 14, child: Text(file.status, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: commitStatusColor(file.status)))),
+            Expanded(
+              child: Tooltip(
+                message: file.from == null ? file.path : '${file.from} → ${file.path}',
+                waitDuration: const Duration(milliseconds: 600),
+                child: Text(p.basename(file.path), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5)),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+    if (file == null) return content;
+    return InkWell(onTap: () => widget.onOpenFile?.call(row.commit, file), child: content);
   }
 
   // Follows commits, pulls and branch switches, without redrawing when nothing moved.
@@ -255,16 +322,23 @@ class _GitGraphViewState extends State<GitGraphView> {
     if (rows.isEmpty) return Center(child: Text('No commits yet.', style: TextStyle(color: scheme.outline, fontSize: 13)));
     final graphWidth = (rows.fold<int>(0, (most, r) => r.width > most ? r.width : most) * _laneWidth).clamp(_laneWidth, widget.compact ? 84.0 : 280.0) + 6;
     final small = TextStyle(fontSize: 11.5, color: scheme.outline);
-    final selected = _selection.value;
+    final selected = _selected;
+    final files = _files;
+    // In the side panel a picked commit's files open up under it, so the rows aren't one to one.
+    final openAt = widget.compact ? rows.indexWhere((r) => r.commit.hash == selected) : -1;
+    final extra = openAt < 0 ? 0 : (files == null ? 1 : files.length);
     final list = ListView.builder(
-      itemCount: rows.length,
+      itemCount: rows.length + extra,
       itemExtent: _rowHeight,
-      itemBuilder: (_, i) {
-        final row = rows[i], c = row.commit;
+      itemBuilder: (_, shown) {
+        if (openAt >= 0 && shown > openAt && shown <= openAt + extra) {
+          return _fileRow(rows[openAt], files?[shown - openAt - 1], graphWidth, scheme);
+        }
+        final row = rows[openAt >= 0 && shown > openAt ? shown - extra : shown], c = row.commit;
         return GestureDetector(
           onSecondaryTapDown: (d) => unawaited(_menu(d.globalPosition, c)),
           child: InkWell(
-            onTap: () => widget.onPick != null ? widget.onPick!(c.hash) : _selection.value = _selection.value == c.hash ? null : c.hash,
+            onTap: () => unawaited(_pick(c)),
             child: ColoredBox(
               color: c.hash == selected ? scheme.primary.withValues(alpha: .14) : Colors.transparent,
               child: Row(
@@ -373,12 +447,6 @@ class _CommitDetailsState extends State<_CommitDetails> {
     final scheme = Theme.of(context).colorScheme;
     final files = _files;
     if (files == null) return const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)));
-    Color statusColor(String status) => switch (status) {
-      'A' => const Color(0xFF22C55E),
-      'D' => const Color(0xFFEF4444),
-      'R' => const Color(0xFF8B5CF6),
-      _ => const Color(0xFF3B82F6),
-    };
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -410,7 +478,7 @@ class _CommitDetailsState extends State<_CommitDetails> {
                               padding: const EdgeInsets.symmetric(horizontal: 10),
                               child: Row(
                                 children: [
-                                  SizedBox(width: 16, child: Text(f.status, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: statusColor(f.status)))),
+                                  SizedBox(width: 16, child: Text(f.status, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: commitStatusColor(f.status)))),
                                   Expanded(
                                     child: Tooltip(
                                       message: f.from == null ? f.path : '${f.from} → ${f.path}',
@@ -439,6 +507,33 @@ class _CommitDetailsState extends State<_CommitDetails> {
       ],
     );
   }
+}
+
+/// One file of one commit, for a tab of its own.
+class CommitFileDiff extends StatefulWidget {
+  const CommitFileDiff({super.key, required this.git, required this.hash, required this.file});
+
+  final SourceControl git;
+  final String hash;
+  final CommitFile file;
+
+  @override
+  State<CommitFileDiff> createState() => _CommitFileDiffState();
+}
+
+class _CommitFileDiffState extends State<CommitFileDiff> {
+  late final _rows = widget.git.commitDiff(widget.hash, widget.file);
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Theme.of(context).colorScheme.surface,
+    child: FutureBuilder(
+      future: _rows,
+      builder: (_, snap) => snap.data == null
+          ? const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+          : _CommitDiff(rows: snap.data!, extension: p.extension(widget.file.path)),
+    ),
+  );
 }
 
 class _CommitDiff extends StatelessWidget {

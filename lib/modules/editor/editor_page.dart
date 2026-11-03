@@ -145,7 +145,6 @@ class _EditorPageState extends State<EditorPage> {
   Timer? _gitPoll;
   var _side = _Side.files;
   var _pubRevision = 0;
-  final _graphSelection = ValueNotifier<String?>(null);
   Timer? _terminalWarmup;
   EditorDocument? _draggingTab;
   var _restoringTabs = false;
@@ -223,7 +222,6 @@ class _EditorPageState extends State<EditorPage> {
     _revealSub?.cancel();
     _stopTool();
     _terminalWarmup?.cancel();
-    _graphSelection.dispose();
     _flutter?.removeListener(_onFlutter);
     EditorCommands.openPath = null;
     Settings.instance.removeListener(_onSettings);
@@ -865,7 +863,15 @@ class _EditorPageState extends State<EditorPage> {
   void _showGitGraph() {
     if (!_git.isRepo) return _toast('This folder is not a git repository');
     // With the diffs, because it belongs to the open project in the same way.
-    ToolTabs.instance.show(_diffTabs.putIfAbsent(':graph', () => AppModule('Git Graph', Icons.account_tree_outlined, GitGraphView(git: _git, selection: _graphSelection))));
+    ToolTabs.instance.show(_diffTabs.putIfAbsent(':graph', () => AppModule('Git Graph', Icons.account_tree_outlined, GitGraphView(git: _git))));
+  }
+
+  void _showCommitFile(GraphCommit commit, CommitFile file) {
+    final tab = _diffTabs.putIfAbsent(
+      '${commit.hash}:${file.path}',
+      () => AppModule('${p.basename(file.path)} (${commit.short})', Icons.compare_arrows, CommitFileDiff(git: _git, hash: commit.hash, file: file)),
+    );
+    ToolTabs.instance.show(tab);
   }
 
   Future<void> _pickBranch() async {
@@ -1321,10 +1327,7 @@ class _EditorPageState extends State<EditorPage> {
                           errorsIn: (path) => ws.diagnostics[path]?.where((d) => d.severity == 1).length ?? 0,
                           isOpen: (path) => p.equals(ws.active?.path ?? '', path),
                         ),
-                        SourceControlView(git: _git, onBeforeCommit: ws.saveAll, onDiff: _showDiff, visible: _sideOpen && _side == _Side.git, onOpenGraph: _showGitGraph, onPickCommit: (hash) {
-                          _graphSelection.value = hash;
-                          _showGitGraph();
-                        }),
+                        SourceControlView(git: _git, onBeforeCommit: ws.saveAll, onDiff: _showDiff, visible: _sideOpen && _side == _Side.git, onOpenGraph: _showGitGraph, onOpenCommitFile: _showCommitFile),
                         _searchView(ws, scheme),
                         DebugPanel(
                           debugger: _debugger,

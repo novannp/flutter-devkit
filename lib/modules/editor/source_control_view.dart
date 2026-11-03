@@ -15,7 +15,7 @@ Color _statusColor(String status) => switch (status) {
 };
 
 class SourceControlView extends StatefulWidget {
-  const SourceControlView({super.key, required this.git, required this.onBeforeCommit, required this.onDiff, this.visible = true, this.onOpenGraph, this.onPickCommit});
+  const SourceControlView({super.key, required this.git, required this.onBeforeCommit, required this.onDiff, this.visible = true, this.onOpenGraph, this.onOpenCommitFile});
 
   final SourceControl git;
   final Future<void> Function() onBeforeCommit;
@@ -24,7 +24,7 @@ class SourceControlView extends StatefulWidget {
   /// The graph runs git each time the repository changes, so only while someone can see it.
   final bool visible;
   final VoidCallback? onOpenGraph;
-  final ValueChanged<String>? onPickCommit;
+  final void Function(GraphCommit commit, CommitFile file)? onOpenCommitFile;
 
   @override
   State<SourceControlView> createState() => _SourceControlViewState();
@@ -182,7 +182,7 @@ class _SourceControlViewState extends State<SourceControlView> {
                 ),
               ),
             ),
-            if (_graphOpen && widget.visible) Expanded(flex: 2, child: GitGraphView(git: _git, compact: true, onPick: widget.onPickCommit)),
+            if (_graphOpen && widget.visible) Expanded(flex: 2, child: GitGraphView(git: _git, compact: true, onOpenFile: widget.onOpenCommitFile)),
           ],
         );
       },
