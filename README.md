@@ -11,8 +11,7 @@ Edit code, find devices, mirror them, read logs, hot reload, and fake printers, 
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
 ![macOS](https://img.shields.io/badge/macOS-12%2B-000000?logo=apple&logoColor=white)
 ![Flutter](https://img.shields.io/badge/Flutter-desktop-02569B?logo=flutter&logoColor=white)
-![scrcpy](https://img.shields.io/badge/scrcpy-3.3.4%20bundled-10B981)
-![No setup](https://img.shields.io/badge/adb%20%26%20scrcpy-included-34D399)
+![No setup](https://img.shields.io/badge/device%20tools-included-34D399)
 
 [Install](#-install) · [Features](#-features) · [Shortcuts](#%EF%B8%8F-workspace-shortcuts) · [First run](#-first-run) · [Troubleshooting](#-troubleshooting) · [Development](#%EF%B8%8F-development)
 
@@ -361,7 +360,7 @@ Their licenses are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 [MIT](LICENSE). The programs and packages it ships with stay under their own licenses, listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and in the app under **Help → About → View licenses**.
 
-Flutter and Dart are trademarks of Google LLC, and Visual Studio Code is a trademark of Microsoft Corporation. This is an independent project, not affiliated with or endorsed by either.
+Flutter and Dart are trademarks of Google LLC, and Visual Studio Code is a trademark of Microsoft Corporation. This is an independent project, not affiliated with or endorsed by either, or by the authors of scrcpy and the other projects named here. Their names only say what it works with.
 
 ---
 

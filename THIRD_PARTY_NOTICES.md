@@ -18,6 +18,13 @@ FFmpeg and libusb are separate libraries (`.dll` files next to `scrcpy.exe`), un
 
 The license texts are in `assets/licenses`.
 
+### scrcpy (Apache-2.0)
+
+Copyright (C) 2018 Genymobile
+Copyright (C) 2018-2026 Romain Vimont
+
+Licensed under the Apache License, Version 2.0, in `assets/licenses/Apache-2.0.txt`. Flutter DevKit ships its program unmodified, and starts it as a separate process. Flutter DevKit is not made by, affiliated with or endorsed by the authors of scrcpy, and it names scrcpy only to say what it uses.
+
 ### SDL2 (Zlib)
 
 Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
