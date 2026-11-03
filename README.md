@@ -89,6 +89,7 @@ Flutter DevKit opens on the Editor, and everything else opens around it. The edi
 - **Notifications** in the corner, such as when packages are missing or out of sync, with a button to run `pub get`
 - **File previews**: images, PDFs, fonts and what's inside a ZIP, APK or AAB open in a tab, and anything else binary as hex. Markdown, CSV, JSON and SVG switch between code and preview (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>), and the preview follows your unsaved text
 - **Packages** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>): search pub.dev and add a dependency or dev dependency, see which packages are behind, upgrade or remove one, upgrade everything including major versions, sort `pubspec.yaml` A–Z, and run the other pub commands from one panel
+- **Code generation**: a project with `build_runner` gets a button in the toolbar to generate once, generate on every save, or clear its cache, with a Stop button while it runs
 - **`pub get` on save**: saving `pubspec.yaml` runs it by itself; turn it off in the project's Dart settings
 - **Extensions** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>): Device Manager, Emulators, Printer, Notes, Maintenance, History and Work are built in and can be turned off. They open as tabs beside the code, so the Editor stays where it is
 - **Settings**: grouped into General, Editor, Projects, Devices and Tools, with a search box across all of them. An Android SDK in an unusual folder can be chosen under Tools

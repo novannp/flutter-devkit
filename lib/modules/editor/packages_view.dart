@@ -178,6 +178,14 @@ List<PubPackage> mergePackages(List<PubPackage> declared, List<PubPackage> outda
   ];
 }
 
+bool usesBuildRunner(String root) {
+  try {
+    return parseDeclaredPackages(File(p.join(root, 'pubspec.yaml')).readAsStringSync(), null).any((x) => x.name == 'build_runner');
+  } on FileSystemException {
+    return false;
+  }
+}
+
 Future<List<PubPackage>?> checkOutdated(String root) async {
   final fvm = projectUsesFvm(root);
   try {
@@ -416,7 +424,7 @@ class _PackagesViewState extends State<PackagesView> {
                   Text(package.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
                   Text.rich(
                     TextSpan(
-                      text: package.current ?? (package.fromPubDev ? 'not fetched yet' : 'local or SDK'),
+                      text: !package.fromPubDev ? 'SDK, git or path' : (package.current ?? 'not fetched yet'),
                       children: [
                         if (package.hasNewer) TextSpan(text: '  →  ${package.latest}', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w600)),
                         if (package.discontinued) TextSpan(text: '  discontinued', style: TextStyle(color: scheme.error)),

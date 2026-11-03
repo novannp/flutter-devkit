@@ -92,6 +92,16 @@ void main() {
     });
   });
 
+  test('build_runner only counts as a dependency of the project', () {
+    final dir = Directory.systemTemp.createTempSync('runner');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    expect(usesBuildRunner(dir.path), isFalse);
+    final file = File(p.join(dir.path, 'pubspec.yaml'))..writeAsStringSync('name: build_runner\ndependencies:\n  http: 1.0.0\n');
+    expect(usesBuildRunner(dir.path), isFalse);
+    file.writeAsStringSync('name: a\ndev_dependencies:\n  build_runner: ^2.0.0\n');
+    expect(usesBuildRunner(dir.path), isTrue);
+  });
+
   group('sorting pubspec.yaml', () {
     test('orders by name, SDK first, keeping nested lines and comments', () {
       const before = '''

@@ -9,6 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/child_processes.dart';
 import '../../core/panels.dart';
 import '../../core/theme.dart';
 import '../../core/local_builds.dart';
@@ -77,6 +78,10 @@ class EditorPage extends StatefulWidget {
   State<EditorPage> createState() => _EditorPageState();
 }
 
+const _buildRunnerBuild = 'dart run build_runner build --delete-conflicting-outputs';
+const _buildRunnerWatch = 'dart run build_runner watch --delete-conflicting-outputs';
+const _buildRunnerClean = 'dart run build_runner clean';
+
 enum _Panel { problems, output, terminal, widgets }
 
 /// What the left panel shows. There's one panel, so opening one view replaces the other.
@@ -124,6 +129,10 @@ class _EditorPageState extends State<EditorPage> {
   bool _reloadOnSave = true;
   final _tool = <String>[];
   bool _toolBusy = false;
+  String? _toolArgs;
+  Process? _toolProcess;
+  var _toolStopped = false;
+  var _buildRunner = false;
   final _outputScroll = ScrollController();
 
   final _searchCtrl = TextEditingController();
@@ -178,6 +187,7 @@ class _EditorPageState extends State<EditorPage> {
     EditorCommands.openFolder = EditorCommands.openFile = EditorCommands.openTerminal = EditorCommands.quickOpen = EditorCommands.saveAll = null;
     EditorCommands.openRecent = EditorCommands.openDartSettings = EditorCommands.commandPalette = EditorCommands.goToSymbol = null;
     _revealSub?.cancel();
+    _stopTool();
     _ws?.removeListener(_rebuild);
     _ws?.dispose();
     _terminal?.dispose();
@@ -255,6 +265,7 @@ class _EditorPageState extends State<EditorPage> {
       if (!await _confirmUnsaved(old.documents.where((d) => d.dirty).toList())) return;
       // The active tab can have changed since the last save.
       await _rememberTabs();
+      _stopTool();
       old.removeListener(_rebuild);
       _revealSub?.cancel();
       old.dispose();
@@ -568,6 +579,10 @@ class _EditorPageState extends State<EditorPage> {
         PaletteItem('Flutter: Pub Upgrade', () => unawaited(_runTool('pub upgrade')), icon: Icons.upgrade),
         PaletteItem('Flutter: Pub Upgrade to Latest Majors', () => unawaited(_runTool('pub upgrade --major-versions')), icon: Icons.upgrade),
         PaletteItem('Flutter: Pub Outdated', () => unawaited(_runTool('pub outdated')), icon: Icons.update),
+        if (_buildRunner) ...[
+          PaletteItem('Flutter: Generate Code (build_runner)', () => unawaited(_runTool(_buildRunnerBuild)), icon: Icons.auto_fix_high_outlined),
+          PaletteItem('Flutter: Generate on Every Save (build_runner watch)', () => unawaited(_runTool(_buildRunnerWatch)), icon: Icons.auto_fix_high_outlined),
+        ],
         PaletteItem('Flutter: Sort pubspec.yaml A–Z', () => unawaited(_sortPubspec()), icon: Icons.sort_by_alpha),
         PaletteItem('Flutter: Add Package', () => _showSide(_Side.packages), icon: Icons.add),
         PaletteItem('Flutter: Clean', () => unawaited(_runTool('clean')), icon: Icons.cleaning_services_outlined),
@@ -775,6 +790,8 @@ class _EditorPageState extends State<EditorPage> {
   void _checkPackages() {
     final ws = _ws;
     if (ws == null || !mounted) return;
+    final buildRunner = usesBuildRunner(ws.root);
+    if (buildRunner != _buildRunner) setState(() => _buildRunner = buildRunner);
     final since = _toolBusy ? null : packagesOutOfSyncSince(ws.root);
     final show = since != null && since != _dismissedPackages;
     final showing = _notices.any((n) => n.id == 'packages');
@@ -814,9 +831,11 @@ class _EditorPageState extends State<EditorPage> {
     if (ws == null || _toolBusy) return;
     await ws.saveAll();
     final fvm = projectUsesFvm(ws.root);
-    final line = '${fvm ? 'fvm ' : ''}flutter $args';
+    final line = '${fvm ? 'fvm ' : ''}${args.startsWith('dart ') ? '' : 'flutter '}$args';
     setState(() {
       _toolBusy = true;
+      _toolArgs = args;
+      _toolStopped = false;
       _tool
         ..clear()
         ..add('\$ $line');
@@ -825,6 +844,7 @@ class _EditorPageState extends State<EditorPage> {
     try {
       final parts = line.split(' ');
       final process = await Process.start(parts.first, parts.skip(1).toList(), workingDirectory: ws.root, runInShell: Platform.isWindows);
+      _toolProcess = process;
       void add(String l) {
         if (mounted) setState(() => _tool.add(l));
       }
@@ -833,17 +853,29 @@ class _EditorPageState extends State<EditorPage> {
       final err = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).forEach(add);
       final code = await process.exitCode;
       await Future.wait([out, err]);
-      add(code == 0 ? '✓ Done' : '✗ Exit code $code');
+      add(_toolStopped ? 'Stopped' : (code == 0 ? '✓ Done' : '✗ Exit code $code'));
     } on Exception catch (e) {
       if (mounted) setState(() => _tool.add('Failed: $e'));
     }
     if (mounted) {
       setState(() {
         _toolBusy = false;
+        _toolArgs = null;
         if (args.startsWith('pub')) _pubRevision++;
       });
     }
+    _toolProcess = null;
+    // Generated files are new to the tree, and it only looks when asked.
+    if (args.contains('build_runner')) unawaited(_treeKey.currentState?.refresh());
     _checkPackages();
+  }
+
+  // Watch mode only ever ends this way.
+  void _stopTool() {
+    final process = _toolProcess;
+    if (process == null) return;
+    _toolStopped = true;
+    unawaited(ChildProcesses.killTree(process));
   }
 
   Future<void> _sortPubspec() async {
@@ -1291,6 +1323,24 @@ class _EditorPageState extends State<EditorPage> {
               tooltip: platformKeys('Hot restart (Ctrl+Shift+F5)'),
               onPressed: f?.canReload == true ? () => f!.reload(full: true) : null,
               icon: const Icon(Icons.restart_alt),
+            ),
+          if (_toolArgs?.contains('build_runner') == true)
+            IconButton(
+              tooltip: 'Stop build_runner',
+              onPressed: _stopTool,
+              icon: Icon(Icons.stop_circle_outlined, color: scheme.error),
+            )
+          else if (_buildRunner)
+            PopupMenuButton<String>(
+              tooltip: 'Generate code (build_runner)',
+              icon: const Icon(Icons.auto_fix_high_outlined, size: 20),
+              enabled: !_toolBusy,
+              onSelected: _runTool,
+              itemBuilder: (_) => const [
+                PopupMenuItem(height: 30, value: _buildRunnerBuild, child: Text('Generate code')),
+                PopupMenuItem(height: 30, value: _buildRunnerWatch, child: Text('Generate on every save (watch)')),
+                PopupMenuItem(height: 30, value: _buildRunnerClean, child: Text('Clear its cache')),
+              ],
             ),
           PopupMenuButton<String>(
             tooltip: 'Flutter commands',
