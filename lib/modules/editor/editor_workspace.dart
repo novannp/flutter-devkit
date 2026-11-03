@@ -830,13 +830,13 @@ class EditorWorkspace extends ChangeNotifier {
     'position': {'line': line, 'character': column},
   };
 
-  Future<dynamic> _request(EditorDocument doc, String method, Object? params) async {
+  Future<dynamic> _request(EditorDocument doc, String method, Object? params, {Duration timeout = const Duration(seconds: 30)}) async {
     if (doc.languageId == null) return null;
     final lsp = await _ensureLsp();
     if (lsp == null) return null;
     await _openOnServer(doc);
     if (doc.hasPendingSync) doc.flush();
-    return lsp.request(method, params);
+    return lsp.request(method, params, timeout: timeout);
   }
 
   Future<List<CompletionEntry>> completion(EditorDocument doc, int line, int column) async {
@@ -900,7 +900,8 @@ class EditorWorkspace extends ChangeNotifier {
     final r = await _request(doc, 'textDocument/references', {
       ..._position(doc, line, column),
       'context': {'includeDeclaration': true},
-    });
+      // It searches the whole project, and waits for the analyzer to have read it first.
+    }, timeout: const Duration(minutes: 3));
     return [
       for (final l in ((r as List?) ?? const []).cast<Map>())
         EditTarget(

@@ -242,6 +242,8 @@ class LspClient {
       timeout,
       onTimeout: () {
         _pending.remove(id);
+        // Otherwise the server goes on working for nobody, and everything after this waits behind it.
+        notify(r'$/cancelRequest', {'id': id});
         throw LspException('$method timed out');
       },
     );
