@@ -459,6 +459,40 @@ class EditorWorkspace extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// A tab dropped in a tab strip, to sit at [index] there.
+  void placeTab(EditorDocument doc, EditorGroup target, int index) {
+    final from = groupOf(doc);
+    if (from == null) return;
+    if (!identical(from, target)) {
+      moveToGroup(doc, target);
+    } else {
+      final at = target.docs.indexOf(doc);
+      target.docs.removeAt(at);
+      if (at < index) index--;
+    }
+    target.docs.remove(doc);
+    target.docs.insert(index.clamp(0, target.docs.length), doc);
+    target.active = doc;
+    focused = target;
+    notifyListeners();
+  }
+
+  /// A tab dropped on the edge of a view opens a new view on that side of it.
+  void splitBeside(EditorDocument doc, EditorGroup beside, {required bool right}) {
+    final from = groupOf(doc);
+    if (from == null) return;
+    // A view's only tab has nothing to stay behind and show.
+    if (identical(from, beside) && from.docs.length < 2) return;
+    final to = EditorGroup();
+    groups.insert(groups.indexOf(beside) + (right ? 1 : 0), to);
+    _takeOut(from, doc);
+    to.docs.add(doc);
+    to.active = doc;
+    to.settling = true;
+    focused = to;
+    notifyListeners();
+  }
+
   void _takeOut(EditorGroup group, EditorDocument doc) {
     final i = group.docs.indexOf(doc);
     if (i < 0) return;

@@ -9,8 +9,10 @@ import 'package:devkit/modules/editor/editor_view.dart';
 import 'package:devkit/modules/editor/editor_workspace.dart';
 import 'package:devkit/modules/editor/log_style.dart';
 import 'package:devkit/modules/editor/notices.dart';
-import 'package:flutter/material.dart' show Color, FontWeight, TextSpan, TextStyle;
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:devkit/modules/editor/editor_page.dart';
+import 'package:devkit/modules/editor/tool_tabs.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -417,4 +419,91 @@ void main() {
     expect(symbolChainAt(doc.symbols, line, 6).map((s) => s.name), containsAllInOrder(['Greeter', 'hello']));
     expect(doc.symbols.map((s) => s.name), containsAll(['Greeter', 'main']));
   }, timeout: const Timeout(Duration(minutes: 2)));
+
+  group('dragging tabs', () {
+    late Directory dir;
+    late EditorWorkspace ws;
+    late EditorDocument a, b, c;
+    setUp(() async {
+      dir = Directory.systemTemp.createTempSync('tabs');
+      for (final name in ['a', 'b', 'c']) {
+        File(p.join(dir.path, '$name.txt')).writeAsStringSync(name);
+      }
+      ws = EditorWorkspace(dir.path);
+      a = await ws.open(p.join(dir.path, 'a.txt'));
+      b = await ws.open(p.join(dir.path, 'b.txt'));
+      c = await ws.open(p.join(dir.path, 'c.txt'));
+    });
+    tearDown(() {
+      ws.dispose();
+      dir.deleteSync(recursive: true);
+    });
+
+    test('along the strip, to before the tab it lands on', () {
+      final g = ws.groups.single;
+      ws.placeTab(c, g, 0);
+      expect(g.docs, [c, a, b]);
+      ws.placeTab(c, g, 2);
+      expect(g.docs, [a, c, b]);
+      ws.placeTab(a, g, 3);
+      expect(g.docs, [c, b, a]);
+    });
+
+    test('to an edge splits on that side', () {
+      final first = ws.groups.single;
+      ws.splitBeside(b, first, right: true);
+      expect(ws.groups.length, 2);
+      expect(ws.groups.last.docs, [b]);
+      expect(ws.focused, ws.groups.last);
+      ws.splitBeside(c, first, right: false);
+      expect(ws.groups.length, 3);
+      expect(ws.groups.first.docs, [c]);
+      expect(ws.groups[1].docs, [a]);
+    });
+
+    test('a view keeps its only tab, unless it goes elsewhere', () {
+      final first = ws.groups.single;
+      ws.splitBeside(b, first, right: true);
+      ws.splitBeside(c, first, right: true);
+      ws.splitBeside(a, first, right: true);
+      expect(first.docs, [a]);
+      expect(ws.groups.length, 3);
+      ws.splitBeside(a, ws.groups.last, right: true);
+      expect(ws.groups.length, 3, reason: 'its old view closes');
+      expect(ws.groups.any((g) => g.docs.isEmpty), isFalse);
+    });
+
+    test('between views, at a place', () {
+      final first = ws.groups.single;
+      ws.splitBeside(c, first, right: true);
+      ws.placeTab(a, ws.groups.last, 0);
+      expect(ws.groups.last.docs, [a, c]);
+      expect(ws.groups.first.docs, [b]);
+    });
+  });
+
+  test('where a dragged tab lands', () {
+    expect(tabDropZone(10, 100), TabDropZone.left);
+    expect(tabDropZone(50, 100), TabDropZone.center);
+    expect(tabDropZone(90, 100), TabDropZone.right);
+  });
+
+  test('the Editor tab moves like the others, and stays put when others close', () {
+    final tabs = ToolTabs.instance;
+    const one = AppModule('One', Icons.abc, SizedBox()), two = AppModule('Two', Icons.abc, SizedBox());
+    addTearDown(() {
+      tabs.close(one);
+      tabs.close(two);
+      tabs.editorAt = 0;
+    });
+    tabs.show(one);
+    tabs.show(two);
+    expect(tabs.strip, [null, one, two]);
+    tabs.move(0, 2);
+    expect(tabs.strip, [one, two, null]);
+    tabs.move(1, 0);
+    expect(tabs.strip, [two, one, null]);
+    tabs.close(two);
+    expect(tabs.strip, [one, null]);
+  });
 }

@@ -12,6 +12,7 @@ import 'package:devkit/modules/editor/debug_panel.dart' show breakpointColor;
 import 'package:devkit/modules/editor/editor_page.dart';
 import 'package:devkit/modules/editor/editor_view.dart';
 import 'package:devkit/modules/editor/engine/code_editor.dart';
+import 'package:devkit/modules/editor/editor_workspace.dart';
 import 'package:devkit/modules/editor/file_tree.dart';
 import 'package:devkit/modules/editor/markdown_view.dart';
 import 'package:devkit/modules/editor/notices.dart';
@@ -180,7 +181,7 @@ void main() {
         expect(ok(), isTrue, reason: 'timed out waiting for $what');
       }
 
-      Finder tab(String name) => find.descendant(of: find.byType(ReorderableListView), matching: find.text(name));
+      Finder tab(String name) => find.descendant(of: find.byType(Draggable<EditorDocument>), matching: find.text(name));
       String? shown() => find.byType(CodeEditor).evaluate().isEmpty ? null : tester.widget<CodeEditor>(find.byType(CodeEditor)).controller?.text;
 
       await settle(() => tab('one.txt').evaluate().isNotEmpty && tab('two.txt').evaluate().isNotEmpty, 'project A tabs');
@@ -455,6 +456,52 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
       await tester.binding.setSurfaceSize(null);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows), timeout: const Timeout(Duration(minutes: 3)));
+
+    testWidgets('dragging a tab to the edge of a view makes a second view', (tester) async {
+      File(p.join(dir.path, 'lib', 'other.dart')).writeAsStringSync('// other');
+      final tools = await tester.runAsync(Tools.resolve);
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final cubit = DevicesCubit(adb: AdbService(tools!), mdns: MdnsService(), scanner: NetworkScanner(), store: DeviceStore());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BlocProvider.value(value: cubit, child: EditorPage(initialRoot: dir.path, initialFile: main)),
+          ),
+        ),
+      );
+      Future<void> until(bool Function() ok, String what) async {
+        for (var i = 0; i < 300 && !ok(); i++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        expect(ok(), isTrue, reason: 'timed out waiting for $what');
+      }
+
+      await until(() => find.text('other.dart').evaluate().isNotEmpty, 'the tree');
+      await tester.tap(find.text('other.dart').first);
+      Finder tab(String name) => find.descendant(of: find.byType(Draggable<EditorDocument>), matching: find.text(name));
+      await until(() => tab('other.dart').evaluate().isNotEmpty, 'the second tab');
+      await until(() => find.byType(CodePane).evaluate().length == 1, 'the editor');
+
+      final gesture = await tester.startGesture(tester.getCenter(tab('other.dart')), kind: PointerDeviceKind.mouse);
+      await gesture.moveBy(const Offset(0, 40));
+      await tester.pump();
+      final pane = tester.getRect(find.byType(CodePane));
+      await gesture.moveTo(Offset(pane.right - 20, pane.center.dy));
+      await tester.pump();
+      await gesture.moveBy(const Offset(-2, 0));
+      await tester.pump();
+      await gesture.up();
+      await until(() => find.byType(CodePane).evaluate().length == 2, 'the second view');
+      final left = tester.getCenter(tab('main.dart')).dx, right = tester.getCenter(tab('other.dart')).dx;
+      expect(left, lessThan(right));
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
+      await tester.pump();
     }, variant: TargetPlatformVariant.only(TargetPlatform.windows), timeout: const Timeout(Duration(minutes: 3)));
 
     testWidgets('a project without its packages says so, until dismissed', (tester) async {

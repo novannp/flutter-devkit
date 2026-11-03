@@ -129,6 +129,7 @@ class _EditorPageState extends State<EditorPage> {
   Timer? _gitPoll;
   var _side = _Side.files;
   var _pubRevision = 0;
+  EditorDocument? _draggingTab;
   var _restoringTabs = false;
   List<Avd> _avds = const [];
   var _sideOpen = true;
@@ -1480,13 +1481,23 @@ class _EditorPageState extends State<EditorPage> {
       children: [
         SizedBox(
           height: 34,
-          child: ListView(
+          child: ReorderableListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: panelGap),
-            children: [
-              tab('Editor', Icons.code, active == null, tools.showEditor),
-              for (final m in tools.open) tab(m.label, m.icon, m == active, () => tools.show(m), onClose: () => tools.close(m)),
-            ],
+            buildDefaultDragHandles: false,
+            itemCount: tools.strip.length,
+            onReorderItem: tools.move,
+            proxyDecorator: (child, _, _) => Material(elevation: 4, color: scheme.surface, borderRadius: BorderRadius.circular(8), child: child),
+            itemBuilder: (_, i) {
+              final m = tools.strip[i];
+              return ReorderableDragStartListener(
+                key: ValueKey(m ?? 'editor'),
+                index: i,
+                child: m == null
+                    ? tab('Editor', Icons.code, active == null, tools.showEditor)
+                    : tab(m.label, m.icon, m == active, () => tools.show(m), onClose: () => tools.close(m)),
+              );
+            },
           ),
         ),
         Expanded(
@@ -1657,11 +1668,15 @@ class _EditorPageState extends State<EditorPage> {
           if (doc != null && isLibrarySource(doc.path)) _readOnlyBanner(scheme),
           if (doc != null && doc.changedOnDisk) _changedBanner(doc, scheme),
           Expanded(
-            child: doc == null
-                ? (group.settling ? const SizedBox.shrink() : _EmptyEditor(onQuickOpen: _quickOpen))
-                : doc.binary || doc.previewing
-                ? FilePreview(key: ObjectKey(doc), doc: doc)
-                : CodePane(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (doc == null)
+                  group.settling ? const SizedBox.shrink() : _EmptyEditor(onQuickOpen: _quickOpen)
+                else if (doc.binary || doc.previewing)
+                  FilePreview(key: ObjectKey(doc), doc: doc)
+                else
+                  CodePane(
                     key: key,
                     workspace: ws,
                     doc: doc,
@@ -1671,6 +1686,23 @@ class _EditorPageState extends State<EditorPage> {
                     onTarget: _jump,
                     onReferences: _showReferences,
                   ),
+                // Only there during a drag, so it can never get in the way of the editor.
+                if (_draggingTab != null)
+                  _TabDropZones(
+                    onDrop: (dragged, zone) {
+                      switch (zone) {
+                        case TabDropZone.left:
+                          ws.splitBeside(dragged, group, right: false);
+                        case TabDropZone.right:
+                          ws.splitBeside(dragged, group, right: true);
+                        case TabDropZone.center:
+                          ws.placeTab(dragged, group, group.docs.length);
+                      }
+                      unawaited(_rememberTabs());
+                    },
+                  ),
+              ],
+            ),
           ),
         ],
       )),
@@ -1705,6 +1737,100 @@ class _EditorPageState extends State<EditorPage> {
     picked?.call();
   }
 
+  Widget _fileTab(EditorWorkspace ws, EditorGroup group, int i, ColorScheme scheme) {
+    final d = group.docs[i];
+    final selected = d == group.active;
+    final (icon, color) = fileIconOf(d.path);
+    final tab = Listener(
+      // Middle click closes, as in every other editor.
+      onPointerDown: (e) {
+        if (e.buttons == 4) _closeTab(d);
+        if (e.buttons == 2) unawaited(_tabMenu(e.position, ws, group, d));
+      },
+      child: PillTab(
+        selected: selected,
+        active: identical(group, ws.focused),
+        onTap: () {
+          ws.activate(d);
+          unawaited(_rememberTabs());
+        },
+        padding: const EdgeInsets.only(left: 10, right: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color ?? scheme.outline),
+            const SizedBox(width: 5),
+            Tooltip(
+              message: d.path,
+              child: Text(
+                d.name,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: d.diagnostics.any((x) => x.severity == 1) ? scheme.error : null,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: d.dirty ? platformKeys('Unsaved. Close (Ctrl+W)') : platformKeys('Close (Ctrl+W)'),
+              iconSize: d.dirty ? 9 : 13,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 22, height: 22),
+              onPressed: () => _closeTab(d),
+              icon: Icon(d.dirty ? Icons.circle : Icons.close),
+            ),
+          ],
+        ),
+      ),
+    );
+    return DragTarget<EditorDocument>(
+      key: ObjectKey(d),
+      onWillAcceptWithDetails: (details) => details.data != d,
+      onAcceptWithDetails: (details) {
+        ws.placeTab(details.data, group, i);
+        unawaited(_rememberTabs());
+      },
+      builder: (_, candidates, _) => DecoratedBox(
+        // Shows where the tab would land: just before this one.
+        decoration: BoxDecoration(border: Border(left: BorderSide(width: 2, color: candidates.isEmpty ? Colors.transparent : scheme.primary))),
+        child: Draggable<EditorDocument>(
+          data: d,
+          dragAnchorStrategy: pointerDragAnchorStrategy,
+          onDragStarted: () => setState(() => _draggingTab = d),
+          onDragEnd: (_) => setState(() => _draggingTab = null),
+          feedback: Material(
+            elevation: 4,
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 14, color: color ?? scheme.outline),
+                  const SizedBox(width: 5),
+                  Text(d.name, style: const TextStyle(fontSize: 12.5)),
+                ],
+              ),
+            ),
+          ),
+          childWhenDragging: Opacity(opacity: .4, child: tab),
+          child: tab,
+        ),
+      ),
+    );
+  }
+
+  Widget _tabEnd(EditorWorkspace ws, EditorGroup group, ColorScheme scheme) => DragTarget<EditorDocument>(
+    onAcceptWithDetails: (details) {
+      ws.placeTab(details.data, group, group.docs.length);
+      unawaited(_rememberTabs());
+    },
+    builder: (_, candidates, _) => Container(
+      width: 48,
+      decoration: BoxDecoration(border: Border(left: BorderSide(width: 2, color: candidates.isEmpty ? Colors.transparent : scheme.primary))),
+    ),
+  );
+
   Widget _tabs(EditorWorkspace ws, EditorGroup group, ColorScheme scheme) => Material(
     color: scheme.surface,
     child: SizedBox(
@@ -1712,66 +1838,12 @@ class _EditorPageState extends State<EditorPage> {
     child: Row(
       children: [
         Expanded(
-          child: ReorderableListView.builder(
+          child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            buildDefaultDragHandles: false,
-            itemCount: group.docs.length,
-            onReorderItem: (from, to) {
-              ws.moveTab(group, from, to);
-              unawaited(_rememberTabs());
-            },
-            proxyDecorator: (child, _, _) => Material(elevation: 4, color: scheme.surface, borderRadius: BorderRadius.circular(8), child: child),
-            itemBuilder: (_, i) {
-              final d = group.docs[i];
-              final selected = d == group.active;
-              final (icon, color) = fileIconOf(d.path);
-              return ReorderableDragStartListener(
-                key: ObjectKey(d),
-                index: i,
-                child: Listener(
-                  // Middle click closes, as in every other editor.
-                  onPointerDown: (e) {
-                    if (e.buttons == 4) _closeTab(d);
-                    if (e.buttons == 2) unawaited(_tabMenu(e.position, ws, group, d));
-                  },
-                  child: PillTab(
-                    selected: selected,
-                    active: identical(group, ws.focused),
-                    onTap: () {
-                      ws.activate(d);
-                      unawaited(_rememberTabs());
-                    },
-                    padding: const EdgeInsets.only(left: 10, right: 2),
-                    child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(icon, size: 14, color: color ?? scheme.outline),
-                          const SizedBox(width: 5),
-                          Tooltip(
-                            message: d.path,
-                            child: Text(
-                              d.name,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: d.diagnostics.any((x) => x.severity == 1) ? scheme.error : null,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: d.dirty ? platformKeys('Unsaved. Close (Ctrl+W)') : platformKeys('Close (Ctrl+W)'),
-                            iconSize: d.dirty ? 9 : 13,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(width: 22, height: 22),
-                            onPressed: () => _closeTab(d),
-                            icon: Icon(d.dirty ? Icons.circle : Icons.close),
-                          ),
-                        ],
-                    ),
-                  ),
-                ),
-              );
-            },
+            // One past the tabs: the empty end of the strip takes a tab to the end.
+            itemCount: group.docs.length + 1,
+            itemBuilder: (_, i) => i == group.docs.length ? _tabEnd(ws, group, scheme) : _fileTab(ws, group, i, scheme),
           ),
         ),
         if (group.active case final active? when active.canPreview)
@@ -2210,6 +2282,71 @@ class _DartSettingsDialogState extends State<_DartSettingsDialog> {
       FilledButton(onPressed: _save, child: const Text('Save')),
     ],
   );
+}
+
+enum TabDropZone { left, center, right }
+
+/// Which part of a view a dragged tab is over: an edge splits, the middle joins.
+TabDropZone tabDropZone(double x, double width) {
+  if (x < width * .3) return TabDropZone.left;
+  if (x > width * .7) return TabDropZone.right;
+  return TabDropZone.center;
+}
+
+class _TabDropZones extends StatefulWidget {
+  const _TabDropZones({required this.onDrop});
+
+  final void Function(EditorDocument doc, TabDropZone zone) onDrop;
+
+  @override
+  State<_TabDropZones> createState() => _TabDropZonesState();
+}
+
+class _TabDropZonesState extends State<_TabDropZones> {
+  TabDropZone? _zone;
+
+  TabDropZone _zoneAt(Offset global) {
+    final box = context.findRenderObject()! as RenderBox;
+    return tabDropZone(box.globalToLocal(global).dx, box.size.width);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DragTarget<EditorDocument>(
+      onMove: (details) {
+        final zone = _zoneAt(details.offset);
+        if (zone != _zone) setState(() => _zone = zone);
+      },
+      onLeave: (_) => setState(() => _zone = null),
+      onAcceptWithDetails: (details) {
+        final zone = _zoneAt(details.offset);
+        setState(() => _zone = null);
+        widget.onDrop(details.data, zone);
+      },
+      builder: (_, _, _) => Align(
+        alignment: switch (_zone) {
+          TabDropZone.left => Alignment.centerLeft,
+          TabDropZone.right => Alignment.centerRight,
+          _ => Alignment.center,
+        },
+        child: _zone == null
+            ? const SizedBox.expand()
+            : FractionallySizedBox(
+                widthFactor: _zone == TabDropZone.center ? 1 : .5,
+                heightFactor: 1,
+                child: Container(
+                  margin: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: .14),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: scheme.primary.withValues(alpha: .6)),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
 }
 
 class _DragHandle extends StatefulWidget {

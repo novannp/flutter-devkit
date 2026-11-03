@@ -19,6 +19,24 @@ class ToolTabs extends ChangeNotifier {
   /// Null while the code is showing.
   AppModule? active;
 
+  /// Where the Editor's own tab sits among [open].
+  var editorAt = 0;
+
+  /// The tab strip, in order. Null stands for the Editor.
+  List<AppModule?> get strip => [...open]..insert(editorAt.clamp(0, open.length), null);
+
+  void move(int from, int to) {
+    final tabs = strip;
+    if (from < 0 || from >= tabs.length) return;
+    final tab = tabs.removeAt(from);
+    tabs.insert(to.clamp(0, tabs.length), tab);
+    editorAt = tabs.indexOf(null);
+    open
+      ..clear()
+      ..addAll(tabs.whereType<AppModule>());
+    notifyListeners();
+  }
+
   void show(AppModule module) {
     if (!open.contains(module)) open.add(module);
     active = module;
@@ -36,6 +54,7 @@ class ToolTabs extends ChangeNotifier {
     final at = open.indexOf(module);
     if (at < 0) return;
     open.removeAt(at);
+    if (at < editorAt) editorAt--;
     if (active == module) active = open.isEmpty ? null : open[at.clamp(0, open.length - 1)];
     notifyListeners();
   }
